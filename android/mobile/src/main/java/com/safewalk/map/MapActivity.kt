@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.ListView
 import android.widget.ImageView
 import android.widget.FrameLayout
+import android.widget.CheckBox
 import android.widget.ArrayAdapter
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -34,6 +35,7 @@ class MapActivity : Activity() {
     private val searchExecutor = Executors.newSingleThreadExecutor()
     private val wmsExecutor = Executors.newSingleThreadExecutor()
     private val facilityExecutor = Executors.newSingleThreadExecutor()
+    private val cctvExecutor = Executors.newSingleThreadExecutor()
     private var searching = false
     private lateinit var queryInput: EditText
     private lateinit var searchButton: Button
@@ -41,10 +43,15 @@ class MapActivity : Activity() {
     private lateinit var searchResults: ListView
     private lateinit var safeMapOverlay: ImageView
     private lateinit var facilityOverlay: FrameLayout
+    private lateinit var cctvOverlay: CctvOverlayView
+    private lateinit var facilitiesToggle: CheckBox
+    private lateinit var cctvToggle: CheckBox
     private var wmsRequestId = 0
     private var wmsRequest: Future<*>? = null
     private var facilityRequestId = 0
     private var facilityRequest: Future<*>? = null
+    private var cctvRequest: Future<*>? = null
+    private var cctvSites: List<CctvSite> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +79,34 @@ class MapActivity : Activity() {
         searchResults = findViewById(R.id.search_results)
         safeMapOverlay = findViewById(R.id.safemap_overlay)
         facilityOverlay = findViewById(R.id.facility_overlay)
+        cctvOverlay = findViewById(R.id.cctv_overlay)
+        facilitiesToggle = findViewById(R.id.toggle_facilities)
+        cctvToggle = findViewById(R.id.toggle_cctv)
+        cctvOverlay.onMarkerClick = { site ->
+            searchStatus.text = getString(
+                R.string.cctv_details,
+                site.address,
+                site.purpose,
+                site.cameraCount,
+            )
+        }
+        facilitiesToggle.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                facilityRequestId++
+                facilityRequest?.cancel(true)
+                facilityOverlay.visibility = View.INVISIBLE
+            } else {
+                kakaoMap?.let(::loadNearbyFacilities)
+            }
+        }
+        cctvToggle.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                cctvOverlay.visibility = View.INVISIBLE
+            } else {
+                val map = kakaoMap ?: return@setOnCheckedChangeListener
+                if (cctvSites.isEmpty()) loadCctvSites(map) else showCctvMarkers(map)
+            }
+        }
         searchButton.setOnClickListener { searchPlaces() }
         queryInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -114,14 +149,17 @@ class MapActivity : Activity() {
                             facilityRequestId++
                             facilityRequest?.cancel(true)
                             facilityOverlay.visibility = View.INVISIBLE
+                            cctvOverlay.visibility = View.INVISIBLE
                         }
                         kakaoMap.setOnCameraMoveEndListener { map, _, _ ->
                             loadSafeMapOverlay(map)
                             loadNearbyFacilities(map)
+                            showCctvMarkers(map)
                         }
                         status.visibility = View.GONE
                         safeMapOverlay.post { loadSafeMapOverlay(kakaoMap) }
                         safeMapOverlay.post { loadNearbyFacilities(kakaoMap) }
+                        safeMapOverlay.post { loadCctvSites(kakaoMap) }
                     }
                 }
             }
@@ -133,6 +171,7 @@ class MapActivity : Activity() {
     }
 
     private fun loadNearbyFacilities(map: KakaoMap) {
+        if (!facilitiesToggle.isChecked) return
         if (BuildConfig.KAKAO_REST_API_KEY.isBlank()) return
         val width = safeMapOverlay.width
         val height = safeMapOverlay.height
@@ -154,12 +193,45 @@ class MapActivity : Activity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed || requestId != facilityRequestId) return@runOnUiThread
                 result.onSuccess { facilities ->
+                    if (!facilitiesToggle.isChecked) return@onSuccess
                     showFacilityMarkers(map, facilities)
                 }.onFailure { error ->
                     Log.e("NearbyFacilities", "Nearby facility search failed", error)
                 }
             }
         }
+    }
+
+    private fun loadCctvSites(map: KakaoMap) {
+        if (!cctvToggle.isChecked || cctvRequest != null || cctvSites.isNotEmpty()) return
+        cctvRequest = cctvExecutor.submit {
+            val result = runCatching { CheonanCctvRepository().loadNearCheonanStation() }
+            runOnUiThread {
+                cctvRequest = null
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { sites ->
+                    cctvSites = sites
+                    if (cctvToggle.isChecked) showCctvMarkers(map)
+                }.onFailure { error ->
+                    Log.e("CheonanCctv", "CCTV data load failed", error)
+                    searchStatus.setText(R.string.cctv_load_failed)
+                }
+            }
+        }
+    }
+
+    private fun showCctvMarkers(map: KakaoMap) {
+        if (!cctvToggle.isChecked || cctvSites.isEmpty()) return
+        val width = cctvOverlay.width
+        val height = cctvOverlay.height
+        val markers = cctvSites.mapNotNull { site ->
+            val point = map.toScreenPoint(LatLng.from(site.latitude, site.longitude))
+                ?: return@mapNotNull null
+            if (point.x !in 0..width || point.y !in 0..height) return@mapNotNull null
+            CctvScreenMarker(point, site)
+        }
+        cctvOverlay.setMarkers(markers)
+        cctvOverlay.visibility = View.VISIBLE
     }
 
     private fun showFacilityMarkers(map: KakaoMap, facilities: List<Facility>) {
@@ -304,6 +376,8 @@ class MapActivity : Activity() {
         facilityRequestId++
         facilityRequest?.cancel(true)
         facilityExecutor.shutdownNow()
+        cctvRequest?.cancel(true)
+        cctvExecutor.shutdownNow()
         (safeMapOverlay.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
             ?.takeIf { !it.isRecycled }?.recycle()
         kakaoMap = null

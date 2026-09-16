@@ -15,4 +15,9 @@
     <string name="search_failed">검색하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.</string>
     <string name="search_map_wait">지도가 준비된 후 장소를 선택해 주세요.</string>
     <string name="safemap_load_failed">생활안전지도 데이터를 불러오지 못했습니다. Logcat의 SafeMapWms 로그를 확인해 주세요.</string>
+    <string name="layer_facilities">안전시설</string>
+    <string name="layer_cctv">CCTV</string>
+    <string name="layer_streetlights">방범등(준비 중)</string>
+    <string name="cctv_details">%1$s\n설치 목적: %2$s · 카메라 %3$d대</string>
+    <string name="cctv_load_failed">천안 CCTV 데이터를 불러오지 못했습니다.</string>
 </resources>
