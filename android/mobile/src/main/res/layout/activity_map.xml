@@ -10,6 +10,12 @@
         android:importantForAccessibility="no"
         android:scaleType="fitXY"
         android:visibility="invisible" />
+    <FrameLayout
+        android:id="@+id/facility_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:visibility="invisible" />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

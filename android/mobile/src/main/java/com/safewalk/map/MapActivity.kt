@@ -11,6 +11,7 @@ import android.widget.EditText
 import android.widget.Button
 import android.widget.ListView
 import android.widget.ImageView
+import android.widget.FrameLayout
 import android.widget.ArrayAdapter
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -32,14 +33,18 @@ class MapActivity : Activity() {
     private var kakaoMap: KakaoMap? = null
     private val searchExecutor = Executors.newSingleThreadExecutor()
     private val wmsExecutor = Executors.newSingleThreadExecutor()
+    private val facilityExecutor = Executors.newSingleThreadExecutor()
     private var searching = false
     private lateinit var queryInput: EditText
     private lateinit var searchButton: Button
     private lateinit var searchStatus: TextView
     private lateinit var searchResults: ListView
     private lateinit var safeMapOverlay: ImageView
+    private lateinit var facilityOverlay: FrameLayout
     private var wmsRequestId = 0
     private var wmsRequest: Future<*>? = null
+    private var facilityRequestId = 0
+    private var facilityRequest: Future<*>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +71,7 @@ class MapActivity : Activity() {
         searchStatus = findViewById(R.id.search_status)
         searchResults = findViewById(R.id.search_results)
         safeMapOverlay = findViewById(R.id.safemap_overlay)
+        facilityOverlay = findViewById(R.id.facility_overlay)
         searchButton.setOnClickListener { searchPlaces() }
         queryInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -105,12 +111,17 @@ class MapActivity : Activity() {
                             wmsRequestId++
                             wmsRequest?.cancel(true)
                             safeMapOverlay.visibility = View.GONE
+                            facilityRequestId++
+                            facilityRequest?.cancel(true)
+                            facilityOverlay.visibility = View.INVISIBLE
                         }
                         kakaoMap.setOnCameraMoveEndListener { map, _, _ ->
                             loadSafeMapOverlay(map)
+                            loadNearbyFacilities(map)
                         }
                         status.visibility = View.GONE
                         safeMapOverlay.post { loadSafeMapOverlay(kakaoMap) }
+                        safeMapOverlay.post { loadNearbyFacilities(kakaoMap) }
                     }
                 }
             }
@@ -119,6 +130,63 @@ class MapActivity : Activity() {
             override fun getPosition(): LatLng = LatLng.from(36.8100, 127.1467)
             override fun getZoomLevel(): Int = 15
         })
+    }
+
+    private fun loadNearbyFacilities(map: KakaoMap) {
+        if (BuildConfig.KAKAO_REST_API_KEY.isBlank()) return
+        val width = safeMapOverlay.width
+        val height = safeMapOverlay.height
+        if (width <= 0 || height <= 0) return
+        val topLeft = map.fromScreenPoint(0, 0) ?: return
+        val bottomRight = map.fromScreenPoint(width, height) ?: return
+        val bounds = WmsBounds(
+            west = minOf(topLeft.longitude, bottomRight.longitude),
+            south = minOf(topLeft.latitude, bottomRight.latitude),
+            east = maxOf(topLeft.longitude, bottomRight.longitude),
+            north = maxOf(topLeft.latitude, bottomRight.latitude),
+        )
+        val requestId = ++facilityRequestId
+        facilityRequest?.cancel(true)
+        facilityRequest = facilityExecutor.submit {
+            val result = runCatching {
+                NearbyFacilitySearch(BuildConfig.KAKAO_REST_API_KEY).search(bounds)
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed || requestId != facilityRequestId) return@runOnUiThread
+                result.onSuccess { facilities ->
+                    showFacilityMarkers(map, facilities)
+                }.onFailure { error ->
+                    Log.e("NearbyFacilities", "Nearby facility search failed", error)
+                }
+            }
+        }
+    }
+
+    private fun showFacilityMarkers(map: KakaoMap, facilities: List<Facility>) {
+        facilityOverlay.removeAllViews()
+        val markerWidth = (28 * resources.displayMetrics.density).toInt()
+        val markerHeight = (34 * resources.displayMetrics.density).toInt()
+        facilities.forEach { facility ->
+            val point = map.toScreenPoint(LatLng.from(facility.latitude, facility.longitude))
+                ?: return@forEach
+            val marker = ImageView(this).apply {
+                setImageResource(markerFor(facility.type))
+                contentDescription = facility.name
+                x = point.x - markerWidth / 2f
+                y = point.y - markerHeight.toFloat()
+                setOnClickListener {
+                    searchStatus.text = "${facility.name}\n${facility.address}"
+                }
+            }
+            facilityOverlay.addView(marker, FrameLayout.LayoutParams(markerWidth, markerHeight))
+        }
+        facilityOverlay.visibility = View.VISIBLE
+    }
+
+    private fun markerFor(type: FacilityType): Int = when (type) {
+        FacilityType.SECURITY -> R.drawable.marker_security
+        FacilityType.CONVENIENCE_STORE -> R.drawable.marker_convenience
+        FacilityType.FIRE -> R.drawable.marker_fire
     }
 
     private fun loadSafeMapOverlay(map: KakaoMap) {
@@ -233,6 +301,9 @@ class MapActivity : Activity() {
         wmsRequestId++
         wmsRequest?.cancel(true)
         wmsExecutor.shutdownNow()
+        facilityRequestId++
+        facilityRequest?.cancel(true)
+        facilityExecutor.shutdownNow()
         (safeMapOverlay.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
             ?.takeIf { !it.isRecycled }?.recycle()
         kakaoMap = null
@@ -240,4 +311,5 @@ class MapActivity : Activity() {
         mapView = null
         super.onDestroy()
     }
+
 }
