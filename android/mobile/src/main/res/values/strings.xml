@@ -14,4 +14,5 @@
     <string name="search_limit_error">검색 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.</string>
     <string name="search_failed">검색하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.</string>
     <string name="search_map_wait">지도가 준비된 후 장소를 선택해 주세요.</string>
+    <string name="safemap_load_failed">생활안전지도 데이터를 불러오지 못했습니다. Logcat의 SafeMapWms 로그를 확인해 주세요.</string>
 </resources>
