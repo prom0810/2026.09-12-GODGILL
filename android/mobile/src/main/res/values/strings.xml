@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">안심동행</string>
+    <string name="map_loading">지도를 불러오는 중입니다…</string>
+    <string name="map_key_missing">지도 설정이 필요합니다.\n개발 환경에서 Native App Key를 설정한 뒤 다시 빌드해 주세요.</string>
+    <string name="map_load_failed">지도를 불러오지 못했습니다.\n인터넷 연결을 확인한 뒤 앱을 다시 실행해 주세요.</string>
+    <string name="search_hint">장소 검색 (예: 서울역)</string>
+    <string name="search_button">검색</string>
+    <string name="search_empty_query">검색할 장소를 입력해 주세요.</string>
+    <string name="search_key_missing">REST API 키를 설정한 뒤 다시 빌드해 주세요.</string>
+    <string name="search_loading">장소를 검색하고 있습니다…</string>
+    <string name="search_empty">검색 결과가 없습니다. 다른 검색어를 입력해 주세요.</string>
+    <string name="search_count">검색 결과 %1$d개 · 장소를 누르면 지도가 이동합니다.</string>
+    <string name="search_auth_error">검색 인증에 실패했습니다. REST API 키와 카카오 로컬 API 사용 권한을 확인해 주세요.</string>
+    <string name="search_limit_error">검색 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.</string>
+    <string name="search_failed">검색하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.</string>
+    <string name="search_map_wait">지도가 준비된 후 장소를 선택해 주세요.</string>
+</resources>
