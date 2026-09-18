@@ -21,6 +21,11 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible" />
+    <com.safewalk.map.SecurityLightOverlayView
+        android:id="@+id/security_light_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible" />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -75,11 +80,11 @@
                     android:checked="true"
                     android:text="@string/layer_cctv" />
                 <CheckBox
-                    android:id="@+id/toggle_streetlights"
+                    android:id="@+id/toggle_security_lights"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:enabled="false"
-                    android:text="@string/layer_streetlights" />
+                    android:checked="true"
+                    android:text="@string/layer_security_lights" />
             </LinearLayout>
         </HorizontalScrollView>
         <ListView
