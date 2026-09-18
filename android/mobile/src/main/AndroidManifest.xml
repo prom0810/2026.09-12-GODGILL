@@ -10,11 +10,12 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.SafeWalk">
-        <activity android:name=".map.MapActivity" android:exported="true">
+        <activity android:name=".login.LoginActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".map.MapActivity" android:exported="false" />
     </application>
 </manifest>

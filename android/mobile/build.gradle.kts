@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     // AGP 9 includes Kotlin support.
     id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val localProperties = Properties().apply {
@@ -35,7 +36,10 @@ android {
         buildConfigField("String", "SAFEMAP_SERVICE_KEY", safeMapServiceKey.asBuildConfigString())
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
-    buildFeatures { buildConfig = true }
+    buildFeatures {
+        buildConfig = true
+        compose = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -50,4 +54,11 @@ android {
 
 dependencies {
     implementation("com.kakao.maps.open:android:2.15.2")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 }

@@ -14,8 +14,9 @@ data class SecurityLightScreenMarker(val point: Point, val site: SecurityLightSi
 
 class SecurityLightOverlayView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     private val density = resources.displayMetrics.density
-    private val clusterSize = 26f * density
-    private val markerRadius = 11f * density
+    private val baseClusterSize = 56f * density
+    private val baseMarkerRadius = 6f * density
+    private val baseTextSize = 7f * density
     private val touchRadius = 13f * density
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 179, 0) }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -26,14 +27,18 @@ class SecurityLightOverlayView(context: Context, attrs: AttributeSet? = null) : 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
-        textSize = 10f * density
+        textSize = baseTextSize
         isFakeBoldText = true
     }
     private var clusters: List<SecurityLightCluster> = emptyList()
     private var pressedCluster: SecurityLightCluster? = null
     var onMarkerClick: ((SecurityLightSite, Int) -> Unit)? = null
 
-    fun setMarkers(markers: List<SecurityLightScreenMarker>) {
+    fun setMarkers(markers: List<SecurityLightScreenMarker>, zoomLevel: Int) {
+        val scale = markerScaleForZoom(zoomLevel)
+        val clusterSize = baseClusterSize * scale.coerceAtLeast(0.35f)
+        val markerRadius = baseMarkerRadius * scale.coerceAtLeast(0.45f)
+        textPaint.textSize = baseTextSize * scale.coerceAtLeast(0.55f)
         clusters = markers.groupBy {
             Pair((it.point.x / clusterSize).toInt(), (it.point.y / clusterSize).toInt())
         }.values.map { group ->
@@ -42,6 +47,7 @@ class SecurityLightOverlayView(context: Context, attrs: AttributeSet? = null) : 
                 y = group.map { it.point.y }.average().toFloat(),
                 site = group.first().site,
                 lightCount = group.sumOf { it.site.lightCount },
+                radius = markerRadius,
             )
         }
         invalidate()
@@ -50,8 +56,8 @@ class SecurityLightOverlayView(context: Context, attrs: AttributeSet? = null) : 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         clusters.forEach { cluster ->
-            canvas.drawCircle(cluster.x, cluster.y, markerRadius, fillPaint)
-            canvas.drawCircle(cluster.x, cluster.y, markerRadius, strokePaint)
+            canvas.drawCircle(cluster.x, cluster.y, cluster.radius, fillPaint)
+            canvas.drawCircle(cluster.x, cluster.y, cluster.radius, strokePaint)
             canvas.drawText(
                 cluster.lightCount.toString(),
                 cluster.x,
@@ -92,10 +98,14 @@ class SecurityLightOverlayView(context: Context, attrs: AttributeSet? = null) : 
         return cluster.takeIf { hypot(x - it.x, y - it.y) <= touchRadius }
     }
 
+    private fun markerScaleForZoom(@Suppress("UNUSED_PARAMETER") zoomLevel: Int): Float = 1f
+
     private data class SecurityLightCluster(
         val x: Float,
         val y: Float,
         val site: SecurityLightSite,
         val lightCount: Int,
+        val radius: Float,
     )
+
 }
