@@ -257,7 +257,7 @@ class MapActivity : Activity() {
             if (point.x !in 0..width || point.y !in 0..height) return@mapNotNull null
             CctvScreenMarker(point, site)
         }
-        cctvOverlay.setMarkers(markers)
+        cctvOverlay.setMarkers(markers, map.zoomLevel)
         cctvOverlay.visibility = View.VISIBLE
     }
 
@@ -292,14 +292,15 @@ class MapActivity : Activity() {
             if (point.x !in 0..width || point.y !in 0..height) return@mapNotNull null
             SecurityLightScreenMarker(point, site)
         }
-        securityLightOverlay.setMarkers(markers)
+        securityLightOverlay.setMarkers(markers, map.zoomLevel)
         securityLightOverlay.visibility = View.VISIBLE
     }
 
     private fun showFacilityMarkers(map: KakaoMap, facilities: List<Facility>) {
         facilityOverlay.removeAllViews()
-        val markerWidth = (28 * resources.displayMetrics.density).toInt()
-        val markerHeight = (34 * resources.displayMetrics.density).toInt()
+        val markerScale = markerScaleForZoom(map.zoomLevel)
+        val markerWidth = (18 * markerScale * resources.displayMetrics.density).toInt()
+        val markerHeight = (22 * markerScale * resources.displayMetrics.density).toInt()
         facilities.forEach { facility ->
             val point = map.toScreenPoint(LatLng.from(facility.latitude, facility.longitude))
                 ?: return@forEach
@@ -322,6 +323,8 @@ class MapActivity : Activity() {
         FacilityType.CONVENIENCE_STORE -> R.drawable.marker_convenience
         FacilityType.FIRE -> R.drawable.marker_fire
     }
+
+    private fun markerScaleForZoom(@Suppress("UNUSED_PARAMETER") zoomLevel: Int): Float = 1f
 
     private fun loadSafeMapOverlay(map: KakaoMap) {
         if (BuildConfig.SAFEMAP_SERVICE_KEY.isBlank()) return
