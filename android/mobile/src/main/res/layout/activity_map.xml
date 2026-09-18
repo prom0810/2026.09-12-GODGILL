@@ -3,6 +3,29 @@
     android:id="@+id/map_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
+    <ImageView
+        android:id="@+id/safemap_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:visibility="invisible" />
+    <FrameLayout
+        android:id="@+id/facility_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:visibility="invisible" />
+    <com.safewalk.map.CctvOverlayView
+        android:id="@+id/cctv_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible" />
+    <com.safewalk.map.SecurityLightOverlayView
+        android:id="@+id/security_light_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible" />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -36,6 +59,34 @@
             android:layout_height="wrap_content"
             android:accessibilityLiveRegion="polite"
             android:textColor="#202124" />
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/toggle_facilities"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/layer_facilities" />
+                <CheckBox
+                    android:id="@+id/toggle_cctv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/layer_cctv" />
+                <CheckBox
+                    android:id="@+id/toggle_security_lights"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/layer_security_lights" />
+            </LinearLayout>
+        </HorizontalScrollView>
         <ListView
             android:id="@+id/search_results"
             android:layout_width="match_parent"

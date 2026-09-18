@@ -3,22 +3,28 @@ package com.safewalk.map
 import android.app.Activity
 import android.os.Bundle
 import android.os.LocaleList
+import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.widget.TextView
 import android.widget.EditText
 import android.widget.Button
 import android.widget.ListView
+import android.widget.ImageView
+import android.widget.FrameLayout
+import android.widget.CheckBox
 import android.widget.ArrayAdapter
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import com.kakao.vectormap.camera.CameraUpdateFactory
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import com.kakao.vectormap.KakaoMap
 import com.kakao.vectormap.KakaoMapReadyCallback
 import com.kakao.vectormap.LatLng
 import com.kakao.vectormap.MapLifeCycleCallback
 import com.kakao.vectormap.MapView
+import com.kakao.vectormap.GestureType
 import com.safewalk.BuildConfig
 import com.safewalk.R
 
@@ -27,11 +33,30 @@ class MapActivity : Activity() {
     private lateinit var status: TextView
     private var kakaoMap: KakaoMap? = null
     private val searchExecutor = Executors.newSingleThreadExecutor()
+    private val wmsExecutor = Executors.newSingleThreadExecutor()
+    private val facilityExecutor = Executors.newSingleThreadExecutor()
+    private val cctvExecutor = Executors.newSingleThreadExecutor()
+    private val securityLightExecutor = Executors.newSingleThreadExecutor()
     private var searching = false
     private lateinit var queryInput: EditText
     private lateinit var searchButton: Button
     private lateinit var searchStatus: TextView
     private lateinit var searchResults: ListView
+    private lateinit var safeMapOverlay: ImageView
+    private lateinit var facilityOverlay: FrameLayout
+    private lateinit var cctvOverlay: CctvOverlayView
+    private lateinit var securityLightOverlay: SecurityLightOverlayView
+    private lateinit var facilitiesToggle: CheckBox
+    private lateinit var cctvToggle: CheckBox
+    private lateinit var securityLightsToggle: CheckBox
+    private var wmsRequestId = 0
+    private var wmsRequest: Future<*>? = null
+    private var facilityRequestId = 0
+    private var facilityRequest: Future<*>? = null
+    private var cctvRequest: Future<*>? = null
+    private var cctvSites: List<CctvSite> = emptyList()
+    private var securityLightRequest: Future<*>? = null
+    private var securityLightSites: List<SecurityLightSite> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +82,55 @@ class MapActivity : Activity() {
         searchButton = findViewById(R.id.search_button)
         searchStatus = findViewById(R.id.search_status)
         searchResults = findViewById(R.id.search_results)
+        safeMapOverlay = findViewById(R.id.safemap_overlay)
+        facilityOverlay = findViewById(R.id.facility_overlay)
+        cctvOverlay = findViewById(R.id.cctv_overlay)
+        securityLightOverlay = findViewById(R.id.security_light_overlay)
+        facilitiesToggle = findViewById(R.id.toggle_facilities)
+        cctvToggle = findViewById(R.id.toggle_cctv)
+        securityLightsToggle = findViewById(R.id.toggle_security_lights)
+        cctvOverlay.onMarkerClick = { site ->
+            searchStatus.text = getString(
+                R.string.cctv_details,
+                site.address,
+                site.purpose,
+                site.cameraCount,
+            )
+        }
+        securityLightOverlay.onMarkerClick = { site, count ->
+            searchStatus.text = getString(
+                R.string.security_light_details,
+                site.name,
+                site.address,
+                count,
+            )
+        }
+        facilitiesToggle.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                facilityRequestId++
+                facilityRequest?.cancel(true)
+                facilityOverlay.visibility = View.INVISIBLE
+            } else {
+                kakaoMap?.let(::loadNearbyFacilities)
+            }
+        }
+        cctvToggle.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                cctvOverlay.visibility = View.INVISIBLE
+            } else {
+                val map = kakaoMap ?: return@setOnCheckedChangeListener
+                if (cctvSites.isEmpty()) loadCctvSites(map) else showCctvMarkers(map)
+            }
+        }
+        securityLightsToggle.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                securityLightOverlay.visibility = View.INVISIBLE
+            } else {
+                val map = kakaoMap ?: return@setOnCheckedChangeListener
+                if (securityLightSites.isEmpty()) loadSecurityLights(map)
+                else showSecurityLightMarkers(map)
+            }
+        }
         searchButton.setOnClickListener { searchPlaces() }
         queryInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -89,15 +163,210 @@ class MapActivity : Activity() {
                 runOnUiThread {
                     if (!isFinishing && !isDestroyed) {
                         this@MapActivity.kakaoMap = kakaoMap
+                        kakaoMap.setGestureEnable(GestureType.Rotate, false)
+                        kakaoMap.setGestureEnable(GestureType.RotateZoom, false)
+                        kakaoMap.setGestureEnable(GestureType.Tilt, false)
+                        kakaoMap.setOnCameraMoveStartListener { _, _ ->
+                            wmsRequestId++
+                            wmsRequest?.cancel(true)
+                            safeMapOverlay.visibility = View.GONE
+                            facilityRequestId++
+                            facilityRequest?.cancel(true)
+                            facilityOverlay.visibility = View.INVISIBLE
+                            cctvOverlay.visibility = View.INVISIBLE
+                            securityLightOverlay.visibility = View.INVISIBLE
+                        }
+                        kakaoMap.setOnCameraMoveEndListener { map, _, _ ->
+                            loadSafeMapOverlay(map)
+                            loadNearbyFacilities(map)
+                            showCctvMarkers(map)
+                            showSecurityLightMarkers(map)
+                        }
                         status.visibility = View.GONE
+                        safeMapOverlay.post { loadSafeMapOverlay(kakaoMap) }
+                        safeMapOverlay.post { loadNearbyFacilities(kakaoMap) }
+                        safeMapOverlay.post { loadCctvSites(kakaoMap) }
+                        safeMapOverlay.post { loadSecurityLights(kakaoMap) }
                     }
                 }
             }
 
-            // 서울시청을 기본 위치로 사용합니다.
-            override fun getPosition(): LatLng = LatLng.from(37.5665, 126.9780)
+            // 천안역을 기본 위치로 사용합니다.
+            override fun getPosition(): LatLng = LatLng.from(36.8100, 127.1467)
             override fun getZoomLevel(): Int = 15
         })
+    }
+
+    private fun loadNearbyFacilities(map: KakaoMap) {
+        if (!facilitiesToggle.isChecked) return
+        if (BuildConfig.KAKAO_REST_API_KEY.isBlank()) return
+        val width = safeMapOverlay.width
+        val height = safeMapOverlay.height
+        if (width <= 0 || height <= 0) return
+        val topLeft = map.fromScreenPoint(0, 0) ?: return
+        val bottomRight = map.fromScreenPoint(width, height) ?: return
+        val bounds = WmsBounds(
+            west = minOf(topLeft.longitude, bottomRight.longitude),
+            south = minOf(topLeft.latitude, bottomRight.latitude),
+            east = maxOf(topLeft.longitude, bottomRight.longitude),
+            north = maxOf(topLeft.latitude, bottomRight.latitude),
+        )
+        val requestId = ++facilityRequestId
+        facilityRequest?.cancel(true)
+        facilityRequest = facilityExecutor.submit {
+            val result = runCatching {
+                NearbyFacilitySearch(BuildConfig.KAKAO_REST_API_KEY).search(bounds)
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed || requestId != facilityRequestId) return@runOnUiThread
+                result.onSuccess { facilities ->
+                    if (!facilitiesToggle.isChecked) return@onSuccess
+                    showFacilityMarkers(map, facilities)
+                }.onFailure { error ->
+                    Log.e("NearbyFacilities", "Nearby facility search failed", error)
+                }
+            }
+        }
+    }
+
+    private fun loadCctvSites(map: KakaoMap) {
+        if (!cctvToggle.isChecked || cctvRequest != null || cctvSites.isNotEmpty()) return
+        cctvRequest = cctvExecutor.submit {
+            val result = runCatching { CheonanCctvRepository().loadNearCheonanStation() }
+            runOnUiThread {
+                cctvRequest = null
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { sites ->
+                    cctvSites = sites
+                    if (cctvToggle.isChecked) showCctvMarkers(map)
+                }.onFailure { error ->
+                    Log.e("CheonanCctv", "CCTV data load failed", error)
+                    searchStatus.setText(R.string.cctv_load_failed)
+                }
+            }
+        }
+    }
+
+    private fun showCctvMarkers(map: KakaoMap) {
+        if (!cctvToggle.isChecked || cctvSites.isEmpty()) return
+        val width = cctvOverlay.width
+        val height = cctvOverlay.height
+        val markers = cctvSites.mapNotNull { site ->
+            val point = map.toScreenPoint(LatLng.from(site.latitude, site.longitude))
+                ?: return@mapNotNull null
+            if (point.x !in 0..width || point.y !in 0..height) return@mapNotNull null
+            CctvScreenMarker(point, site)
+        }
+        cctvOverlay.setMarkers(markers)
+        cctvOverlay.visibility = View.VISIBLE
+    }
+
+    private fun loadSecurityLights(map: KakaoMap) {
+        if (!securityLightsToggle.isChecked || securityLightRequest != null ||
+            securityLightSites.isNotEmpty()) return
+        securityLightRequest = securityLightExecutor.submit {
+            val result = runCatching {
+                SecurityLightRepository(assets).loadNearCheonanStation()
+            }
+            runOnUiThread {
+                securityLightRequest = null
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { sites ->
+                    securityLightSites = sites
+                    if (securityLightsToggle.isChecked) showSecurityLightMarkers(map)
+                }.onFailure { error ->
+                    Log.e("SecurityLights", "Security light data load failed", error)
+                    searchStatus.setText(R.string.security_light_load_failed)
+                }
+            }
+        }
+    }
+
+    private fun showSecurityLightMarkers(map: KakaoMap) {
+        if (!securityLightsToggle.isChecked || securityLightSites.isEmpty()) return
+        val width = securityLightOverlay.width
+        val height = securityLightOverlay.height
+        val markers = securityLightSites.mapNotNull { site ->
+            val point = map.toScreenPoint(LatLng.from(site.latitude, site.longitude))
+                ?: return@mapNotNull null
+            if (point.x !in 0..width || point.y !in 0..height) return@mapNotNull null
+            SecurityLightScreenMarker(point, site)
+        }
+        securityLightOverlay.setMarkers(markers)
+        securityLightOverlay.visibility = View.VISIBLE
+    }
+
+    private fun showFacilityMarkers(map: KakaoMap, facilities: List<Facility>) {
+        facilityOverlay.removeAllViews()
+        val markerWidth = (28 * resources.displayMetrics.density).toInt()
+        val markerHeight = (34 * resources.displayMetrics.density).toInt()
+        facilities.forEach { facility ->
+            val point = map.toScreenPoint(LatLng.from(facility.latitude, facility.longitude))
+                ?: return@forEach
+            val marker = ImageView(this).apply {
+                setImageResource(markerFor(facility.type))
+                contentDescription = facility.name
+                x = point.x - markerWidth / 2f
+                y = point.y - markerHeight.toFloat()
+                setOnClickListener {
+                    searchStatus.text = "${facility.name}\n${facility.address}"
+                }
+            }
+            facilityOverlay.addView(marker, FrameLayout.LayoutParams(markerWidth, markerHeight))
+        }
+        facilityOverlay.visibility = View.VISIBLE
+    }
+
+    private fun markerFor(type: FacilityType): Int = when (type) {
+        FacilityType.SECURITY -> R.drawable.marker_security
+        FacilityType.CONVENIENCE_STORE -> R.drawable.marker_convenience
+        FacilityType.FIRE -> R.drawable.marker_fire
+    }
+
+    private fun loadSafeMapOverlay(map: KakaoMap) {
+        if (BuildConfig.SAFEMAP_SERVICE_KEY.isBlank()) return
+        val width = safeMapOverlay.width
+        val height = safeMapOverlay.height
+        if (width <= 0 || height <= 0) return
+
+        val topLeft = map.fromScreenPoint(0, 0) ?: return
+        val bottomRight = map.fromScreenPoint(width, height) ?: return
+        val bounds = WmsBounds(
+            west = minOf(topLeft.longitude, bottomRight.longitude),
+            south = minOf(topLeft.latitude, bottomRight.latitude),
+            east = maxOf(topLeft.longitude, bottomRight.longitude),
+            north = maxOf(topLeft.latitude, bottomRight.latitude),
+        )
+        val scale = minOf(1.0, 1024.0 / maxOf(width, height))
+        val requestWidth = maxOf(1, (width * scale).toInt())
+        val requestHeight = maxOf(1, (height * scale).toInt())
+        val requestId = ++wmsRequestId
+        wmsRequest?.cancel(true)
+        wmsRequest = wmsExecutor.submit {
+            val result = runCatching {
+                SafeMapWmsClient(BuildConfig.SAFEMAP_SERVICE_KEY)
+                    .load(bounds, requestWidth, requestHeight)
+            }
+            runOnUiThread {
+                val bitmap = result.getOrElse { error ->
+                    Log.e("SafeMapWms", "WMS image request failed", error)
+                    if (requestId == wmsRequestId) {
+                        searchStatus.setText(R.string.safemap_load_failed)
+                    }
+                    return@runOnUiThread
+                }
+                if (isFinishing || isDestroyed || requestId != wmsRequestId) {
+                    bitmap.recycle()
+                    return@runOnUiThread
+                }
+                val previous = safeMapOverlay.drawable
+                safeMapOverlay.setImageBitmap(bitmap)
+                safeMapOverlay.visibility = View.VISIBLE
+                (previous as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    ?.takeIf { it !== bitmap && !it.isRecycled }
+                    ?.recycle()
+            }
+        }
     }
 
     private fun searchPlaces() {
@@ -163,9 +432,22 @@ class MapActivity : Activity() {
 
     override fun onDestroy() {
         searchExecutor.shutdownNow()
+        wmsRequestId++
+        wmsRequest?.cancel(true)
+        wmsExecutor.shutdownNow()
+        facilityRequestId++
+        facilityRequest?.cancel(true)
+        facilityExecutor.shutdownNow()
+        cctvRequest?.cancel(true)
+        cctvExecutor.shutdownNow()
+        securityLightRequest?.cancel(true)
+        securityLightExecutor.shutdownNow()
+        (safeMapOverlay.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+            ?.takeIf { !it.isRecycled }?.recycle()
         kakaoMap = null
         mapView?.finish()
         mapView = null
         super.onDestroy()
     }
+
 }
