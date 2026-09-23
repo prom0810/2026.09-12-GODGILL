@@ -1,0 +1,26 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### macOS / OS ###
+.DS_Store
+Thumbs.db
+
+### 비밀값 — 절대 커밋 금지 ###
+.env
+.env.*
+!.env.example
+application-local.yml
+application-secret.yml
