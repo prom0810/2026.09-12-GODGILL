@@ -80,15 +80,14 @@ Release 빌드는 난독화 검증용 unsigned APK를 생성하며 배포 서명
 ## 인증(로그인/회원가입) 및 백엔드 연동 — 2026-09-23 추가
 
 회원가입/로그인 화면이 실제 백엔드 API(`/api/auth/signup`, `/api/auth/login`)를 호출하도록
-연결했다. 자세한 파일 목록과 설계 결정은
-[`docs/auth-handoff-2026-09-23.md`](../docs/auth-handoff-2026-09-23.md) 참고.
+연결했다. 추가/수정된 파일 목록과 설명은 저장소 루트 `README.md` 참고.
 
 - **백엔드 주소 설정 (반드시 확인):** `common/network/ApiClient.kt`의 `baseUrl`이 현재
   개발 PC의 로컬 네트워크 IP(예: `http://192.168.56.1:8080`)로 하드코딩되어 있다. 이 값은
   PC/네트워크마다 다르고 DHCP로 바뀔 수 있으므로, 다른 PC에서 실행하거나 갑자기 연결이 안
   되면 `ipconfig`(Windows)로 현재 IP를 확인해서 이 값을 직접 바꿔야 한다. 에뮬레이터 표준
   별칭인 `10.0.2.2`와 `adb reverse` 터널 방식은 이 프로젝트 환경에서 원인 불명의 이유로
-  동작하지 않아 실제 IP 방식으로 우회했다 (자세한 경위는 handoff 문서 참고).
+  동작하지 않아 실제 IP 방식으로 우회했다.
 - 백엔드는 HTTPS가 아니므로 `AndroidManifest.xml`에 `android:usesCleartextTraffic="true"`가
   설정되어 있다. 배포 전 백엔드를 HTTPS로 바꾸고 이 속성은 제거해야 한다.
 - 통신은 이 프로젝트의 기존 방식(Retrofit 없이 `HttpURLConnection` 직접 사용)을 그대로
