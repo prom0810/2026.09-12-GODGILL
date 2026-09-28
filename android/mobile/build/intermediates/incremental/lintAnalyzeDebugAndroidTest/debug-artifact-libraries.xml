@@ -1,0 +1,29 @@
+<libraries>
+  <library
+      name=":@@:mobile::debug"
+      project=":mobile"/>
+  <library
+      name="org.jetbrains.kotlin:kotlin-stdlib:2.2.10@jar"
+      jars="C:\Users\111111\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-stdlib\2.2.10\30de6faa127a4a012db8e71bf1b9c0a99b1402b2\kotlin-stdlib-2.2.10.jar"
+      resolved="org.jetbrains.kotlin:kotlin-stdlib:2.2.10"
+      provided="true"/>
+  <library
+      name="com.kakao.maps.open:android:2.15.2@aar"
+      jars="C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\jars\classes.jar"
+      resolved="com.kakao.maps.open:android:2.15.2"
+      provided="true"
+      folder="C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="org.jetbrains:annotations:13.0@jar"
+      jars="C:\Users\111111\.gradle\caches\modules-2\files-2.1\org.jetbrains\annotations\13.0\919f0dfe192fb4e063e7dacadee7f8bb9a2672a9\annotations-13.0.jar"
+      resolved="org.jetbrains:annotations:13.0"
+      provided="true"/>
+</libraries>

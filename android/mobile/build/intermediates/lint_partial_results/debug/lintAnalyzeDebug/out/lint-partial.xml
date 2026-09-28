@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.3.2" type="partial_results">
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="com.safewalk.map.MapActivity"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <entry
+            name="model"
+            string="id[map_container(U),map_status(U)],layout[activity_map(U)],string[app_name(U),map_loading(U),map_key_missing(U),map_load_failed(U)],style[Theme_SafeWalk(U)];2^4;;;"/>
+    </map>
+
+</incidents>

@@ -1,0 +1,2 @@
+-keep class com.safewalk.common.SafeWalkApplication { <init>(); }
+-keep class com.safewalk.map.MapActivity { <init>(); }

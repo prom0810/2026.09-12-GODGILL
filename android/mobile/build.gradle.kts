@@ -13,6 +13,8 @@ val localProperties = Properties().apply {
 val kakaoNativeAppKey = localProperties.getProperty("KAKAO_NATIVE_APP_KEY", "").trim()
 val kakaoRestApiKey = localProperties.getProperty("KAKAO_REST_API_KEY", "").trim()
 val safeMapServiceKey = localProperties.getProperty("SAFEMAP_SERVICE_KEY", "").trim()
+val vworldApiKey = localProperties.getProperty("VWORLD_API_KEY", "").trim()
+val dataGoKrApiKey = localProperties.getProperty("DATA_GO_KR_API_KEY", "").trim()
 fun String.asBuildConfigString() = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 require(kakaoRestApiKey.isEmpty() || kakaoRestApiKey.matches(Regex("[a-fA-F0-9]{32}"))) {
     "KAKAO_REST_API_KEY in android/local.properties must be a 32-character REST API Key (without quotes)."
@@ -34,11 +36,14 @@ android {
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", kakaoNativeAppKey.asBuildConfigString())
         buildConfigField("String", "KAKAO_REST_API_KEY", kakaoRestApiKey.asBuildConfigString())
         buildConfigField("String", "SAFEMAP_SERVICE_KEY", safeMapServiceKey.asBuildConfigString())
+        buildConfigField("String", "VWORLD_API_KEY", vworldApiKey.asBuildConfigString())
+        buildConfigField("String", "DATA_GO_KR_API_KEY", dataGoKrApiKey.asBuildConfigString())
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
     buildFeatures {
         buildConfig = true
         compose = true
+        viewBinding = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -60,5 +65,12 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("com.google.android.material:material:1.13.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

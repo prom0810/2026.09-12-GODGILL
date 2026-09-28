@@ -5,7 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import com.safewalk.map.MapActivity
+import com.safewalk.route.SafeRouteActivity
 
 class LoginActivity : ComponentActivity() {
     private val viewModel: LoginViewModel by viewModels()
@@ -28,7 +28,7 @@ class LoginActivity : ComponentActivity() {
     }
 
     private fun openMap() {
-        startActivity(Intent(this, MapActivity::class.java))
+        startActivity(Intent(this, SafeRouteActivity::class.java))
         finish()
     }
 }

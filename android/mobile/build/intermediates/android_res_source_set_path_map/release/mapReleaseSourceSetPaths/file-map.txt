@@ -1,0 +1,8 @@
+com.safewalk.mobile-pngs-0 C:\2026.09-12-GODGILL\android\mobile\build\generated\res\pngs\release
+com.safewalk.mobile-updated_navigation_xml-1 C:\2026.09-12-GODGILL\android\mobile\build\generated\updated_navigation_xml\release
+com.safewalk.mobile-packageReleaseResources-2 C:\2026.09-12-GODGILL\android\mobile\build\intermediates\incremental\release\packageReleaseResources\merged.dir
+com.safewalk.mobile-packageReleaseResources-3 C:\2026.09-12-GODGILL\android\mobile\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
+com.safewalk.mobile-release-4 C:\2026.09-12-GODGILL\android\mobile\build\intermediates\merged_res\release\mergeReleaseResources
+com.safewalk.mobile-main-5 C:\2026.09-12-GODGILL\android\mobile\src\main\res
+com.safewalk.mobile-release-6 C:\2026.09-12-GODGILL\android\mobile\src\release\res
+gradleHome-0 C:\Users\111111\.gradle

@@ -1,0 +1,19 @@
+<lint-module
+    format="1"
+    dir="C:\2026.09-12-GODGILL\android\mobile"
+    name=":mobile"
+    type="APP"
+    maven="GODGILL:mobile:unspecified"
+    agpVersion="9.3.2"
+    buildFolder="build"
+    bootClassPath="C:\Users\111111\AppData\Local\Android\Sdk\platforms\android-37.0\android.jar;C:\Users\111111\AppData\Local\Android\Sdk\build-tools\36.0.0\core-lambda-stubs.jar"
+    javaSourceLevel="17"
+    compileTarget="android-37.0"
+    highlightGradualR8Api="false">
+  <lintOptions
+      abortOnError="true"
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="release"/>
+</lint-module>

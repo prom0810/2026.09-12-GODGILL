@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">안심동행</string>
+    <string name="map_key_missing">지도 설정이 필요합니다.\n개발 환경에서 Native App Key를 설정한 뒤 다시 빌드해 주세요.</string>
+    <string name="map_load_failed">지도를 불러오지 못했습니다.\n인터넷 연결을 확인한 뒤 앱을 다시 실행해 주세요.</string>
+    <string name="map_loading">지도를 불러오는 중입니다…</string>
+    <style name="Theme.SafeWalk" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorAccent">#167D5B</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

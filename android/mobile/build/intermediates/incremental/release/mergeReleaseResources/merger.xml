@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="com.kakao.maps.open:android:2.15.2$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="com.kakao.maps.open:android:2.15.2" from-dependency="true" generated-set="com.kakao.maps.open:android:2.15.2$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\res"><file path="C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\res\values\values.xml" qualifiers=""><color name="colorAccent">#03DAC5</color><color name="colorPrimary">#6200EE</color><color name="colorPrimaryDark">#3700B3</color><string name="app_name">kakaomaps-java-api</string><string name="cadastral_map">cadastral_map</string><string name="normal_map">map</string><string name="overlay_aerial_photo">aerial_photo</string><string name="overlay_bicycle_road">bicycle_road</string><string name="overlay_cctv">cctv</string><string name="overlay_hill_shading">hill_shading</string><string name="overlay_hybrid">hybrid</string><string name="overlay_roadview_line">roadview_line</string><string name="overlay_traffic_info">traffic_info</string><string name="skyview">skyview</string><string name="skyview_3d">skyview_3d</string><style name="LabelBadgeStyle">
+        <item name="mapBadgeImage">@null</item>
+        <item name="mapBadgeOffsetX">0.5</item>
+        <item name="mapBadgeOffsetY">0.0</item>
+        <item name="mapBadgeZOrder">0</item>
+    </style><style name="LabelStyle">
+        <item name="mapIconImage">@null</item>
+        <item name="mapIconAnchorX">0.5</item>
+        <item name="mapIconAnchorY">1.0</item>
+        <item name="mapPadding">0.0</item>
+        <item name="mapApplyDpScale">true</item>
+    </style><style name="LabelTextStyle">
+        <item name="mapTextSize">24</item>
+        <item name="mapTextColor">#000000</item>
+        <item name="mapTextStrokeWidth">0</item>
+        <item name="mapTextStrokeColor">@android:color/transparent</item>
+        <item name="mapTextCharacterSpace">0</item>
+        <item name="mapTextLineSpace">1.0</item>
+        <item name="mapTextAspectRatio">1.0</item>
+
+    </style><style name="PolygonStyle">
+        <item name="mapZoomLevel">0</item>
+        <item name="mapPolygonColor">#ffffff</item>
+        <item name="mapStrokeWidth">0.0</item>
+        <item name="mapStrokeColor">@android:color/transparent</item>
+    </style><style name="RouteLineStyle">
+        <item name="mapLineWidth">0.0</item>
+        <item name="mapLineColor">@android:color/transparent</item>
+        <item name="mapStrokeWidth">0.0</item>
+        <item name="mapStrokeColor">@android:color/transparent</item>
+        <item name="mapPatternImage">@null</item>
+        <item name="mapSymbolImage">@null</item>
+        <item name="mapDistance">10.0</item>
+        <item name="mapPinStart">false</item>
+        <item name="mapPinEnd">false</item>
+    </style><declare-styleable name="AnimationAttr">
+        <attr format="integer" name="repeatCount"/>
+        <attr format="integer" name="duration"/>
+        <attr format="boolean" name="hideShapeAtStop"/>
+        <attr format="enum" name="interpolation">
+            <enum name="Linear" value="0"/>
+            <enum name="CubicIn" value="4"/>
+            <enum name="CubicOut" value="5"/>
+            <enum name="CubicInOut" value="6"/>
+        </attr>
+    </declare-styleable><declare-styleable name="CircleWaveAttr">
+        <attr format="float" name="startAlpha"/>
+        <attr format="float" name="endAlpha"/>
+        <attr format="float" name="startRadius"/>
+        <attr format="float" name="endRadius"/>
+    </declare-styleable><declare-styleable name="LabelBadgeAttr">
+        <attr format="reference" name="mapBadgeImage"/>
+        <attr format="float" name="mapBadgeOffsetX"/>
+        <attr format="float" name="mapBadgeOffsetY"/>
+        <attr format="integer" name="mapBadgeZOrder"/>
+    </declare-styleable><declare-styleable name="LabelIconAttr">
+        <attr format="reference" name="mapIconImage"/>
+        <attr format="float" name="mapIconAnchorX"/>
+        <attr format="float" name="mapIconAnchorY"/>
+        <attr format="float" name="mapPadding"/>
+        <attr format="boolean" name="mapApplyDpScale"/>
+        <attr format="boolean" name="mapIconEnableEnterTransition"/>
+        <attr format="boolean" name="mapIconEnableExitTransition"/>
+        <attr format="enum" name="mapIconEnterTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+        <attr format="enum" name="mapIconExitTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+    </declare-styleable><declare-styleable name="LabelTextAttr">
+        <attr format="string" name="mapTextFont"/>
+        <attr format="integer" name="mapTextSize"/>
+        <attr format="reference|color" name="mapTextColor"/>
+        <attr format="integer" name="mapTextStrokeWidth"/>
+        <attr format="reference|color" name="mapTextStrokeColor"/>
+        <attr format="integer" name="mapTextCharacterSpace"/>
+        <attr format="float" name="mapTextLineSpace"/>
+        <attr format="float" name="mapTextAspectRatio"/>
+        <attr format="boolean" name="mapTextEnableEnterTransition"/>
+        <attr format="boolean" name="mapTextEnableExitTransition"/>
+        <attr format="enum" name="mapTextEnterTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+        <attr format="enum" name="mapTextExitTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+    </declare-styleable><declare-styleable name="MapAttr">
+        <attr format="integer" name="mapZoomLevel"/>
+        <attr format="enum" name="mapTextGravity">
+            <enum name="Left" value="0x01"/>
+            <enum name="Right" value="0x02"/>
+            <enum name="Top" value="0x04"/>
+            <enum name="Bottom" value="0x08"/>
+            <enum name="Center" value="0x10"/>
+            <enum name="CenterVertical" value="0x20"/>
+            <enum name="CenterHorizontal" value="0x40"/>
+        </attr>
+    </declare-styleable><declare-styleable name="PolygonAttr">
+        <attr format="reference|color" name="mapPolygonColor"/>
+    </declare-styleable><declare-styleable name="RouteLineAttr">
+        <attr format="float" name="mapLineWidth"/>
+        <attr format="reference|color" name="mapLineColor"/>
+        <attr format="float" name="mapStrokeWidth"/>
+        <attr format="reference|color" name="mapStrokeColor"/>
+        <attr format="reference" name="mapPatternImage"/>
+        <attr format="reference" name="mapSymbolImage"/>
+        <attr format="float" name="mapDistance"/>
+        <attr format="boolean" name="mapPinStart"/>
+        <attr format="boolean" name="mapPinEnd"/>
+    </declare-styleable></file></source></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="C:\2026.09-12-GODGILL\android\mobile\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="C:\2026.09-12-GODGILL\android\mobile\src\main\res"><file name="activity_map" path="C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml" qualifiers="" type="layout"/><file path="C:\2026.09-12-GODGILL\android\mobile\src\main\res\values\strings.xml" qualifiers=""><string name="app_name">안심동행</string><string name="map_loading">지도를 불러오는 중입니다…</string><string name="map_key_missing">지도 설정이 필요합니다.\n개발 환경에서 Native App Key를 설정한 뒤 다시 빌드해 주세요.</string><string name="map_load_failed">지도를 불러오지 못했습니다.\n인터넷 연결을 확인한 뒤 앱을 다시 실행해 주세요.</string></file><file path="C:\2026.09-12-GODGILL\android\mobile\src\main\res\values\themes.xml" qualifiers=""><style name="Theme.SafeWalk" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorAccent">#167D5B</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style></file></source></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="release$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="C:\2026.09-12-GODGILL\android\mobile\src\release\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="release" generated-set="release$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="C:\2026.09-12-GODGILL\android\mobile\src\release\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"/><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"/><mergedItems><configuration qualifiers=""><declare-styleable name="MapAttr">
+        <attr format="integer" name="mapZoomLevel"/>
+        <attr format="enum" name="mapTextGravity">
+            <enum name="Left" value="0x01"/>
+            <enum name="Right" value="0x02"/>
+            <enum name="Top" value="0x04"/>
+            <enum name="Bottom" value="0x08"/>
+            <enum name="Center" value="0x10"/>
+            <enum name="CenterVertical" value="0x20"/>
+            <enum name="CenterHorizontal" value="0x40"/>
+        </attr>
+    </declare-styleable><declare-styleable name="CircleWaveAttr">
+        <attr format="float" name="startAlpha"/>
+        <attr format="float" name="endAlpha"/>
+        <attr format="float" name="startRadius"/>
+        <attr format="float" name="endRadius"/>
+    </declare-styleable><declare-styleable name="RouteLineAttr">
+        <attr format="float" name="mapLineWidth"/>
+        <attr format="reference|color" name="mapLineColor"/>
+        <attr format="float" name="mapStrokeWidth"/>
+        <attr format="reference|color" name="mapStrokeColor"/>
+        <attr format="reference" name="mapPatternImage"/>
+        <attr format="reference" name="mapSymbolImage"/>
+        <attr format="float" name="mapDistance"/>
+        <attr format="boolean" name="mapPinStart"/>
+        <attr format="boolean" name="mapPinEnd"/>
+    </declare-styleable><declare-styleable name="LabelTextAttr">
+        <attr format="string" name="mapTextFont"/>
+        <attr format="integer" name="mapTextSize"/>
+        <attr format="reference|color" name="mapTextColor"/>
+        <attr format="integer" name="mapTextStrokeWidth"/>
+        <attr format="reference|color" name="mapTextStrokeColor"/>
+        <attr format="integer" name="mapTextCharacterSpace"/>
+        <attr format="float" name="mapTextLineSpace"/>
+        <attr format="float" name="mapTextAspectRatio"/>
+        <attr format="boolean" name="mapTextEnableEnterTransition"/>
+        <attr format="boolean" name="mapTextEnableExitTransition"/>
+        <attr format="enum" name="mapTextEnterTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+        <attr format="enum" name="mapTextExitTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+    </declare-styleable><declare-styleable name="LabelBadgeAttr">
+        <attr format="reference" name="mapBadgeImage"/>
+        <attr format="float" name="mapBadgeOffsetX"/>
+        <attr format="float" name="mapBadgeOffsetY"/>
+        <attr format="integer" name="mapBadgeZOrder"/>
+    </declare-styleable><declare-styleable name="AnimationAttr">
+        <attr format="integer" name="repeatCount"/>
+        <attr format="integer" name="duration"/>
+        <attr format="boolean" name="hideShapeAtStop"/>
+        <attr format="enum" name="interpolation">
+            <enum name="Linear" value="0"/>
+            <enum name="CubicIn" value="4"/>
+            <enum name="CubicOut" value="5"/>
+            <enum name="CubicInOut" value="6"/>
+        </attr>
+    </declare-styleable><declare-styleable name="PolygonAttr">
+        <attr format="reference|color" name="mapPolygonColor"/>
+    </declare-styleable><declare-styleable name="LabelIconAttr">
+        <attr format="reference" name="mapIconImage"/>
+        <attr format="float" name="mapIconAnchorX"/>
+        <attr format="float" name="mapIconAnchorY"/>
+        <attr format="float" name="mapPadding"/>
+        <attr format="boolean" name="mapApplyDpScale"/>
+        <attr format="boolean" name="mapIconEnableEnterTransition"/>
+        <attr format="boolean" name="mapIconEnableExitTransition"/>
+        <attr format="enum" name="mapIconEnterTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+        <attr format="enum" name="mapIconExitTransition">
+            <enum name="none" value="0"/>
+            <enum name="alpha" value="1"/>
+            <enum name="scale" value="2"/>
+        </attr>
+    </declare-styleable></configuration></mergedItems></merger>

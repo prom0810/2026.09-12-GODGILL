@@ -1,0 +1,10 @@
+R_DEF: Internal format may change without notice
+local
+id map_container
+id map_status
+layout activity_map
+string app_name
+string map_key_missing
+string map_load_failed
+string map_loading
+style Theme.SafeWalk

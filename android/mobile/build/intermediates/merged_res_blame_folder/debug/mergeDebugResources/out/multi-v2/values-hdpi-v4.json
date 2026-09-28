@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.safewalk.mobile-mergeDebugResources-1:/values-hdpi-v4/values-hdpi-v4.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\111111\\.gradle\\caches\\9.5.0\\transforms\\b1ff33c2ea0cc127d5ab29729fcf414e\\transformed\\appcompat-1.7.1\\res\\values-hdpi-v4\\values-hdpi-v4.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "6",
+                        "endColumns": "13",
+                        "endOffsets": "327"
+                    }
+                }
+            ]
+        }
+    ]
+}

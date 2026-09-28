@@ -1,0 +1,510 @@
+{
+    "$schema" : "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+    "version" : "2.1.0",
+    "runs" : [
+        {
+            "tool": {
+                "driver": {
+                    "name": "Android Lint",
+                    "fullName": "Android Lint (in gradle)",
+                    "version": "9.3.2",
+                    "semanticVersion": "9.3.2",
+                    "organization": "Google",
+                    "informationUri": "https://developer.android.com/studio/write/lint",
+                    "fullDescription": {
+                        "text": "Static analysis originally for Android source code but now performing general analysis"
+                    },
+                    "language": "en-US",
+                    "rules": [
+                        {
+                            "id": "AndroidGradlePluginVersion",
+                            "shortDescription": {
+                                "text": "Obsolete Android Gradle Plugin Version"
+                            },
+                            "fullDescription": {
+                                "text": "This detector looks for usage of the Android Gradle Plugin where the version you are using is not the current stable release. Using older versions is fine, and there are cases where you deliberately want to stick with an older version. However, you may simply not be aware that a more recent version is available, and that is what this lint check helps find."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 70
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Correctness"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "ChromeOsAbiSupport",
+                            "shortDescription": {
+                                "text": "Missing ABI Support for ChromeOS"
+                            },
+                            "fullDescription": {
+                                "text": "To properly support ChromeOS, your Android application should have an x86 and/or x86_64 binary as part of the build configuration. To fix the issue, ensure your files are properly optimized for ARM; the binary translator will then ensure compatibility with x86. Alternatively, add an abiSplit for x86 within your build.gradle file and create the required x86 dependencies.",
+                                "markdown": "To properly support ChromeOS, your Android application should have an x86 and/or x86_64 binary as part of the build configuration. To fix the issue, ensure your files are properly optimized for ARM; the binary translator will then ensure compatibility with x86. Alternatively, add an `abiSplit` for x86 within your `build.gradle` file and create the required x86 dependencies."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 70
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Chrome OS",
+                                    "Correctness"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "DataExtractionRules",
+                            "shortDescription": {
+                                "text": "Missing data extraction rules"
+                            },
+                            "fullDescription": {
+                                "text": "Before Android 12, the attributes android:allowBackup and android:fullBackupContent were used to configure all forms of backup, including cloud backups, device-to-device transfers and adb backup.\n\nIn Android 12 and higher, these attributes have been deprecated and will only apply to cloud backups. You should instead use the attribute android:dataExtractionRules, specifying an @xml resource that configures which files to back up, for cloud backups and for device-to-device transfers, separately. If your minSdkVersion supports older versions, you'll still want to specify an android:fullBackupContent resource if the default behavior is not right for your app.",
+                                "markdown": "Before Android 12, the attributes `android:allowBackup` and `android:fullBackupContent` were used to configure all forms of backup, including cloud backups, device-to-device transfers and adb backup.\n\nIn Android 12 and higher, these attributes have been deprecated and will only apply to cloud backups. You should instead use the attribute `android:dataExtractionRules`, specifying an `@xml` resource that configures which files to back up, for cloud backups and for device-to-device transfers, separately. If your `minSdkVersion` supports older versions, you'll still want to specify an `android:fullBackupContent` resource if the default behavior is not right for your app."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 80
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Security"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "MergeRootFrame",
+                            "shortDescription": {
+                                "text": "FrameLayout can be replaced with <merge> tag",
+                                "markdown": "FrameLayout can be replaced with `<merge>` tag"
+                            },
+                            "fullDescription": {
+                                "text": "If a <FrameLayout> is the root of a layout and does not provide background or padding etc, it can often be replaced with a <merge> tag which is slightly more efficient. Note that this depends on context, so make sure you understand how the <merge> tag works before proceeding.",
+                                "markdown": "If a `<FrameLayout>` is the root of a layout and does not provide background or padding etc, it can often be replaced with a `<merge>` tag which is slightly more efficient. Note that this depends on context, so make sure you understand how the `<merge>` tag works before proceeding."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 70
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Performance"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "MissingApplicationIcon",
+                            "shortDescription": {
+                                "text": "Missing application icon"
+                            },
+                            "fullDescription": {
+                                "text": "You should set an icon for the application as whole because there is no default. This attribute must be set as a reference to a drawable resource containing the image (for example @drawable/icon).",
+                                "markdown": "You should set an icon for the application as whole because there is no default. This attribute must be set as a reference to a drawable resource containing the image (for example `@drawable/icon`)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 60
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Icons",
+                                    "Usability"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "NotShrinkingResources",
+                            "shortDescription": {
+                                "text": "Use resource shrinking to optimize your resources"
+                            },
+                            "fullDescription": {
+                                "text": "When minification / dex optimization is enabled, you should also enable resource shrinking, since it enables considerable download and storage savings, and optimizes your app's resource table."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error",
+                                "rank": 90
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Performance"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "originalUriBaseIds": {
+                "%SRCROOT%": {
+                    "uri": "file:///C:/2026.09-12-GODGILL/android/"
+                }
+            },
+            "results": [
+                {
+                    "ruleId": "AndroidGradlePluginVersion",
+                    "ruleIndex": 0,
+                    "message": {
+                        "text": "A newer version of Gradle than 9.5.0 is available: 9.7.1"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "gradle/wrapper/gradle-wrapper.properties"
+                                },
+                                "region": {
+                                    "startLine": 3,
+                                    "startColumn": 17,
+                                    "endLine": 3,
+                                    "endColumn": 80,
+                                    "charOffset": 81,
+                                    "charLength": 63,
+                                    "snippet": {
+                                        "text": "https\\://services.gradle.org/distributions/gradle-9.5.0-bin.zip"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 1,
+                                    "endLine": 6,
+                                    "snippet": {
+                                        "text": "distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.0-bin.zip\nnetworkTimeout=10000\nretries=0\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                        {
+                            "description": {
+                                "text": "Update to 9.7.1"
+                            },
+                            "artifactChanges": [
+                                {
+                                    "artifactLocation": {
+                                        "uriBaseId": "%SRCROOT%",
+                                        "uri": "gradle/wrapper/gradle-wrapper.properties"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 3,
+                                                "startColumn": 67,
+                                                "charOffset": 131,
+                                                "endLine": 3,
+                                                "endColumn": 72,
+                                                "charLength": 5
+                                            },
+                                            "insertedContent": {
+                                                "text": "9.7.1\n"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "ad7e3d2521cf963b"
+                    }
+                },
+                {
+                    "ruleId": "ChromeOsAbiSupport",
+                    "ruleIndex": 1,
+                    "message": {
+                        "text": "Missing x86_64 ABI support for ChromeOS"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "mobile/build.gradle.kts"
+                                },
+                                "region": {
+                                    "startLine": 28,
+                                    "startColumn": 29,
+                                    "endLine": 28,
+                                    "endColumn": 63,
+                                    "charOffset": 924,
+                                    "charLength": 34,
+                                    "snippet": {
+                                        "text": "listOf(\"armeabi-v7a\", \"arm64-v8a\")"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 26,
+                                    "endLine": 31,
+                                    "snippet": {
+                                        "text": "        versionName = \"1.0\"\n        buildConfigField(\"String\", \"KAKAO_NATIVE_APP_KEY\", \"\\\"$kakaoNativeAppKey\\\"\")\n        ndk { abiFilters += listOf(\"armeabi-v7a\", \"arm64-v8a\") }\n    }\n    buildFeatures { buildConfig = true }\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "caf056b982d45d52"
+                    }
+                },
+                {
+                    "ruleId": "DataExtractionRules",
+                    "ruleIndex": 2,
+                    "message": {
+                        "text": "The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher.",
+                        "markdown": "The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "mobile/src/main/AndroidManifest.xml"
+                                },
+                                "region": {
+                                    "startLine": 9,
+                                    "startColumn": 30,
+                                    "endLine": 9,
+                                    "endColumn": 35,
+                                    "charOffset": 431,
+                                    "charLength": 5,
+                                    "snippet": {
+                                        "text": "false"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 7,
+                                    "endLine": 12,
+                                    "snippet": {
+                                        "text": "    <application\n        android:name=\".common.SafeWalkApplication\"\n        android:allowBackup=\"false\"\n        android:label=\"@string/app_name\"\n        android:supportsRtl=\"true\"\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                        {
+                            "description": {
+                                "text": "Create data_extraction_rules.xml"
+                            },
+                            "artifactChanges": [
+                                {
+                                    "artifactLocation": {
+                                        "uriBaseId": "%SRCROOT%",
+                                        "uri": "mobile/src/main/res/xml/data_extraction_rules.xml"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 1,
+                                                "startColumn": 1,
+                                                "charOffset": 0
+                                            },
+                                            "insertedContent": {
+                                                "text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!--\n   Sample data extraction rules file; uncomment and customize as necessary.\n   See https://developer.android.com/about/versions/12/backup-restore#xml-changes\n   for details.\n-->\n<data-extraction-rules>\n    <cloud-backup>\n        <!--\n        TODO: Use <include> and <exclude> to control what is backed up.\n        The domain can be file, database, sharedpref, external or root.\n        Examples:\n\n        <include domain=\"file\" path=\"file_to_include\"/>\n        <exclude domain=\"file\" path=\"file_to_exclude\"/>\n        <include domain=\"file\" path=\"include_folder\"/>\n        <exclude domain=\"file\" path=\"include_folder/file_to_exclude\"/>\n        <exclude domain=\"file\" path=\"exclude_folder\"/>\n        <include domain=\"file\" path=\"exclude_folder/file_to_include\"/>\n\n        <include domain=\"sharedpref\" path=\"include_shared_pref1.xml\"/>\n        <include domain=\"database\" path=\"db_name/file_to_include\"/>\n        <exclude domain=\"database\" path=\"db_name/include_folder/file_to_exclude\"/>\n        <include domain=\"external\" path=\"file_to_include\"/>\n        <exclude domain=\"external\" path=\"file_to_exclude\"/>\n        <include domain=\"root\" path=\"file_to_include\"/>\n        <exclude domain=\"root\" path=\"file_to_exclude\"/>\n        -->\n    </cloud-backup>\n    <!--\n    <device-transfer>\n        <include .../>\n        <exclude .../>\n    </device-transfer>\n    -->\n</data-extraction-rules>\n"
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "artifactLocation": {
+                                        "uriBaseId": "%SRCROOT%",
+                                        "uri": "mobile/src/main/AndroidManifest.xml"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 10,
+                                                "startColumn": 9,
+                                                "charOffset": 446
+                                            },
+                                            "insertedContent": {
+                                                "text": "android:dataExtractionRules=\"@xml/data_extraction_rules\" \n"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "07674b2357d9144b"
+                    }
+                },
+                {
+                    "ruleId": "MergeRootFrame",
+                    "ruleIndex": 3,
+                    "message": {
+                        "text": "This <FrameLayout> can be replaced with a <merge> tag",
+                        "markdown": "This `<FrameLayout>` can be replaced with a `<merge>` tag"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "mobile/src/main/res/layout/activity_map.xml"
+                                },
+                                "region": {
+                                    "startLine": 2,
+                                    "startColumn": 1,
+                                    "endLine": 18,
+                                    "endColumn": 15,
+                                    "charOffset": 39,
+                                    "charLength": 650,
+                                    "snippet": {
+                                        "text": "<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n    android:id=\"@+id/map_container\"\n    android:layout_width=\"match_parent\"\n    android:layout_height=\"match_parent\">\n    <TextView\n        android:id=\"@+id/map_status\"\n        android:layout_width=\"match_parent\"\n        android:layout_height=\"wrap_content\"\n        android:layout_gravity=\"center\"\n        android:background=\"#F2FFFFFF\"\n        android:gravity=\"center\"\n        android:padding=\"24dp\"\n        android:text=\"@string/map_loading\"\n        android:textColor=\"#202124\"\n        android:textSize=\"16sp\"\n        android:accessibilityLiveRegion=\"polite\" />\n</FrameLayout>"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 1,
+                                    "endLine": 19,
+                                    "snippet": {
+                                        "text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n    android:id=\"@+id/map_container\"\n    android:layout_width=\"match_parent\"\n    android:layout_height=\"match_parent\">\n    <TextView\n        android:id=\"@+id/map_status\"\n        android:layout_width=\"match_parent\"\n        android:layout_height=\"wrap_content\"\n        android:layout_gravity=\"center\"\n        android:background=\"#F2FFFFFF\"\n        android:gravity=\"center\"\n        android:padding=\"24dp\"\n        android:text=\"@string/map_loading\"\n        android:textColor=\"#202124\"\n        android:textSize=\"16sp\"\n        android:accessibilityLiveRegion=\"polite\" />\n</FrameLayout>\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "cd039bc4ecdb7948"
+                    }
+                },
+                {
+                    "ruleId": "NotShrinkingResources",
+                    "ruleIndex": 5,
+                    "message": {
+                        "text": "If enabling minification, also set isShrinkResources = true"
+                    },
+                    "level": "warning",
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "mobile/build.gradle.kts"
+                                },
+                                "region": {
+                                    "startLine": 37,
+                                    "startColumn": 13,
+                                    "endLine": 37,
+                                    "endColumn": 35,
+                                    "charOffset": 1188,
+                                    "charLength": 22,
+                                    "snippet": {
+                                        "text": "isMinifyEnabled = true"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 35,
+                                    "endLine": 40,
+                                    "snippet": {
+                                        "text": "    buildTypes {\n        release {\n            isMinifyEnabled = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                        {
+                            "description": {
+                                "text": "Replace with true..."
+                            },
+                            "artifactChanges": [
+                                {
+                                    "artifactLocation": {
+                                        "uriBaseId": "%SRCROOT%",
+                                        "uri": "mobile/build.gradle.kts"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 37,
+                                                "startColumn": 31,
+                                                "charOffset": 1206,
+                                                "endLine": 37,
+                                                "endColumn": 35,
+                                                "charLength": 4
+                                            },
+                                            "insertedContent": {
+                                                "text": "true\n            isShrinkResources = true\n"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "da329f72ca5c20ba"
+                    }
+                },
+                {
+                    "ruleId": "MissingApplicationIcon",
+                    "ruleIndex": 4,
+                    "message": {
+                        "text": "Should explicitly set android:icon, there is no default",
+                        "markdown": "Should explicitly set `android:icon`, there is no default"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "mobile/src/main/AndroidManifest.xml"
+                                },
+                                "region": {
+                                    "startLine": 7,
+                                    "startColumn": 6,
+                                    "endLine": 7,
+                                    "endColumn": 17,
+                                    "charOffset": 339,
+                                    "charLength": 11,
+                                    "snippet": {
+                                        "text": "application"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 5,
+                                    "endLine": 10,
+                                    "snippet": {
+                                        "text": "    <uses-feature android:glEsVersion=\"0x00020000\" android:required=\"true\" />\n\n    <application\n        android:name=\".common.SafeWalkApplication\"\n        android:allowBackup=\"false\"\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                        {
+                            "description": {
+                                "text": "Set icon"
+                            },
+                            "artifactChanges": [
+                                {
+                                    "artifactLocation": {
+                                        "uriBaseId": "%SRCROOT%",
+                                        "uri": "mobile/src/main/AndroidManifest.xml"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 10,
+                                                "startColumn": 9,
+                                                "charOffset": 446
+                                            },
+                                            "insertedContent": {
+                                                "text": "android:icon=\"@mipmap/\" \n"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "fcc3b79783b64d84"
+                    }
+                }
+            ]
+        }
+    ]
+}

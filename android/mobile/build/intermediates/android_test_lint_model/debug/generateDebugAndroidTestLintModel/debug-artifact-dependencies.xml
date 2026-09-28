@@ -1,0 +1,17 @@
+<dependencies>
+  <compile
+      roots=":@@:mobile::debug,org.jetbrains.kotlin:kotlin-stdlib:2.2.10@jar,com.kakao.maps.open:android:2.15.2@aar,org.jetbrains:annotations:13.0@jar">
+    <dependency
+        name=":@@:mobile::debug"
+        simpleName="artifacts::mobile"/>
+    <dependency
+        name="org.jetbrains.kotlin:kotlin-stdlib:2.2.10@jar"
+        simpleName="org.jetbrains.kotlin:kotlin-stdlib"/>
+    <dependency
+        name="com.kakao.maps.open:android:2.15.2@aar"
+        simpleName="com.kakao.maps.open:android"/>
+    <dependency
+        name="org.jetbrains:annotations:13.0@jar"
+        simpleName="org.jetbrains:annotations"/>
+  </compile>
+</dependencies>

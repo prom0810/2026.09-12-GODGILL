@@ -1,0 +1,68 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.safewalk"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+7-->INJECTED
+8        android:minSdkVersion="23"
+8-->INJECTED
+9        android:targetSdkVersion="37" />
+9-->INJECTED
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:3:5-67
+11-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:3:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:4:5-79
+12-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:4:22-76
+13
+14    <uses-feature
+14-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:5:5-78
+15        android:glEsVersion="0x00020000"
+15-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:5:19-51
+16        android:required="true" />
+16-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:5:52-75
+17
+18    <meta-data
+18-->[com.kakao.maps.open:android:2.15.2] C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\AndroidManifest.xml:7:5-9:29
+19        android:name="com.kakao.vectormap.version.code"
+19-->[com.kakao.maps.open:android:2.15.2] C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\AndroidManifest.xml:8:9-56
+20        android:value="1" />
+20-->[com.kakao.maps.open:android:2.15.2] C:\Users\111111\.gradle\caches\9.5.0\transforms\6cd6748b3e1efbd8a7dba60e3aa1cbf6\transformed\android-2.15.2\AndroidManifest.xml:9:9-26
+21
+22    <application
+22-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:7:5-19:19
+23        android:name="com.safewalk.common.SafeWalkApplication"
+23-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:8:9-51
+24        android:allowBackup="false"
+24-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:9:9-36
+25        android:extractNativeLibs="false"
+25-->INJECTED
+26        android:label="@string/app_name"
+26-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:10:9-41
+27        android:supportsRtl="true"
+27-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:11:9-35
+28        android:theme="@style/Theme.SafeWalk" >
+28-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:12:9-46
+29        <activity
+29-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:13:9-18:20
+30            android:name="com.safewalk.map.MapActivity"
+30-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:13:19-50
+31            android:exported="true" >
+31-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:13:51-74
+32            <intent-filter>
+32-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:14:13-17:29
+33                <action android:name="android.intent.action.MAIN" />
+33-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:15:17-69
+33-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:15:25-66
+34
+35                <category android:name="android.intent.category.LAUNCHER" />
+35-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:16:17-77
+35-->C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:16:27-74
+36            </intent-filter>
+37        </activity>
+38    </application>
+39
+40</manifest>

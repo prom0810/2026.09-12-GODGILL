@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.safewalk.mobile-mergeDebugResources-2:/layout/activity_safe_route.xml",
+        "source": "com.safewalk.mobile-main-5:/layout/activity_safe_route.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-mergeDebugResources-2:/layout/activity_map.xml",
+        "source": "com.safewalk.mobile-main-5:/layout/activity_map.xml"
+    }
+]
