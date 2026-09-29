@@ -1,9 +1,9 @@
-package com.safewalk.route
+package com.safewalk.route;
 
-import com.safewalk.global.ApiResponse
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import com.safewalk.global.ApiResponse;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 안전 경로 추천 API.
@@ -15,11 +15,11 @@ import org.springframework.web.bind.annotation.RestController
  */
 @RestController
 @RequestMapping("/api/routes")
-class RouteController {
+public class RouteController {
 
     @GetMapping("/safe")
-    fun getSafeRoute(): ApiResponse<String> {
+    public ApiResponse<String> getSafeRoute() {
         // TODO: 출발지/도착지 좌표, 사용자 유형을 받아 안전 경로 계산
-        return ApiResponse.ok("안전 경로 추천 API - 구현 예정")
+        return ApiResponse.ok("안전 경로 추천 API - 구현 예정");
     }
 }
