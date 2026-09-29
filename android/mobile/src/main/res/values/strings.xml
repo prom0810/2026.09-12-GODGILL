@@ -22,4 +22,15 @@
     <string name="cctv_load_failed">천안 CCTV 데이터를 불러오지 못했습니다.</string>
     <string name="security_light_details">%1$s\n%2$s · 보안등 %3$d개</string>
     <string name="security_light_load_failed">보안등 데이터를 불러오지 못했습니다.</string>
+<string name="route_point_searching">"%1$s" 검색 중...</string>
+    <string name="route_point_not_found">"%1$s" 검색 결과가 없습니다.</string>
+    <string name="route_start_set">출발지: %1$s</string>
+    <string name="route_end_set">도착지: %1$s</string>
+    <string name="route_need_points">출발지와 도착지를 먼저 설정해주세요.</string>
+    <string name="route_loading">도로 데이터를 불러오는 중입니다...</string>
+    <string name="route_network_failed">실제 도로 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</string>
+    <string name="route_out_of_area">대상 지역(천안역 반경 1.5km) 밖의 지점입니다.</string>
+    <string name="route_not_found">경로를 찾을 수 없습니다.</string>
+    <string name="route_summary_shortest">최단 %1$dm·%2$d분·%3$d점</string>
+    <string name="route_summary_safe">안전 %1$dm·%2$d분·%3$d점</string>
 </resources>

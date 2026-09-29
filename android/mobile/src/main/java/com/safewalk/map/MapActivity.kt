@@ -1,6 +1,8 @@
 package com.safewalk.map
 
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.Point
 import android.os.Bundle
 import android.os.LocaleList
 import android.util.Log
@@ -37,6 +39,7 @@ class MapActivity : Activity() {
     private val facilityExecutor = Executors.newSingleThreadExecutor()
     private val cctvExecutor = Executors.newSingleThreadExecutor()
     private val securityLightExecutor = Executors.newSingleThreadExecutor()
+    private val routeExecutor = Executors.newSingleThreadExecutor()
     private var searching = false
     private lateinit var queryInput: EditText
     private lateinit var searchButton: Button
@@ -49,6 +52,7 @@ class MapActivity : Activity() {
     private lateinit var facilitiesToggle: CheckBox
     private lateinit var cctvToggle: CheckBox
     private lateinit var securityLightsToggle: CheckBox
+    private lateinit var safeMapToggle: CheckBox
     private var wmsRequestId = 0
     private var wmsRequest: Future<*>? = null
     private var facilityRequestId = 0
@@ -57,6 +61,30 @@ class MapActivity : Activity() {
     private var cctvSites: List<CctvSite> = emptyList()
     private var securityLightRequest: Future<*>? = null
     private var securityLightSites: List<SecurityLightSite> = emptyList()
+    private var facilities: List<Facility> = emptyList()
+
+    // ---- 안심경로 추천 (출발지/도착지, 최단·안전경로) ----
+    private lateinit var routeOverlay: RouteOverlayView
+    private lateinit var startQuery: EditText
+    private lateinit var startSetButton: Button
+    private lateinit var endQuery: EditText
+    private lateinit var endSetButton: Button
+    private lateinit var shortestRouteButton: Button
+    private lateinit var safeRouteButton: Button
+    private lateinit var resetRouteButton: Button
+    private lateinit var routeResultText: TextView
+
+    private var routeGraph: RouteGraph? = null
+    private var routeGraphRequest: Future<*>? = null
+    private var startPoint: LatLng? = null
+    private var endPoint: LatLng? = null
+    private var lastShortestResult: RouteAStar.RouteResult? = null
+    private var lastSafeResult: RouteAStar.RouteResult? = null
+    private var lastDisplayedIsSafe = false
+    private var hasDisplayedRoute = false
+
+    private val shortestRouteColor = Color.rgb(198, 40, 40) // 빨강
+    private val safeRouteColor = Color.rgb(46, 125, 50)     // 초록
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +117,18 @@ class MapActivity : Activity() {
         facilitiesToggle = findViewById(R.id.toggle_facilities)
         cctvToggle = findViewById(R.id.toggle_cctv)
         securityLightsToggle = findViewById(R.id.toggle_security_lights)
+        safeMapToggle = findViewById(R.id.toggle_safemap)
+
+        routeOverlay = findViewById(R.id.route_overlay)
+        startQuery = findViewById(R.id.route_start_query)
+        startSetButton = findViewById(R.id.route_start_button)
+        endQuery = findViewById(R.id.route_end_query)
+        endSetButton = findViewById(R.id.route_end_button)
+        shortestRouteButton = findViewById(R.id.route_shortest_button)
+        safeRouteButton = findViewById(R.id.route_safe_button)
+        resetRouteButton = findViewById(R.id.route_reset_button)
+        routeResultText = findViewById(R.id.route_result_text)
+
         cctvOverlay.onMarkerClick = { site ->
             searchStatus.text = getString(
                 R.string.cctv_details,
@@ -131,6 +171,15 @@ class MapActivity : Activity() {
                 else showSecurityLightMarkers(map)
             }
         }
+        safeMapToggle.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                wmsRequestId++
+                wmsRequest?.cancel(true)
+                safeMapOverlay.visibility = View.GONE
+            } else {
+                kakaoMap?.let(::loadSafeMapOverlay)
+            }
+        }
         searchButton.setOnClickListener { searchPlaces() }
         queryInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -138,6 +187,13 @@ class MapActivity : Activity() {
                 true
             } else false
         }
+
+        startSetButton.setOnClickListener { searchAndSetRoutePoint(isStart = true) }
+        endSetButton.setOnClickListener { searchAndSetRoutePoint(isStart = false) }
+        shortestRouteButton.setOnClickListener { showRoute(isSafeRoute = false) }
+        safeRouteButton.setOnClickListener { showRoute(isSafeRoute = true) }
+        resetRouteButton.setOnClickListener { resetRoute() }
+
         if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank()) {
             status.setText(R.string.map_key_missing)
             return
@@ -181,6 +237,7 @@ class MapActivity : Activity() {
                             loadNearbyFacilities(map)
                             showCctvMarkers(map)
                             showSecurityLightMarkers(map)
+                            redrawRouteOverlay(map)
                         }
                         status.visibility = View.GONE
                         safeMapOverlay.post { loadSafeMapOverlay(kakaoMap) }
@@ -219,9 +276,10 @@ class MapActivity : Activity() {
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed || requestId != facilityRequestId) return@runOnUiThread
-                result.onSuccess { facilities ->
+                result.onSuccess { loaded ->
+                    facilities = loaded
                     if (!facilitiesToggle.isChecked) return@onSuccess
-                    showFacilityMarkers(map, facilities)
+                    showFacilityMarkers(map, loaded)
                 }.onFailure { error ->
                     Log.e("NearbyFacilities", "Nearby facility search failed", error)
                 }
@@ -327,6 +385,7 @@ class MapActivity : Activity() {
     private fun markerScaleForZoom(@Suppress("UNUSED_PARAMETER") zoomLevel: Int): Float = 1f
 
     private fun loadSafeMapOverlay(map: KakaoMap) {
+        if (!safeMapToggle.isChecked) return
         if (BuildConfig.SAFEMAP_SERVICE_KEY.isBlank()) return
         val width = safeMapOverlay.width
         val height = safeMapOverlay.height
@@ -397,7 +456,7 @@ class MapActivity : Activity() {
                 searchButton.isEnabled = true
                 result.fold(onSuccess = { places ->
                     searchStatus.text = if (places.isEmpty()) getString(R.string.search_empty)
-                        else getString(R.string.search_count, places.size)
+                    else getString(R.string.search_count, places.size)
                     searchResults.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, places)
                     searchResults.visibility = if (places.isEmpty()) View.GONE else View.VISIBLE
                     searchResults.setOnItemClickListener { _, _, position, _ ->
@@ -423,6 +482,178 @@ class MapActivity : Activity() {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // 안심경로 추천: 출발지/도착지 검색, 도로망 로딩, 최단·안전경로 계산 및 표시
+    // ---------------------------------------------------------------------
+
+    private fun searchAndSetRoutePoint(isStart: Boolean) {
+        val queryField = if (isStart) startQuery else endQuery
+        val query = queryField.text.toString().trim()
+        if (query.isEmpty()) {
+            queryField.error = getString(R.string.search_empty_query)
+            return
+        }
+        if (BuildConfig.KAKAO_REST_API_KEY.isBlank()) {
+            routeResultText.setText(R.string.search_key_missing)
+            return
+        }
+        routeResultText.text = getString(R.string.route_point_searching, query)
+        searchExecutor.execute {
+            val result = runCatching { KakaoPlaceSearch(BuildConfig.KAKAO_REST_API_KEY).search(query) }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { places ->
+                    val place = places.firstOrNull()
+                    if (place == null) {
+                        routeResultText.text = getString(R.string.route_point_not_found, query)
+                        return@onSuccess
+                    }
+                    val point = LatLng.from(place.latitude, place.longitude)
+                    if (isStart) startPoint = point else endPoint = point
+                    routeResultText.text = getString(
+                        if (isStart) R.string.route_start_set else R.string.route_end_set,
+                        place.name,
+                    )
+                    kakaoMap?.let { map ->
+                        map.moveCamera(CameraUpdateFactory.newCenterPosition(point, 16))
+                        redrawRouteOverlay(map)
+                    }
+                }.onFailure {
+                    routeResultText.text = getString(R.string.route_point_not_found, query)
+                }
+            }
+        }
+    }
+
+    private fun showRoute(isSafeRoute: Boolean) {
+        val map = kakaoMap
+        val start = startPoint
+        val end = endPoint
+        if (map == null) {
+            routeResultText.setText(R.string.search_map_wait)
+            return
+        }
+        if (start == null || end == null) {
+            routeResultText.setText(R.string.route_need_points)
+            return
+        }
+
+        val existingGraph = routeGraph
+        if (existingGraph != null) {
+            computeAndDrawRoutes(map, existingGraph, start, end, isSafeRoute)
+            return
+        }
+
+        if (routeGraphRequest != null) return
+        routeResultText.setText(R.string.route_loading)
+        routeGraphRequest = routeExecutor.submit {
+            val result = runCatching {
+                RoadNetworkProvider.buildGraph(cctvSites, securityLightSites, facilities)
+            }
+            runOnUiThread {
+                routeGraphRequest = null
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { graph ->
+                    routeGraph = graph
+                    computeAndDrawRoutes(map, graph, start, end, isSafeRoute)
+                }.onFailure { error ->
+                    Log.e("RoadNetwork", "도로망 로딩 실패", error)
+                    routeResultText.setText(R.string.route_network_failed)
+                }
+            }
+        }
+    }
+
+    private fun computeAndDrawRoutes(
+        map: KakaoMap,
+        graph: RouteGraph,
+        start: LatLng,
+        end: LatLng,
+        isSafeRoute: Boolean,
+    ) {
+        val startNode = graph.nearestNode(start.latitude, start.longitude)
+        val endNode = graph.nearestNode(end.latitude, end.longitude)
+        if (startNode == null || endNode == null) {
+            routeResultText.setText(R.string.route_out_of_area)
+            return
+        }
+
+        val shortest = RouteAStar.findRoute(graph, startNode.id, endNode.id, safetyWeight = 0.0)
+        val safe = RouteAStar.findRoute(graph, startNode.id, endNode.id, safetyWeight = 0.55)
+        lastShortestResult = shortest
+        lastSafeResult = safe
+        lastDisplayedIsSafe = isSafeRoute
+        hasDisplayedRoute = true
+
+        val displayed = if (isSafeRoute) safe else shortest
+        if (displayed == null) {
+            routeResultText.setText(R.string.route_not_found)
+            return
+        }
+
+        routeResultText.text = buildString {
+            shortest?.let {
+                append(getString(
+                    R.string.route_summary_shortest,
+                    it.totalDistanceMeters.toInt(),
+                    estimateWalkingMinutes(it.totalDistanceMeters),
+                    (it.averageSafetyScore * 100).toInt(),
+                ))
+            }
+            safe?.let {
+                if (isNotEmpty()) append(" | ")
+                append(getString(
+                    R.string.route_summary_safe,
+                    it.totalDistanceMeters.toInt(),
+                    estimateWalkingMinutes(it.totalDistanceMeters),
+                    (it.averageSafetyScore * 100).toInt(),
+                ))
+            }
+        }
+
+        redrawRouteOverlay(map)
+    }
+
+    /** 카메라가 움직일 때마다 마지막으로 표시한 경로/출발·도착 마커를 새 화면좌표로 다시 그린다. */
+    private fun redrawRouteOverlay(map: KakaoMap) {
+        val startScreen = startPoint?.let { map.toScreenPoint(it) }
+        val endScreen = endPoint?.let { map.toScreenPoint(it) }
+        routeOverlay.setStartEnd(startScreen, endScreen)
+
+        if (!hasDisplayedRoute) return
+        val result = if (lastDisplayedIsSafe) lastSafeResult else lastShortestResult
+        if (result == null) {
+            routeOverlay.setRoute(emptyList(), shortestRouteColor)
+            return
+        }
+        val points = mutableListOf<Point>()
+        result.segments.forEachIndexed { index, segment ->
+            if (index == 0) {
+                map.toScreenPoint(LatLng.from(segment.from.lat, segment.from.lon))?.let { points += it }
+            }
+            map.toScreenPoint(LatLng.from(segment.to.lat, segment.to.lon))?.let { points += it }
+        }
+        val color = if (lastDisplayedIsSafe) safeRouteColor else shortestRouteColor
+        routeOverlay.setRoute(points, color)
+    }
+
+    private fun estimateWalkingMinutes(distanceMeters: Double): Int {
+        val metersPerMinute = 67.0
+        return kotlin.math.ceil(distanceMeters / metersPerMinute).toInt().coerceAtLeast(1)
+    }
+
+    private fun resetRoute() {
+        startPoint = null
+        endPoint = null
+        lastShortestResult = null
+        lastSafeResult = null
+        hasDisplayedRoute = false
+        startQuery.text.clear()
+        endQuery.text.clear()
+        routeResultText.text = ""
+        routeOverlay.clear()
+    }
+
     override fun onResume() {
         super.onResume()
         mapView?.resume()
@@ -445,6 +676,8 @@ class MapActivity : Activity() {
         cctvExecutor.shutdownNow()
         securityLightRequest?.cancel(true)
         securityLightExecutor.shutdownNow()
+        routeGraphRequest?.cancel(true)
+        routeExecutor.shutdownNow()
         (safeMapOverlay.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
             ?.takeIf { !it.isRecycled }?.recycle()
         kakaoMap = null
