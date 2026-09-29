@@ -26,9 +26,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible" />
+    <!-- 안심경로 추천: 최단/안전경로 선 + 출발/도착 마커 오버레이 -->
+    <com.safewalk.map.RouteOverlayView
+        android:id="@+id/route_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 상단: 출발지/도착지 검색만 표시. 그 아래는 지도가 그대로 보임 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_gravity="top"
         android:orientation="vertical"
         android:background="#F2FFFFFF"
         android:padding="12dp">
@@ -37,31 +45,50 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
             <EditText
-                android:id="@+id/search_query"
+                android:id="@+id/route_start_query"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:hint="@string/search_hint"
+                android:minHeight="44dp"
+                android:hint="출발지 검색"
                 android:inputType="text"
                 android:imeOptions="actionSearch"
                 android:maxLength="100"
                 android:singleLine="true" />
             <Button
-                android:id="@+id/search_button"
+                android:id="@+id/route_start_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/search_button" />
+                android:text="출발지 설정" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/search_status"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:accessibilityLiveRegion="polite"
-            android:textColor="#202124" />
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal">
+            <EditText
+                android:id="@+id/route_end_query"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp"
+                android:hint="도착지 검색"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:maxLength="100"
+                android:singleLine="true" />
+            <Button
+                android:id="@+id/route_end_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="도착지 설정" />
+        </LinearLayout>
+
+        <!-- 카테고리별 표시 켜기/끄기 -->
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:scrollbars="none">
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -85,14 +112,82 @@
                     android:layout_height="wrap_content"
                     android:checked="true"
                     android:text="@string/layer_security_lights" />
+                <CheckBox
+                    android:id="@+id/toggle_safemap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="생활안전지도" />
             </LinearLayout>
         </HorizontalScrollView>
+    </LinearLayout>
+
+    <!-- 하단: 최단경로/안전경로/초기화 버튼 + 결과 텍스트 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="#F2FFFFFF"
+        android:padding="12dp">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/route_shortest_button"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="최단경로" />
+            <Button
+                android:id="@+id/route_safe_button"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="안전경로" />
+            <Button
+                android:id="@+id/route_reset_button"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="초기화" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/route_result_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:accessibilityLiveRegion="polite"
+            android:textColor="#202124" />
+    </LinearLayout>
+
+    <!-- 기존 장소검색/레이어 토글/검색결과 UI: 화면에는 숨기되, MapActivity.kt가
+         findViewById로 참조하므로 뷰 자체는 남겨둔다 (완전히 지우면 앱이 튕김) -->
+    <LinearLayout
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <EditText
+            android:id="@+id/search_query"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="@string/search_hint" />
+        <Button
+            android:id="@+id/search_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/search_button" />
+        <TextView
+            android:id="@+id/search_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
         <ListView
             android:id="@+id/search_results"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:visibility="gone" />
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
     </LinearLayout>
+
     <TextView
         android:id="@+id/map_status"
         android:layout_width="match_parent"
