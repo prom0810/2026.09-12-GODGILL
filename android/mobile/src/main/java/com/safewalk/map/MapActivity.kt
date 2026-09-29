@@ -1,6 +1,7 @@
 package com.safewalk.map
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Point
 import android.os.Bundle
@@ -503,25 +504,45 @@ class MapActivity : Activity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 result.onSuccess { places ->
-                    val place = places.firstOrNull()
-                    if (place == null) {
-                        routeResultText.text = getString(R.string.route_point_not_found, query)
-                        return@onSuccess
-                    }
-                    val point = LatLng.from(place.latitude, place.longitude)
-                    if (isStart) startPoint = point else endPoint = point
-                    routeResultText.text = getString(
-                        if (isStart) R.string.route_start_set else R.string.route_end_set,
-                        place.name,
-                    )
-                    kakaoMap?.let { map ->
-                        map.moveCamera(CameraUpdateFactory.newCenterPosition(point, 16))
-                        redrawRouteOverlay(map)
+                    when {
+                        places.isEmpty() -> {
+                            routeResultText.text = getString(R.string.route_point_not_found, query)
+                        }
+                        places.size == 1 -> {
+                            applyRoutePoint(isStart, places[0])
+                        }
+                        else -> {
+                            showRoutePointPicker(isStart, places)
+                        }
                     }
                 }.onFailure {
                     routeResultText.text = getString(R.string.route_point_not_found, query)
                 }
             }
+        }
+    }
+
+    /** 동명 건물 등 검색 결과가 여러 개일 때 사용자가 직접 고르게 한다. */
+    private fun showRoutePointPicker(isStart: Boolean, places: List<Place>) {
+        val labels = places.map { "${it.name}\n${it.address}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(if (isStart) "출발지 선택" else "도착지 선택")
+            .setItems(labels) { _, index -> applyRoutePoint(isStart, places[index]) }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    /** 검색 결과 하나를 실제로 출발지/도착지에 반영한다. */
+    private fun applyRoutePoint(isStart: Boolean, place: Place) {
+        val point = LatLng.from(place.latitude, place.longitude)
+        if (isStart) startPoint = point else endPoint = point
+        routeResultText.text = getString(
+            if (isStart) R.string.route_start_set else R.string.route_end_set,
+            place.name,
+        )
+        kakaoMap?.let { map ->
+            map.moveCamera(CameraUpdateFactory.newCenterPosition(point, 16))
+            redrawRouteOverlay(map)
         }
     }
 
