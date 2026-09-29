@@ -1,4 +1,4 @@
-package com.safewalk.login
+package com.safewalk.signup
 
 import android.content.Intent
 import android.os.Bundle
@@ -6,22 +6,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import com.safewalk.map.MapActivity
-import com.safewalk.signup.SignupActivity
 
-class LoginActivity : ComponentActivity() {
-    private val viewModel: LoginViewModel by viewModels()
+class SignupActivity : ComponentActivity() {
+    private val viewModel: SignupViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            LoginScreen(
+            SignupScreen(
                 state = viewModel.uiState,
-                onUserIdChange = viewModel::updateUserId,
+                onEmailChange = viewModel::updateEmail,
                 onPasswordChange = viewModel::updatePassword,
                 onUserTypeChange = viewModel::selectUserType,
-                onLogin = { viewModel.login(onSuccess = ::openMap) },
-                onContinueAsGuest = ::openMap,
-                onGoToSignup = ::openSignup,
+                onSignup = { viewModel.signup(onSuccess = ::openMap) },
+                onBackToLogin = { finish() },
             )
         }
     }
@@ -29,9 +27,5 @@ class LoginActivity : ComponentActivity() {
     private fun openMap() {
         startActivity(Intent(this, MapActivity::class.java))
         finish()
-    }
-
-    private fun openSignup() {
-        startActivity(Intent(this, SignupActivity::class.java))
     }
 }

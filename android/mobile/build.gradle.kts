@@ -60,5 +60,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+    // 로그인/회원가입 API 호출을 백그라운드 스레드에서 실행하기 위한 코루틴(viewModelScope에서 사용).
+    // 통신 자체는 Retrofit 등을 추가하지 않고 기존 방식(HttpURLConnection, ApiClient)을 그대로 따른다.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

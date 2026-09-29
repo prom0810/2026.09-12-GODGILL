@@ -1,4 +1,4 @@
-package com.safewalk.login
+package com.safewalk.signup
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,20 +38,24 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.safewalk.login.UserType
 
 private val BrandGreen = Color(0xFF167D5B)
 private val ScreenBackground = Color(0xFFF4F8F6)
 private val ErrorRed = Color(0xFFB3261E)
 
+/**
+ * 회원가입 화면. LoginScreen과 동일한 시각 스타일을 따른다.
+ * 이름·전화번호 입력은 아직 없다 — 이메일·비밀번호·사용자 유형만 받는다.
+ */
 @Composable
-fun LoginScreen(
-    state: LoginUiState,
-    onUserIdChange: (String) -> Unit,
+fun SignupScreen(
+    state: SignupUiState,
+    onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onUserTypeChange: (UserType) -> Unit,
-    onLogin: () -> Unit,
-    onContinueAsGuest: () -> Unit,
-    onGoToSignup: () -> Unit = {},
+    onSignup: () -> Unit,
+    onBackToLogin: () -> Unit,
 ) {
     MaterialTheme {
         Surface(color = ScreenBackground, modifier = Modifier.fillMaxSize()) {
@@ -89,14 +93,14 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(24.dp))
                 OutlinedTextField(
-                    value = state.userId,
-                    onValueChange = onUserIdChange,
-                    label = { Text("아이디") },
-                    placeholder = { Text("아이디를 입력해 주세요") },
+                    value = state.email,
+                    onValueChange = onEmailChange,
+                    label = { Text("이메일") },
+                    placeholder = { Text("이메일을 입력해 주세요") },
                     singleLine = true,
                     enabled = !state.isLoading,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
+                        keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next,
                     ),
                     shape = RoundedCornerShape(14.dp),
@@ -130,8 +134,8 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(28.dp))
                 Button(
-                    onClick = onLogin,
-                    enabled = state.canLogin,
+                    onClick = onSignup,
+                    enabled = state.canSubmit,
                     colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
@@ -145,26 +149,17 @@ fun LoginScreen(
                             modifier = Modifier.height(20.dp).width(20.dp),
                         )
                     } else {
-                        Text("로그인", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("회원가입", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 TextButton(
-                    onClick = onGoToSignup,
-                    enabled = !state.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                ) {
-                    Text("계정이 없으신가요? 회원가입", color = Color(0xFF33443E), fontWeight = FontWeight.SemiBold)
-                }
-                TextButton(
-                    onClick = onContinueAsGuest,
+                    onClick = onBackToLogin,
                     enabled = !state.isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
                 ) {
-                    Text("비로그인으로 시작하기", color = BrandGreen, fontWeight = FontWeight.SemiBold)
+                    Text("이미 계정이 있으신가요? 로그인", color = BrandGreen, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -184,7 +179,7 @@ private fun BrandHeader() {
         Spacer(Modifier.width(12.dp))
         Column {
             Text("GODGILL", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF183C30))
-            Text("안전한 귀갓길을 시작하세요", fontSize = 14.sp, color = Color(0xFF65756F))
+            Text("회원가입하고 시작하세요", fontSize = 14.sp, color = Color(0xFF65756F))
         }
     }
 }
@@ -218,14 +213,13 @@ private fun UserTypeOption(
 
 @Preview(showBackground = true)
 @Composable
-private fun LoginScreenPreview() {
-    LoginScreen(
-        state = LoginUiState(userId = "godgill_user"),
-        onUserIdChange = {},
+private fun SignupScreenPreview() {
+    SignupScreen(
+        state = SignupUiState(email = "godgill_user@example.com"),
+        onEmailChange = {},
         onPasswordChange = {},
         onUserTypeChange = {},
-        onLogin = {},
-        onContinueAsGuest = {},
-        onGoToSignup = {},
+        onSignup = {},
+        onBackToLogin = {},
     )
 }

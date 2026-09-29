@@ -77,6 +77,26 @@ SDK 공식 지원 ABI는 `armeabi-v7a`, `arm64-v8a`이며 OpenGL ES 2.0 이상�
 향후 현재 위치 기능을 추가할 때 위치 권한과 런타임 요청을 함께 구현해야 합니다.
 Release 빌드는 난독화 검증용 unsigned APK를 생성하며 배포 서명은 별도 설정이 필요합니다.
 
+## 인증(로그인/회원가입) 및 백엔드 연동 — 2026-09-23 추가
+
+회원가입/로그인 화면이 실제 백엔드 API(`/api/auth/signup`, `/api/auth/login`)를 호출하도록
+연결했다. 추가/수정된 파일 목록과 설명은 저장소 루트 `README.md` 참고.
+
+- **백엔드 주소 설정 (반드시 확인):** `common/network/ApiClient.kt`의 `baseUrl`이 현재
+  개발 PC의 로컬 네트워크 IP(예: `http://192.168.56.1:8080`)로 하드코딩되어 있다. 이 값은
+  PC/네트워크마다 다르고 DHCP로 바뀔 수 있으므로, 다른 PC에서 실행하거나 갑자기 연결이 안
+  되면 `ipconfig`(Windows)로 현재 IP를 확인해서 이 값을 직접 바꿔야 한다. 에뮬레이터 표준
+  별칭인 `10.0.2.2`와 `adb reverse` 터널 방식은 이 프로젝트 환경에서 원인 불명의 이유로
+  동작하지 않아 실제 IP 방식으로 우회했다.
+- 백엔드는 HTTPS가 아니므로 `AndroidManifest.xml`에 `android:usesCleartextTraffic="true"`가
+  설정되어 있다. 배포 전 백엔드를 HTTPS로 바꾸고 이 속성은 제거해야 한다.
+- 통신은 이 프로젝트의 기존 방식(Retrofit 없이 `HttpURLConnection` 직접 사용)을 그대로
+  따랐다 — `KakaoPlaceSearch`/`NearbyFacilitySearch`와 같은 패턴.
+- 회원가입 화면에는 아직 이름·전화번호 입력이 없다(이메일·비밀번호·사용자 유형만). 사용자
+  유형(성인/미성년자) 구분은 현재 뼈대만 있고 유형별 추천 로직과는 아직 연결되지 않았다.
+- 로그인 성공 시 발급되는 JWT는 `TokenStore`(SharedPreferences)에 저장만 하고, 아직 이후
+  API 호출에 자동으로 실어 보내지는 않는다(그런 API가 아직 없음).
+
 ## 추가 파일
 
 - `.gitignore`(저장소 루트): 로컬 키와 생성물 제외
@@ -86,6 +106,10 @@ Release 빌드는 난독화 검증용 unsigned APK를 생성하며 배포 서명
 - `mobile/build.gradle.kts`, `mobile/proguard-rules.pro`: 앱, 의존성, 키 주입 및 난독화 규칙
 - `mobile/src/main/AndroidManifest.xml`: 앱 초기화 클래스, 시작 화면, 인터넷 권한, OpenGL 요구사항
 - `mobile/src/main/java/com/safewalk/common/SafeWalkApplication.kt`: SDK 초기화
+- `mobile/src/main/java/com/safewalk/common/network/ApiClient.kt`: 백엔드 HTTP 클라이언트, `baseUrl` 설정
+- `mobile/src/main/java/com/safewalk/auth/`: 인증 API 모델, 호출, 토큰 저장 (`AuthModels.kt`, `AuthApi.kt`, `AuthRepository.kt`, `TokenStore.kt`)
+- `mobile/src/main/java/com/safewalk/login/`: 로그인 화면 (API 연동됨)
+- `mobile/src/main/java/com/safewalk/signup/`: 회원가입 화면 (신규)
 - `mobile/src/main/java/com/safewalk/map/MapActivity.kt`: 지도와 생명주기 처리
 - `mobile/src/main/res/layout/activity_map.xml`, `res/values/strings.xml`, `res/values/themes.xml`: 화면 리소스
 
