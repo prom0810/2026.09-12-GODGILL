@@ -16,6 +16,8 @@ import jakarta.persistence.Table;
 @Table(name = "user_type")
 public class UserType {
 
+    public static final String MINOR = "MINOR";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_type_id")
@@ -42,5 +44,10 @@ public class UserType {
 
     public void setTypeName(String typeName) {
         this.typeName = typeName;
+    }
+
+    /** 미성년자 유형 여부. 미성년자는 보호자를 최소 1명 유지해야 한다. */
+    public boolean isMinor() {
+        return MINOR.equals(typeName);
     }
 }

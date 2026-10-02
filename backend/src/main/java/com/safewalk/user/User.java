@@ -14,8 +14,9 @@ import java.time.OffsetDateTime;
 /**
  * 앱 사용자 계정 (DB 설계서의 USER 엔티티. 테이블명은 Postgres 예약어 회피를 위해 users).
  *
- * name·phone은 DB에서 NOT NULL이지만 현재 회원가입 화면은 이메일·비밀번호·사용자 유형만 입력받는다.
- * 이름·전화번호 입력 화면이 추가되기 전까지는 {@link com.safewalk.auth.AuthService}에서 임시값을 채워 넣는다.
+ * phone은 "010-1234-5678" 형태로 정규화된 값이 저장되며, 탈퇴하지 않은 사용자 사이에서 중복될 수 없다
+ * (코드 검사: {@link com.safewalk.auth.AuthService}, DB: users.phone UNIQUE 제약).
+ * 보호자 목록은 {@link com.safewalk.guardian.Guardian}(guardian 테이블, N:1)에서 관리한다.
  */
 @Entity
 @Table(name = "users")
