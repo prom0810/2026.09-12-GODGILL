@@ -19,3 +19,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "GODGILL"
 include(":mobile")
+include(":wear")
