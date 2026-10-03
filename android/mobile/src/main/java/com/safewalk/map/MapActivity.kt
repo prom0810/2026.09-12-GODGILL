@@ -545,7 +545,6 @@ class MapActivity : Activity() {
             redrawRouteOverlay(map)
         }
     }
-
     private fun showRoute(isSafeRoute: Boolean) {
         val map = kakaoMap
         val start = startPoint
