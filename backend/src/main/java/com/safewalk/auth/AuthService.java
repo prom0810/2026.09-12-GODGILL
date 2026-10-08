@@ -1,5 +1,7 @@
 package com.safewalk.auth;
 
+import com.safewalk.global.PhoneNumbers;
+import com.safewalk.guardian.GuardianService;
 import com.safewalk.user.User;
 import com.safewalk.user.UserRepository;
 import com.safewalk.user.UserType;
@@ -12,28 +14,36 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 회원가입/로그인 처리.
  *
- * 현 단계 범위:
- *  - 이메일·비밀번호·사용자 유형(ADULT/MINOR)만 다룬다.
- *  - 이메일 형식, 비밀번호 길이 등 세부 검증은 하지 않는다 (빈 값 여부만 확인).
- *  - 중복 가입 여부는 이메일로만 판단한다.
- *  - 사용자 유형별 가중치 등 실제 활용 로직은 아직 없다 — 유형은 저장만 해두는 뼈대 단계.
+ * 회원가입 규칙:
+ *  - email·password·name·phone·userType 모두 필수 (빈 값이면 400)
+ *  - 전화번호는 {@link PhoneNumbers}로 "010-1234-5678" 형태로 정규화해서 저장
+ *  - 이메일 중복 → 409, 전화번호 중복 → 409
+ *  - MINOR(미성년자)는 보호자 1명 이상 필수 (없으면 400)
+ *  - 보호자 목록은 사용자와 같은 트랜잭션에서 저장한다. 보호자 저장이 실패하면 계정도 생성되지 않는다.
+ *
+ * 이메일 형식, 비밀번호 길이 등 세부 검증은 아직 하지 않는다.
  */
 @Service
 public class AuthService {
 
+    private static final int NAME_MAX_LENGTH = 50;
+
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
+    private final GuardianService guardianService;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
 
     public AuthService(
             UserRepository userRepository,
             UserTypeRepository userTypeRepository,
+            GuardianService guardianService,
             PasswordEncoder passwordEncoder,
             JwtProvider jwtProvider
     ) {
         this.userRepository = userRepository;
         this.userTypeRepository = userTypeRepository;
+        this.guardianService = guardianService;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
     }
@@ -42,28 +52,37 @@ public class AuthService {
     public AuthResponse signup(SignupRequest request) {
         String email = request.email().trim();
         String password = request.password();
+        String name = request.name().trim();
 
-        if (email.isBlank() || password.isBlank()) {
-            throw new IllegalArgumentException("이메일과 비밀번호를 입력해 주세요.");
+        if (email.isBlank() || password.isBlank() || name.isBlank()
+                || request.phone().isBlank() || request.userType().isBlank()) {
+            throw new IllegalArgumentException("이메일, 비밀번호, 이름, 전화번호, 사용자 유형을 모두 입력해 주세요.");
         }
+        if (name.length() > NAME_MAX_LENGTH) {
+            throw new IllegalArgumentException("이름은 " + NAME_MAX_LENGTH + "자 이하로 입력해 주세요.");
+        }
+        String phone = PhoneNumbers.normalize(request.phone(), "전화번호");
+
         if (userRepository.existsByEmailAndDeletedAtIsNull(email)) {
             throw new DuplicateEmailException("이미 가입된 이메일입니다.");
+        }
+        if (userRepository.existsByPhoneAndDeletedAtIsNull(phone)) {
+            throw new DuplicatePhoneException("이미 가입된 전화번호입니다.");
         }
 
         UserType userType = userTypeRepository
                 .findByTypeName(request.userType().trim().toUpperCase(Locale.ROOT))
                 .orElseThrow(() -> new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + request.userType()));
 
-        // TODO: 이름·전화번호 입력 화면이 추가되면 이 값을 실제 입력값으로 교체한다.
-        //       users.name / users.phone이 DB에서 NOT NULL이라 지금은 임시값을 채워 넣는다.
-        User user = new User(
-                userType,
-                tempNameFrom(email),
-                email,
-                passwordEncoder.encode(password),
-                "000-0000-0000"
-        );
+        if (userType.isMinor() && request.guardians().isEmpty()) {
+            throw new IllegalArgumentException("미성년자(MINOR)는 보호자를 1명 이상 등록해야 합니다.");
+        }
+
+        User user = new User(userType, name, email, passwordEncoder.encode(password), phone);
         User saved = userRepository.save(user);
+
+        guardianService.addGuardiansOnSignup(saved, request.guardians());
+
         String token = jwtProvider.createToken(saved.getUserId(), saved.getEmail(), userType.getTypeName());
         return new AuthResponse(saved.getUserId(), saved.getEmail(), userType.getTypeName(), token);
     }
@@ -87,12 +106,5 @@ public class AuthService {
         String typeName = user.getUserType().getTypeName();
         String token = jwtProvider.createToken(user.getUserId(), user.getEmail(), typeName);
         return new AuthResponse(user.getUserId(), user.getEmail(), typeName, token);
-    }
-
-    /** 이메일의 '@' 앞부분을 임시 이름으로 사용한다. 비어 있으면 "user". */
-    private static String tempNameFrom(String email) {
-        int at = email.indexOf('@');
-        String local = at >= 0 ? email.substring(0, at) : email;
-        return local.isBlank() ? "user" : local;
     }
 }

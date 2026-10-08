@@ -9,9 +9,11 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 회원가입/로그인 API.
  *
- * 현 단계 범위: 이메일·비밀번호·사용자 유형(ADULT/MINOR)만 받아 users 테이블에 저장한다.
- * 이메일 형식 검증, 비밀번호 길이 제한 같은 세부 검증은 하지 않는다 — 빈 값 여부와
- * 이메일 중복(회원가입) / 이메일·비밀번호 일치(로그인) 여부만 {@link AuthService}에서 확인한다.
+ * 회원가입: 이메일·비밀번호·이름·전화번호·사용자 유형(ADULT/MINOR)과 보호자 목록을 한 번에 받아 저장한다.
+ * 로그인: 이메일·비밀번호가 일치하면 JWT를 발급한다.
+ * 검증 규칙은 {@link AuthService} 참고.
+ *
+ * /api/auth/**는 토큰을 발급받는 곳이므로 JWT 검사 대상에서 제외된다({@link com.safewalk.global.WebConfig}).
  */
 @RestController
 @RequestMapping("/api/auth")
