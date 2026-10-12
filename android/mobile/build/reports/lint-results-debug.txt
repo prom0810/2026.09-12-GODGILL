@@ -1,0 +1,220 @@
+C:\2026.09-12-GODGILL\android\mobile\build.gradle.kts:57: Warning: A newer version of androidx.activity:activity-compose than 1.8.2 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.8.2")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\build.gradle.kts:58: Warning: A newer version of androidx.compose:compose-bom than 2026.02.01 is available: 2026.09.00 [GradleDependency]
+    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\build.gradle.kts:62: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-ktx than 2.9.4 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\2026.09-12-GODGILL\android\mobile\build.gradle.kts:37: Warning: Missing x86_64 ABI support for ChromeOS [ChromeOsAbiSupport]
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ChromeOsAbiSupport":
+   To properly support ChromeOS, your Android application should have an x86
+   and/or x86_64 binary as part of the build configuration. To fix the issue,
+   ensure your files are properly optimized for ARM; the binary translator
+   will then ensure compatibility with x86. Alternatively, add an abiSplit for
+   x86 within your build.gradle file and create the required x86
+   dependencies.
+
+   https://developer.android.com/ndk/guides/abis
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:14: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+        android:allowBackup="false"
+                             ~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:2: Warning: This <FrameLayout> can be replaced with a <merge> tag [MergeRootFrame]
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+^
+
+   Explanation for issues of type "MergeRootFrame":
+   If a <FrameLayout> is the root of a layout and does not provide background
+   or padding etc, it can often be replaced with a <merge> tag which is
+   slightly more efficient. Note that this depends on context, so make sure
+   you understand how the <merge> tag works before proceeding.
+
+   https://android-developers.googleblog.com/2009/03/android-layout-tricks-3-optimize-by.html
+
+C:\2026.09-12-GODGILL\android\mobile\build.gradle.kts:49: Warning: If enabling minification, also set isShrinkResources = true [NotShrinkingResources]
+            isMinifyEnabled = true
+            ~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NotShrinkingResources":
+   When minification / dex optimization is enabled, you should also enable
+   resource shrinking, since it enables considerable download and storage
+   savings, and optimizes your app's resource table.
+
+   https://developer.android.com/topic/performance/app-optimization/enable-app-optimization
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\values\strings.xml:25: Warning: Replace "..." with ellipsis character (…, &#8230;) ? [TypographyEllipsis]
+<string name="route_point_searching">"%1$s" 검색 중...</string>
+                                     ~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\values\strings.xml:30: Warning: Replace "..." with ellipsis character (…, &#8230;) ? [TypographyEllipsis]
+    <string name="route_loading">도로 데이터를 불러오는 중입니다...</string>
+                                 ~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "TypographyEllipsis":
+   You can replace the string "..." with a dedicated ellipsis character,
+   ellipsis character (u2026, &#8230;). This can help make the text more
+   readable.
+
+   https://en.wikipedia.org/wiki/Ellipsis
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:12: Warning: Should explicitly set android:icon, there is no default [MissingApplicationIcon]
+    <application
+     ~~~~~~~~~~~
+
+   Explanation for issues of type "MissingApplicationIcon":
+   You should set an icon for the application as whole because there is no
+   default. This attribute must be set as a reference to a drawable resource
+   containing the image (for example @drawable/icon).
+
+   https://developer.android.com/studio/publish/preparing#publishing-configure
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:137: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:143: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:149: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+
+   Explanation for issues of type "ButtonStyle":
+   Button bars typically use a borderless style for the buttons. Set the
+   style="?android:attr/buttonBarButtonStyle" attribute on each of the
+   buttons, and set style="?android:attr/buttonBarStyle" on the parent layout
+
+   https://d.android.com/r/studio-ui/designer/material/dialogs
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:171: Warning: This text field does not specify an inputType [TextFields]
+        <EditText
+         ~~~~~~~~
+
+   Explanation for issues of type "TextFields":
+   Providing an inputType attribute on a text field improves usability because
+   depending on the data to be input, optimized keyboards can be shown to the
+   user (such as just digits and parentheses for a phone number). 
+
+   The lint detector also looks at the id of the view, and if the id offers a
+   hint of the purpose of the field (for example, the id contains the phrase
+   phone or email), then lint will also ensure that the inputType contains the
+   corresponding type attributes.
+
+   If you really want to keep the text field generic, you can suppress this
+   warning by setting inputType="text".
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:47: Warning: Missing autofillHints attribute [Autofill]
+            <EditText
+             ~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:69: Warning: Missing autofillHints attribute [Autofill]
+            <EditText
+             ~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:171: Warning: Missing autofillHints attribute [Autofill]
+        <EditText
+         ~~~~~~~~
+
+   Explanation for issues of type "Autofill":
+   Specify an autofillHints attribute when targeting SDK version 26 or higher
+   or explicitly specify that the view is not important for autofill. Your app
+   can help an autofill service classify the data correctly by providing the
+   meaning of each view that could be autofillable, such as views representing
+   usernames, passwords, credit card fields, email addresses, etc.
+
+   The hints can have any value, but it is recommended to use predefined
+   values like 'username' for a username or 'creditCardNumber' for a credit
+   card number. For a list of all predefined autofill hint constants, see the
+   AUTOFILL_HINT_ constants in the View reference at
+   https://developer.android.com/reference/android/view/View.html.
+
+   You can mark a view unimportant for autofill by specifying an
+   importantForAutofill attribute on that view or a parent view. See
+   https://developer.android.com/reference/android/view/View.html#setImportant
+   ForAutofill(int).
+
+   https://developer.android.com/guide/topics/text/autofill.html
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\java\com\safewalk\map\MapActivity.kt:371: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                    searchStatus.text = "${facility.name}\n${facility.address}"
+                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:53: Warning: Hardcoded string "출발지 검색", should use @string resource [HardcodedText]
+                android:hint="출발지 검색"
+                ~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:62: Warning: Hardcoded string "출발지 설정", should use @string resource [HardcodedText]
+                android:text="출발지 설정" />
+                ~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:75: Warning: Hardcoded string "도착지 검색", should use @string resource [HardcodedText]
+                android:hint="도착지 검색"
+                ~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:84: Warning: Hardcoded string "도착지 설정", should use @string resource [HardcodedText]
+                android:text="도착지 설정" />
+                ~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:120: Warning: Hardcoded string "생활안전지도", should use @string resource [HardcodedText]
+                    android:text="생활안전지도" />
+                    ~~~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:142: Warning: Hardcoded string "최단경로", should use @string resource [HardcodedText]
+                android:text="최단경로" />
+                ~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:148: Warning: Hardcoded string "안전경로", should use @string resource [HardcodedText]
+                android:text="안전경로" />
+                ~~~~~~~~~~~~~~~~~~~
+C:\2026.09-12-GODGILL\android\mobile\src\main\res\layout\activity_map.xml:154: Warning: Hardcoded string "초기화", should use @string resource [HardcodedText]
+                android:text="초기화" />
+                ~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "HardcodedText":
+   Hardcoding text attributes directly in layout files is bad for several
+   reasons:
+
+   * When creating configuration variations (for example for landscape or
+   portrait) you have to repeat the actual text (and keep it up to date when
+   making changes)
+
+   * The application cannot be translated to other languages by just adding
+   new translations for existing string resources.
+
+   There are quickfixes to automatically extract this hardcoded string into a
+   resource lookup.
+
+0 errors, 26 warnings

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.3.2" type="partial_results">
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="com.safewalk.login.LoginActivity"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <entry
+            name="model"
+            string="drawable[marker_convenience(U),marker_fire(U),marker_security(U)],id[map_container(U),safemap_overlay(U),facility_overlay(U),cctv_overlay(U),security_light_overlay(U),route_overlay(U),route_start_query(U),route_start_button(U),route_end_query(U),route_end_button(U),toggle_facilities(U),toggle_cctv(U),toggle_security_lights(U),toggle_safemap(U),route_shortest_button(U),route_safe_button(U),route_reset_button(U),route_result_text(U),search_query(U),search_button(U),search_status(U),search_results(U),map_status(U)],layout[activity_map(U)],string[app_name(U),layer_facilities(U),layer_cctv(U),layer_security_lights(U),search_hint(U),search_button(U),map_loading(U),map_key_missing(U),map_load_failed(U),search_empty_query(U),search_key_missing(U),search_loading(U),search_empty(U),search_count(U),search_auth_error(U),search_limit_error(U),search_failed(U),search_map_wait(U),safemap_load_failed(U),cctv_details(U),cctv_load_failed(U),security_light_details(U),security_light_load_failed(U),route_point_searching(U),route_point_not_found(U),route_start_set(U),route_end_set(U),route_need_points(U),route_loading(U),route_network_failed(U),route_out_of_area(U),route_not_found(U),route_summary_shortest(U),route_summary_safe(U)],style[Theme_SafeWalk(U)];1a^1c^1d^1e^1f^20^21;;;"/>
+    </map>
+
+</incidents>
