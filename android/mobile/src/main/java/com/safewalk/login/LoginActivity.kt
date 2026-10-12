@@ -65,7 +65,11 @@ class LoginActivity : ComponentActivity() {
     }
 
     private fun openMap() {
-        startActivity(Intent(this, MapActivity::class.java))
+        startActivity(
+            Intent(this, MapActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            ),
+        )
         finish()
     }
 }

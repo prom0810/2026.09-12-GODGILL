@@ -31,6 +31,8 @@ import com.kakao.vectormap.MapView
 import com.kakao.vectormap.camera.CameraUpdateFactory
 import com.safewalk.BuildConfig
 import com.safewalk.R
+import com.safewalk.main.navigation.MainTab
+import com.safewalk.main.navigation.bindBottomNavigation
 import com.safewalk.map.model.CctvSite
 import com.safewalk.map.model.Facility
 import com.safewalk.map.model.FacilityType
@@ -81,6 +83,7 @@ class MapActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map)
+        bindBottomNavigation(MainTab.MAP)
         bindViews()
         configureSystemBars()
         configureInteractions()

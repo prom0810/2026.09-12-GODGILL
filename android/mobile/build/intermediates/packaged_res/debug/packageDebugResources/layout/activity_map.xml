@@ -95,6 +95,7 @@
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:layout_margin="12dp"
+        android:layout_marginBottom="80dp"
         android:background="@drawable/map_panel_background"
         android:elevation="10dp"
         android:padding="12dp">
@@ -213,6 +214,8 @@
             android:accessibilityLiveRegion="polite"
             android:textColor="#202124" />
     </LinearLayout>
+
+    <include layout="@layout/layout_bottom_navigation" />
 
     <!-- 기존 장소검색/레이어 토글/검색결과 UI: 화면에는 숨기되, MapActivity.kt가
          findViewById로 참조하므로 뷰 자체는 남겨둔다 (완전히 지우면 앱이 튕김) -->

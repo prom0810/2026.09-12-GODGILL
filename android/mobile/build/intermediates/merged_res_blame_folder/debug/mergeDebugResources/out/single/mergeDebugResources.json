@@ -1,19 +1,55 @@
 [
     {
-        "merged": "com.safewalk.mobile-debug-3:/drawable_map_filter_checked.xml.flat",
-        "source": "com.safewalk.mobile-main-5:/drawable/map_filter_checked.xml"
+        "merged": "com.safewalk.mobile-debug-3:/drawable_ic_nav_report.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/ic_nav_report.xml"
     },
     {
         "merged": "com.safewalk.mobile-debug-3:/drawable_marker_fire.xml.flat",
         "source": "com.safewalk.mobile-main-5:/drawable/marker_fire.xml"
     },
     {
+        "merged": "com.safewalk.mobile-debug-3:/drawable_map_filter_checked.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/map_filter_checked.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/drawable_marker_security.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/marker_security.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/layout_activity_map.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/layout/activity_map.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/drawable_ic_nav_map.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/ic_nav_map.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/color_bottom_nav_item_color.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/color/bottom_nav_item_color.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/layout_activity_my.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/layout/activity_my.xml"
+    },
+    {
         "merged": "com.safewalk.mobile-debug-3:/drawable_map_filter_background.xml.flat",
         "source": "com.safewalk.mobile-main-5:/drawable/map_filter_background.xml"
     },
     {
+        "merged": "com.safewalk.mobile-debug-3:/drawable_ic_nav_my.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/ic_nav_my.xml"
+    },
+    {
         "merged": "com.safewalk.mobile-debug-3:/drawable_map_panel_background.xml.flat",
         "source": "com.safewalk.mobile-main-5:/drawable/map_panel_background.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/drawable_ic_nav_notifications.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/ic_nav_notifications.xml"
+    },
+    {
+        "merged": "com.safewalk.mobile-debug-3:/layout_layout_bottom_navigation.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/layout/layout_bottom_navigation.xml"
     },
     {
         "merged": "com.safewalk.mobile-debug-3:/drawable_marker_convenience.xml.flat",
@@ -24,15 +60,15 @@
         "source": "com.safewalk.mobile-main-5:/drawable/map_filter_unchecked.xml"
     },
     {
-        "merged": "com.safewalk.mobile-debug-3:/drawable_marker_security.xml.flat",
-        "source": "com.safewalk.mobile-main-5:/drawable/marker_security.xml"
+        "merged": "com.safewalk.mobile-debug-3:/layout_activity_report.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/layout/activity_report.xml"
     },
     {
         "merged": "com.safewalk.mobile-debug-3:/color_map_filter_text.xml.flat",
         "source": "com.safewalk.mobile-main-5:/color/map_filter_text.xml"
     },
     {
-        "merged": "com.safewalk.mobile-debug-3:/layout_activity_map.xml.flat",
-        "source": "com.safewalk.mobile-main-5:/layout/activity_map.xml"
+        "merged": "com.safewalk.mobile-debug-3:/layout_activity_notifications.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/layout/activity_notifications.xml"
     }
 ]

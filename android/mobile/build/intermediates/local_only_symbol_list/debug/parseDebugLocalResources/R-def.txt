@@ -1,6 +1,11 @@
 R_DEF: Internal format may change without notice
 local
+color bottom_nav_item_color
 color map_filter_text
+drawable ic_nav_map
+drawable ic_nav_my
+drawable ic_nav_notifications
+drawable ic_nav_report
 drawable map_filter_background
 drawable map_filter_checked
 drawable map_filter_unchecked
@@ -8,10 +13,19 @@ drawable map_panel_background
 drawable marker_convenience
 drawable marker_fire
 drawable marker_security
+id bottom_navigation
 id cctv_overlay
 id facility_overlay
+id main_container
 id map_container
 id map_status
+id my_login_button
+id nav_map
+id nav_my
+id nav_notifications
+id nav_report
+id report_category
+id report_detail
 id route_end_button
 id route_end_query
 id route_overlay
@@ -27,11 +41,16 @@ id search_query
 id search_results
 id search_status
 id security_light_overlay
+id submit_report_button
 id toggle_cctv
 id toggle_facilities
 id toggle_safemap
 id toggle_security_lights
 layout activity_map
+layout activity_my
+layout activity_notifications
+layout activity_report
+layout layout_bottom_navigation
 string app_name
 string cctv_details
 string cctv_load_failed

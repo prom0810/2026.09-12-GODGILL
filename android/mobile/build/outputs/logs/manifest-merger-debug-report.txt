@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-26:12
-INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-26:12
-INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-26:12
-INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-26:12
+ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-29:12
+INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-29:12
+INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-29:12
+INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:2:1-29:12
 MERGED from [androidx.activity:activity:1.8.2] C:\Users\111111\.gradle\caches\9.5.0\transforms\ba495d61eb1708a59c9fa0791e091db5\transformed\activity-1.8.2\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.compose.material3:material3-android:1.4.0] C:\Users\111111\.gradle\caches\9.5.0\transforms\7caa250f02548d2c69fd327f202aa230\transformed\material3\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.compose.material:material-android:1.10.4] C:\Users\111111\.gradle\caches\9.5.0\transforms\2d687db3b37b27dc93587bdbb2a27ded\transformed\material\AndroidManifest.xml:2:1-7:12
@@ -108,8 +108,8 @@ ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:10:
 	android:required
 		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:10:52-75
 application
-ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:12:5-25:19
-INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:12:5-25:19
+ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:12:5-28:19
+INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:12:5-28:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.10.4] C:\Users\111111\.gradle\caches\9.5.0\transforms\ca982bce19b763bd31c9b998055ad280\transformed\ui-tooling\AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.10.4] C:\Users\111111\.gradle\caches\9.5.0\transforms\ca982bce19b763bd31c9b998055ad280\transformed\ui-tooling\AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.window:window:1.5.0] C:\Users\111111\.gradle\caches\9.5.0\transforms\5de8f072a2c9993fa2a8965a1b27fe2d\transformed\window-1.5.0\AndroidManifest.xml:22:5-29:19
@@ -162,6 +162,24 @@ ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:24:
 		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:24:56-80
 	android:name
 		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:24:19-55
+activity#com.safewalk.report.view.ReportActivity
+ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:25:9-89
+	android:exported
+		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:25:62-86
+	android:name
+		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:25:19-61
+activity#com.safewalk.notification.view.NotificationActivity
+ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:26:9-101
+	android:exported
+		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:26:74-98
+	android:name
+		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:26:19-73
+activity#com.safewalk.mypage.view.MyActivity
+ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:27:9-85
+	android:exported
+		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:27:58-82
+	android:name
+		ADDED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml:27:19-57
 uses-sdk
 INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\2026.09-12-GODGILL\android\mobile\src\main\AndroidManifest.xml

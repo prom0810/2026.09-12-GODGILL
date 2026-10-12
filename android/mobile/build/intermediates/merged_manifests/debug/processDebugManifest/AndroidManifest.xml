@@ -53,6 +53,15 @@
             android:name="com.safewalk.map.view.MapActivity"
             android:exported="false" />
         <activity
+            android:name="com.safewalk.report.view.ReportActivity"
+            android:exported="false" />
+        <activity
+            android:name="com.safewalk.notification.view.NotificationActivity"
+            android:exported="false" />
+        <activity
+            android:name="com.safewalk.mypage.view.MyActivity"
+            android:exported="false" />
+        <activity
             android:name="androidx.compose.ui.tooling.PreviewActivity"
             android:exported="true" />
 
