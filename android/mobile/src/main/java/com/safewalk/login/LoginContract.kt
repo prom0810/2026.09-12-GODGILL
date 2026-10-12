@@ -22,8 +22,8 @@ data class LoginUiState(
         get() = loginEmail.isNotBlank() && loginPassword.isNotBlank()
 
     val canContinueSignUp: Boolean
-        get() = name.isNotBlank() && signUpEmail.contains("@") &&
-            signUpPassword.length >= 6 && phoneNumber.isNotBlank() && agreedToTerms
+        // TODO 회원가입 API 연결 시 서버 정책에 맞는 필드별 검증을 적용합니다.
+        get() = agreedToTerms
 
     val canContinueUserType: Boolean
         get() = userType != null

@@ -41,6 +41,7 @@ class LoginActivity : ComponentActivity() {
                     // TODO 백엔드 구현 후 viewModel.uiState.toLoginRequest()를 전달합니다.
                     openMap()
                 },
+                onContinueAsGuest = ::openMap,
                 onStart = ::requestSelectedPermissions,
                 onSkipPermissions = ::openMap,
             )

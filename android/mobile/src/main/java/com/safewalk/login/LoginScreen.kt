@@ -75,6 +75,7 @@ fun LoginScreen(
     onContinueToPermissions: () -> Unit,
     onBack: () -> Unit,
     onLogin: () -> Unit,
+    onContinueAsGuest: () -> Unit,
     onStart: () -> Unit,
     onSkipPermissions: () -> Unit,
 ) {
@@ -87,6 +88,7 @@ fun LoginScreen(
                     onEmailChange = onLoginEmailChange,
                     onPasswordChange = onLoginPasswordChange,
                     onLogin = onLogin,
+                    onContinueAsGuest = onContinueAsGuest,
                     onOpenSignUp = onOpenSignUp,
                 )
                 AuthStep.SIGN_UP -> SignUpPage(
@@ -125,6 +127,7 @@ private fun LoginPage(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLogin: () -> Unit,
+    onContinueAsGuest: () -> Unit,
     onOpenSignUp: () -> Unit,
 ) {
     Column(
@@ -166,6 +169,12 @@ private fun LoginPage(
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) {
             Text("○  카카오로 계속하기", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+        TextButton(
+            onClick = onContinueAsGuest,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("비회원으로 둘러보기", color = Muted, fontSize = 13.sp)
         }
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -473,6 +482,25 @@ private fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
 @Composable
 private fun LoginPreview() {
     LoginScreen(
-        state = LoginUiState(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+        state = LoginUiState(),
+        onLoginEmailChange = {},
+        onLoginPasswordChange = {},
+        onNameChange = {},
+        onSignUpEmailChange = {},
+        onSignUpPasswordChange = {},
+        onPhoneNumberChange = {},
+        onTermsAgreementChange = {},
+        onUserTypeChange = {},
+        onNotificationPermissionChange = {},
+        onActivityPermissionChange = {},
+        onContactsPermissionChange = {},
+        onOpenSignUp = {},
+        onContinueToUserType = {},
+        onContinueToPermissions = {},
+        onBack = {},
+        onLogin = {},
+        onContinueAsGuest = {},
+        onStart = {},
+        onSkipPermissions = {},
     )
 }
