@@ -16,18 +16,18 @@
         android:layout_height="match_parent"
         android:clipChildren="false"
         android:visibility="invisible" />
-    <com.safewalk.map.CctvOverlayView
+    <com.safewalk.map.view.CctvOverlayView
         android:id="@+id/cctv_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible" />
-    <com.safewalk.map.SecurityLightOverlayView
+    <com.safewalk.map.view.SecurityLightOverlayView
         android:id="@+id/security_light_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible" />
     <!-- 안심경로 추천: 최단/안전경로 선 + 출발/도착 마커 오버레이 -->
-    <com.safewalk.map.RouteOverlayView
+    <com.safewalk.map.view.RouteOverlayView
         android:id="@+id/route_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

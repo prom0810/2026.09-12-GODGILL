@@ -8,7 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import com.safewalk.map.MapActivity
+import com.safewalk.map.view.MapActivity
 
 class LoginActivity : ComponentActivity() {
     private val viewModel: LoginViewModel by viewModels()

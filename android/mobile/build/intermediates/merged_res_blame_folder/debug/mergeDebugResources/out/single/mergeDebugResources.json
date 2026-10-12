@@ -1,19 +1,15 @@
 [
     {
-        "merged": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-debug-3:\\drawable_marker_security.xml.flat",
-        "source": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-main-5:\\drawable\\marker_security.xml"
+        "merged": "com.safewalk.mobile-debug-3:/drawable_marker_fire.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/marker_fire.xml"
     },
     {
-        "merged": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-debug-3:\\drawable_marker_fire.xml.flat",
-        "source": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-main-5:\\drawable\\marker_fire.xml"
+        "merged": "com.safewalk.mobile-debug-3:/drawable_marker_convenience.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/marker_convenience.xml"
     },
     {
-        "merged": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-debug-3:\\drawable_marker_convenience.xml.flat",
-        "source": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-main-5:\\drawable\\marker_convenience.xml"
-    },
-    {
-        "merged": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-debug-3:\\layout_activity_map.xml.flat",
-        "source": "C:\\Users\\111111\\.gradle\\daemon\\9.5.0\\com.safewalk.mobile-main-5:\\layout\\activity_map.xml"
+        "merged": "com.safewalk.mobile-debug-3:/drawable_marker_security.xml.flat",
+        "source": "com.safewalk.mobile-main-5:/drawable/marker_security.xml"
     },
     {
         "merged": "com.safewalk.mobile-debug-3:/layout_activity_map.xml.flat",
