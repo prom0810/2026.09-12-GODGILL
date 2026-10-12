@@ -31,10 +31,10 @@ data class RouteUiState(
 
 data class MapUiState(
     val isMapReady: Boolean = false,
-    val facilitiesEnabled: Boolean = true,
-    val cctvEnabled: Boolean = true,
-    val securityLightsEnabled: Boolean = true,
-    val safeMapEnabled: Boolean = true,
+    val facilitiesEnabled: Boolean = false,
+    val cctvEnabled: Boolean = false,
+    val securityLightsEnabled: Boolean = false,
+    val safeMapEnabled: Boolean = false,
     val facilities: List<Facility> = emptyList(),
     val cctvSites: List<CctvSite> = emptyList(),
     val securityLightSites: List<SecurityLightSite> = emptyList(),
