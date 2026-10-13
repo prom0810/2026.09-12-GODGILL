@@ -196,7 +196,10 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { state ->
             val result = if (isSafeRoute) state.route.safeResult else state.route.shortestResult
             if (result == null) state else state.copy(
-                route = state.route.copy(displayedIsSafe = isSafeRoute),
+                route = state.route.copy(
+                    displayedIsSafe = isSafeRoute,
+                    isGuidanceActive = true,
+                ),
             )
         }
     }

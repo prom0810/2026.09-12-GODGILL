@@ -26,6 +26,7 @@ data class RouteUiState(
     val safeResult: RouteAStar.RouteResult? = null,
     val displayedIsSafe: Boolean = false,
     val isLoading: Boolean = false,
+    val isGuidanceActive: Boolean = false,
 ) {
     val displayedResult: RouteAStar.RouteResult?
         get() = if (displayedIsSafe) safeResult else shortestResult

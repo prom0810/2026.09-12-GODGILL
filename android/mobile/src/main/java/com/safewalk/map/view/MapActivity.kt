@@ -35,6 +35,7 @@ import com.safewalk.BuildConfig
 import com.safewalk.R
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.main.navigation.bindBottomNavigation
+import com.safewalk.main.navigation.showSosDialog
 import com.safewalk.map.model.CctvSite
 import com.safewalk.map.model.Facility
 import com.safewalk.map.model.FacilityType
@@ -88,6 +89,9 @@ class MapActivity : ComponentActivity() {
     private lateinit var resetRouteButton: Button
     private lateinit var routeResultText: TextView
     private lateinit var layerStatus: TextView
+    private lateinit var routeGuidanceActions: View
+    private lateinit var routeShareLocationButton: Button
+    private lateinit var routeSosButton: Button
 
     private val shortestRouteColor = Color.rgb(198, 40, 40)
     private val safeRouteColor = Color.rgb(46, 125, 50)
@@ -126,6 +130,9 @@ class MapActivity : ComponentActivity() {
         resetRouteButton = findViewById(R.id.route_reset_button)
         routeResultText = findViewById(R.id.route_result_text)
         layerStatus = findViewById(R.id.layer_status)
+        routeGuidanceActions = findViewById(R.id.route_guidance_actions)
+        routeShareLocationButton = findViewById(R.id.route_share_location_button)
+        routeSosButton = findViewById(R.id.route_sos_button)
     }
 
     private fun configureSystemBars() {
@@ -203,6 +210,8 @@ class MapActivity : ComponentActivity() {
             viewModel.searchRoutePoint(endQuery.text.toString(), isStart = false)
         }
         compareRouteButton.setOnClickListener { viewModel.compareRoutes() }
+        routeShareLocationButton.isEnabled = false
+        routeSosButton.setOnClickListener { showSosDialog() }
         resetRouteButton.setOnClickListener {
             viewModel.resetRoute()
             startQuery.text.clear()
@@ -490,6 +499,7 @@ class MapActivity : ComponentActivity() {
     }
 
     private fun renderRouteSummary(route: RouteUiState) {
+        routeGuidanceActions.visibility = if (route.isGuidanceActive) View.VISIBLE else View.GONE
         if (route.isLoading || route.shortestResult == null && route.safeResult == null) return
         routeResultText.text = buildString {
             route.shortestResult?.let {
