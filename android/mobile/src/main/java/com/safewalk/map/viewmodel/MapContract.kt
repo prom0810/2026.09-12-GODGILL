@@ -51,5 +51,6 @@ data class UiText(
 sealed interface MapEffect {
     data class SafeMapImageReady(val bitmap: Bitmap) : MapEffect
     data class MoveCamera(val point: GeoPoint) : MapEffect
+    data class ChooseRoutePoint(val isStart: Boolean, val places: List<Place>) : MapEffect
     data class ShowMessage(val text: UiText) : MapEffect
 }

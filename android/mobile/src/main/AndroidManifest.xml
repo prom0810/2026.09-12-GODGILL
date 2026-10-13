@@ -21,6 +21,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".signup.SignupActivity" android:exported="false" />
         <activity android:name=".map.view.MapActivity" android:exported="false" />
         <activity android:name=".report.view.ReportActivity" android:exported="false" />
         <activity android:name=".notification.view.NotificationActivity" android:exported="false" />

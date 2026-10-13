@@ -136,24 +136,27 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
             showMessage(R.string.route_point_searching, trimmed)
             runCatchingIo { repository.searchPlaces(trimmed) }
                 .onSuccess { places ->
-                    val place = places.firstOrNull()
-                    if (place == null) {
-                        showMessage(R.string.route_point_not_found, trimmed)
-                        return@onSuccess
+                    when {
+                        places.isEmpty() -> showMessage(R.string.route_point_not_found, trimmed)
+                        places.size == 1 -> selectRoutePoint(places[0], isStart)
+                        else -> emitEffect(MapEffect.ChooseRoutePoint(isStart, places))
                     }
-                    val point = place.toGeoPoint()
-                    _uiState.update { state ->
-                        state.copy(route = if (isStart) {
-                            state.route.copy(startPoint = point, shortestResult = null, safeResult = null)
-                        } else {
-                            state.route.copy(endPoint = point, shortestResult = null, safeResult = null)
-                        })
-                    }
-                    showMessage(if (isStart) R.string.route_start_set else R.string.route_end_set, place.name)
-                    emitEffect(MapEffect.MoveCamera(point))
                 }
                 .onFailure { showMessage(R.string.route_point_not_found, trimmed) }
         }
+    }
+
+    fun selectRoutePoint(place: Place, isStart: Boolean) {
+        val point = place.toGeoPoint()
+        _uiState.update { state ->
+            state.copy(route = if (isStart) {
+                state.route.copy(startPoint = point, shortestResult = null, safeResult = null)
+            } else {
+                state.route.copy(endPoint = point, shortestResult = null, safeResult = null)
+            })
+        }
+        showMessage(if (isStart) R.string.route_start_set else R.string.route_end_set, place.name)
+        emitEffect(MapEffect.MoveCamera(point))
     }
 
     fun showRoute(isSafeRoute: Boolean) {

@@ -160,7 +160,16 @@ private fun LoginPage(
                 Text("비밀번호 찾기", color = Muted, fontSize = 12.sp)
             }
         }
-        PrimaryButton("로그인", state.canLogin, onLogin)
+        PrimaryButton(if (state.isLoading) "로그인 중..." else "로그인", state.canLogin, onLogin)
+        state.errorMessage?.let { message ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = message,
+                color = Color(0xFFB3261E),
+                fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(Modifier.height(12.dp))
         OutlinedButton(
             onClick = {},

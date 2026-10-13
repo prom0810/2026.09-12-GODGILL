@@ -1,0 +1,36 @@
+# 모노레포 루트 .gitignore (android/, backend/ 공통으로 적용됨)
+# 각 하위 프로젝트에 이미 있는 .gitignore(예: backend/.gitignore)는 그대로 유지되며 함께 적용된다.
+
+### IDE (IntelliJ / Android Studio) ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+### Gradle / Kotlin ###
+.gradle/
+.kotlin/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### 개인 설정 — 절대 커밋 금지 ###
+local.properties
+local.properties.local
+.env
+.env.*
+!.env.example
+!local.properties.example
+application-local.yml
+application-secret.yml
+
+### 빌드 산출물 / 서명 키 ###
+*.apk
+*.aab
+*.jks
+*.keystore
+
+### OS ###
+.DS_Store
+Thumbs.db

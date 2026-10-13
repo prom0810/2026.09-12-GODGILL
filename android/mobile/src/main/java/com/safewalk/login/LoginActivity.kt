@@ -37,10 +37,7 @@ class LoginActivity : ComponentActivity() {
                 onContinueToUserType = viewModel::continueToUserType,
                 onContinueToPermissions = viewModel::continueToPermissions,
                 onBack = viewModel::goBack,
-                onLogin = {
-                    // TODO 백엔드 구현 후 viewModel.uiState.toLoginRequest()를 전달합니다.
-                    openMap()
-                },
+                onLogin = { viewModel.login(onSuccess = ::openMap) },
                 onContinueAsGuest = ::openMap,
                 onStart = ::requestSelectedPermissions,
                 onSkipPermissions = ::openMap,

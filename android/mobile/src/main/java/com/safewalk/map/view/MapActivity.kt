@@ -1,5 +1,6 @@
 package com.safewalk.map.view
 
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.drawable.BitmapDrawable
@@ -351,8 +352,18 @@ class MapActivity : ComponentActivity() {
                     )
                 }
             }
+            is MapEffect.ChooseRoutePoint -> showRoutePointPicker(effect.isStart, effect.places)
             is MapEffect.ShowMessage -> showMessage(effect.text)
         }
+    }
+
+    private fun showRoutePointPicker(isStart: Boolean, places: List<Place>) {
+        val labels = places.map { "${it.name}\n${it.address}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(if (isStart) "출발지 선택" else "도착지 선택")
+            .setItems(labels) { _, index -> viewModel.selectRoutePoint(places[index], isStart) }
+            .setNegativeButton("취소", null)
+            .show()
     }
 
     private fun showMessage(text: UiText) {
