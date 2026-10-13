@@ -19,6 +19,7 @@ import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -52,6 +53,16 @@ import kotlin.math.ceil
 
 class MapActivity : ComponentActivity() {
     private val viewModel: MapViewModel by viewModels()
+    private val routeComparisonLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val isSafeRoute = result.data?.getBooleanExtra(
+            RouteComparisonActivity.EXTRA_IS_SAFE_ROUTE,
+            true,
+        ) ?: return@registerForActivityResult
+        viewModel.setDisplayedRoute(isSafeRoute)
+    }
 
     private var mapView: MapView? = null
     private var kakaoMap: KakaoMap? = null
@@ -353,6 +364,9 @@ class MapActivity : ComponentActivity() {
                 }
             }
             is MapEffect.ChooseRoutePoint -> showRoutePointPicker(effect.isStart, effect.places)
+            is MapEffect.OpenRouteComparison -> routeComparisonLauncher.launch(
+                RouteComparisonActivity.createIntent(this, effect),
+            )
             is MapEffect.ShowMessage -> showMessage(effect.text)
         }
     }

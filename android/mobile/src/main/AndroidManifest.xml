@@ -23,6 +23,7 @@
         </activity>
         <activity android:name=".signup.SignupActivity" android:exported="false" />
         <activity android:name=".map.view.MapActivity" android:exported="false" />
+        <activity android:name=".map.view.RouteComparisonActivity" android:exported="false" />
         <activity android:name=".report.view.ReportActivity" android:exported="false" />
         <activity android:name=".notification.view.NotificationActivity" android:exported="false" />
         <activity android:name=".mypage.view.MyActivity" android:exported="false" />

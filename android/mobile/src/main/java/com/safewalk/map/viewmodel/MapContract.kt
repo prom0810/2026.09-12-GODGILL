@@ -19,7 +19,9 @@ data class GeoPoint(val latitude: Double, val longitude: Double)
 
 data class RouteUiState(
     val startPoint: GeoPoint? = null,
+    val startName: String = "",
     val endPoint: GeoPoint? = null,
+    val endName: String = "",
     val shortestResult: RouteAStar.RouteResult? = null,
     val safeResult: RouteAStar.RouteResult? = null,
     val displayedIsSafe: Boolean = false,
@@ -52,5 +54,13 @@ sealed interface MapEffect {
     data class SafeMapImageReady(val bitmap: Bitmap) : MapEffect
     data class MoveCamera(val point: GeoPoint) : MapEffect
     data class ChooseRoutePoint(val isStart: Boolean, val places: List<Place>) : MapEffect
+    data class OpenRouteComparison(
+        val startName: String,
+        val endName: String,
+        val shortestDistanceMeters: Int,
+        val shortestSafetyScore: Int,
+        val safeDistanceMeters: Int,
+        val safeSafetyScore: Int,
+    ) : MapEffect
     data class ShowMessage(val text: UiText) : MapEffect
 }
