@@ -177,6 +177,21 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         calculateRoutes(isSafeRoute, openComparison = false)
     }
 
+    fun compareRoutes() {
+        val route = _uiState.value.route
+        if (route.startPoint == null || route.endPoint == null) {
+            showMessage(R.string.route_need_points)
+            return
+        }
+        val shortest = route.shortestResult
+        val safe = route.safeResult
+        if (shortest != null && safe != null) {
+            emitRouteComparison(route, shortest, safe)
+        } else {
+            calculateRoutes(isSafeRoute = true, openComparison = true)
+        }
+    }
+
     fun setDisplayedRoute(isSafeRoute: Boolean) {
         _uiState.update { state ->
             val result = if (isSafeRoute) state.route.safeResult else state.route.shortestResult
@@ -236,14 +251,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                         val shortest = result.shortest
                         val safe = result.safe
                         if (openComparison && shortest != null && safe != null) {
-                            emitEffect(MapEffect.OpenRouteComparison(
-                                startName = state.route.startName,
-                                endName = state.route.endName,
-                                shortestDistanceMeters = shortest.totalDistanceMeters.toInt(),
-                                shortestSafetyScore = (shortest.averageSafetyScore * 100).toInt(),
-                                safeDistanceMeters = safe.totalDistanceMeters.toInt(),
-                                safeSafetyScore = (safe.averageSafetyScore * 100).toInt(),
-                            ))
+                            emitRouteComparison(state.route, shortest, safe)
                         }
                     }
                 }
@@ -257,6 +265,21 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     fun resetRoute() {
         routeJob?.cancel()
         _uiState.update { it.copy(route = RouteUiState()) }
+    }
+
+    private fun emitRouteComparison(
+        route: RouteUiState,
+        shortest: RouteAStar.RouteResult,
+        safe: RouteAStar.RouteResult,
+    ) {
+        emitEffect(MapEffect.OpenRouteComparison(
+            startName = route.startName,
+            endName = route.endName,
+            shortestDistanceMeters = shortest.totalDistanceMeters.toInt(),
+            shortestSafetyScore = (shortest.averageSafetyScore * 100).toInt(),
+            safeDistanceMeters = safe.totalDistanceMeters.toInt(),
+            safeSafetyScore = (safe.averageSafetyScore * 100).toInt(),
+        ))
     }
 
     private fun loadSafeMap(viewport: MapViewport) {

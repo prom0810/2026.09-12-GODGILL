@@ -184,21 +184,13 @@
             android:layout_marginTop="10dp"
             android:orientation="horizontal">
             <Button
-                android:id="@+id/route_shortest_button"
+                android:id="@+id/route_compare_button"
                 android:layout_width="0dp"
-                android:layout_weight="1"
+                android:layout_weight="2"
                 android:layout_height="wrap_content"
                 android:backgroundTint="#252A28"
                 android:textColor="#FFFFFF"
-                android:text="최단경로" />
-            <Button
-                android:id="@+id/route_safe_button"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:backgroundTint="#252A28"
-                android:textColor="#FFFFFF"
-                android:text="안전경로" />
+                android:text="@string/compare_routes" />
             <Button
                 android:id="@+id/route_reset_button"
                 android:layout_width="0dp"

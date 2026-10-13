@@ -40,6 +40,7 @@
     <string name="route_not_found">경로를 찾을 수 없습니다.</string>
     <string name="route_summary_shortest">최단 %1$dm·%2$d분·%3$d점</string>
     <string name="route_summary_safe">안전 %1$dm·%2$d분·%3$d점</string>
+    <string name="compare_routes">경로 비교</string>
     <string name="back">뒤로</string>
     <string name="back_symbol" translatable="false">‹</string>
     <string name="route_comparison_title">경로 비교</string>

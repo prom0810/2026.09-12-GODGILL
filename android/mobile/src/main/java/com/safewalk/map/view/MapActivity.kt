@@ -84,8 +84,7 @@ class MapActivity : ComponentActivity() {
     private lateinit var startSetButton: Button
     private lateinit var endQuery: EditText
     private lateinit var endSetButton: Button
-    private lateinit var shortestRouteButton: Button
-    private lateinit var safeRouteButton: Button
+    private lateinit var compareRouteButton: Button
     private lateinit var resetRouteButton: Button
     private lateinit var routeResultText: TextView
 
@@ -122,8 +121,7 @@ class MapActivity : ComponentActivity() {
         startSetButton = findViewById(R.id.route_start_button)
         endQuery = findViewById(R.id.route_end_query)
         endSetButton = findViewById(R.id.route_end_button)
-        shortestRouteButton = findViewById(R.id.route_shortest_button)
-        safeRouteButton = findViewById(R.id.route_safe_button)
+        compareRouteButton = findViewById(R.id.route_compare_button)
         resetRouteButton = findViewById(R.id.route_reset_button)
         routeResultText = findViewById(R.id.route_result_text)
     }
@@ -201,8 +199,7 @@ class MapActivity : ComponentActivity() {
         endSetButton.setOnClickListener {
             viewModel.searchRoutePoint(endQuery.text.toString(), isStart = false)
         }
-        shortestRouteButton.setOnClickListener { viewModel.showRoute(isSafeRoute = false) }
-        safeRouteButton.setOnClickListener { viewModel.showRoute(isSafeRoute = true) }
+        compareRouteButton.setOnClickListener { viewModel.compareRoutes() }
         resetRouteButton.setOnClickListener {
             viewModel.resetRoute()
             startQuery.text.clear()
