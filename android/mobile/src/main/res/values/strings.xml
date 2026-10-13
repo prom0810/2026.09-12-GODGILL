@@ -26,6 +26,7 @@
     <string name="sos_call_112">112 전화 연결</string>
     <string name="cancel">취소</string>
     <string name="cctv_details">%1$s\n설치 목적: %2$s · 카메라 %3$d대</string>
+    <string name="cctv_loaded">CCTV %1$d개 지점을 표시합니다.</string>
     <string name="cctv_load_failed">천안 CCTV 데이터를 불러오지 못했습니다.</string>
     <string name="security_light_details">%1$s\n%2$s · 보안등 %3$d개</string>
     <string name="security_light_load_failed">보안등 데이터를 불러오지 못했습니다.</string>

@@ -178,6 +178,15 @@
                     android:textSize="12sp" />
             </LinearLayout>
         </HorizontalScrollView>
+        <TextView
+            android:id="@+id/layer_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityLiveRegion="polite"
+            android:textColor="#59605D"
+            android:textSize="12sp"
+            android:visibility="gone" />
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -312,6 +312,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { sites ->
                     routeGraph = null
                     _uiState.update { it.copy(cctvSites = sites) }
+                    showMessage(R.string.cctv_loaded, sites.size)
                 }
                 .onFailure { showMessage(R.string.cctv_load_failed) }
         }

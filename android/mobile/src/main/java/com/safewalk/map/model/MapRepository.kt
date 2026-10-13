@@ -28,7 +28,7 @@ class DefaultMapRepository(
         safeMapServiceKey.takeIf(String::isNotBlank)?.let(::SafeMapWmsClient)
     private val facilitySearch = kakaoRestApiKey.takeIf(String::isNotBlank)?.let(::NearbyFacilitySearch)
     private val placeSearch = kakaoRestApiKey.takeIf(String::isNotBlank)?.let(::KakaoPlaceSearch)
-    private val cctvRepository = CheonanCctvRepository()
+    private val cctvRepository = CheonanCctvRepository(assets)
     private val securityLightRepository = SecurityLightRepository(assets)
 
     override val canLoadSafeMap: Boolean = safeMapClient != null

@@ -87,6 +87,7 @@ class MapActivity : ComponentActivity() {
     private lateinit var compareRouteButton: Button
     private lateinit var resetRouteButton: Button
     private lateinit var routeResultText: TextView
+    private lateinit var layerStatus: TextView
 
     private val shortestRouteColor = Color.rgb(198, 40, 40)
     private val safeRouteColor = Color.rgb(46, 125, 50)
@@ -124,6 +125,7 @@ class MapActivity : ComponentActivity() {
         compareRouteButton = findViewById(R.id.route_compare_button)
         resetRouteButton = findViewById(R.id.route_reset_button)
         routeResultText = findViewById(R.id.route_result_text)
+        layerStatus = findViewById(R.id.layer_status)
     }
 
     private fun configureSystemBars() {
@@ -153,20 +155,20 @@ class MapActivity : ComponentActivity() {
             queryInput.imeHintLocales = LocaleList.forLanguageTags("ko-KR,en-US")
         }
         cctvOverlay.onMarkerClick = { site ->
-            searchStatus.text = getString(
+            showLayerStatus(getString(
                 R.string.cctv_details,
                 site.address,
                 site.purpose,
                 site.cameraCount,
-            )
+            ))
         }
         securityLightOverlay.onMarkerClick = { site, count ->
-            searchStatus.text = getString(
+            showLayerStatus(getString(
                 R.string.security_light_details,
                 site.name,
                 site.address,
                 count,
-            )
+            ))
         }
         facilitiesToggle.setOnCheckedChangeListener { _, checked ->
             viewModel.setFacilitiesEnabled(checked)
@@ -175,6 +177,7 @@ class MapActivity : ComponentActivity() {
         cctvToggle.setOnCheckedChangeListener { _, checked ->
             viewModel.setCctvEnabled(checked)
             cctvOverlay.visibility = if (checked) View.VISIBLE else View.INVISIBLE
+            if (!checked) layerStatus.visibility = View.GONE
         }
         securityLightsToggle.setOnCheckedChangeListener { _, checked ->
             viewModel.setSecurityLightsEnabled(checked)
@@ -381,9 +384,16 @@ class MapActivity : ComponentActivity() {
         val message = getString(text.resourceId, *text.arguments.toTypedArray())
         if (text.resourceId in routeMessageResources) {
             routeResultText.text = message
+        } else if (text.resourceId in layerMessageResources) {
+            showLayerStatus(message)
         } else {
             searchStatus.text = message
         }
+    }
+
+    private fun showLayerStatus(message: String) {
+        layerStatus.text = message
+        layerStatus.visibility = View.VISIBLE
     }
 
     private fun searchPlaces() {
@@ -526,6 +536,12 @@ class MapActivity : ComponentActivity() {
     }
 
     private companion object {
+        val layerMessageResources = setOf(
+            R.string.cctv_loaded,
+            R.string.cctv_load_failed,
+            R.string.security_light_load_failed,
+            R.string.safemap_load_failed,
+        )
         val routeMessageResources = setOf(
             R.string.route_point_searching,
             R.string.route_point_not_found,
