@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 import org.json.JSONObject
 import java.io.BufferedReader

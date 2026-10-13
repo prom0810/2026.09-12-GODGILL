@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -17,8 +17,13 @@ data class WmsBounds(
     val north: Double,
 )
 
-class SafeMapWmsClient(private val serviceKey: String) {
-    fun load(bounds: WmsBounds, width: Int, height: Int): Bitmap {
+/** 생활안전지도 원격 데이터 소스. View에서는 이 타입을 직접 참조하지 않습니다. */
+interface SafeMapDataSource {
+    fun load(bounds: WmsBounds, width: Int, height: Int): Bitmap
+}
+
+class SafeMapWmsClient(private val serviceKey: String) : SafeMapDataSource {
+    override fun load(bounds: WmsBounds, width: Int, height: Int): Bitmap {
         require(serviceKey.isNotBlank()) { "SafeMap service key is missing" }
         require(width > 0 && height > 0) { "WMS image size must be positive" }
 

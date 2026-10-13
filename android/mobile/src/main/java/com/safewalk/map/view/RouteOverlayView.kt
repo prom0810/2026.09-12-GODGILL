@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.view
 
 import android.content.Context
 import android.graphics.Canvas

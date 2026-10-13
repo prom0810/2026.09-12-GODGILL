@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 import kotlin.math.asin
 import kotlin.math.cos

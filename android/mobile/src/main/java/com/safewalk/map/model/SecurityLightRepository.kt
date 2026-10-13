@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 import android.content.res.AssetManager
 import java.util.Locale

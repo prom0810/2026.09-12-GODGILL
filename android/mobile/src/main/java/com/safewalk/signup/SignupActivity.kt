@@ -5,7 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import com.safewalk.map.MapActivity
+import com.safewalk.map.view.MapActivity
 
 class SignupActivity : ComponentActivity() {
     private val viewModel: SignupViewModel by viewModels()

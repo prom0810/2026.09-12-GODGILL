@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 import java.util.PriorityQueue
 
@@ -39,7 +39,7 @@ object RouteAStar {
         open += Entry(startId, 0.0, heuristic(startNode, endNode))
 
         while (open.isNotEmpty()) {
-            val current = open.poll()
+            val current = open.poll() ?: continue
             if (current.nodeId in visited) continue
             visited += current.nodeId
             if (current.nodeId == endId) break

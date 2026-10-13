@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 /** 도로망 그래프의 정점(교차점/노드) */
 data class RouteNode(val id: String, val lat: Double, val lon: Double)

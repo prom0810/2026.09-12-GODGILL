@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.model
 
 import java.net.URL
 import java.nio.charset.Charset

@@ -1,4 +1,4 @@
-package com.safewalk.map
+package com.safewalk.map.view
 
 import android.content.Context
 import android.graphics.Canvas
@@ -8,6 +8,7 @@ import android.graphics.Point
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import com.safewalk.map.model.CctvSite
 import kotlin.math.hypot
 
 data class CctvScreenMarker(val point: Point, val site: CctvSite)

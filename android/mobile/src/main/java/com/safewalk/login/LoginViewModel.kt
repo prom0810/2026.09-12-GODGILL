@@ -17,22 +17,31 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     var uiState by mutableStateOf(LoginUiState())
         private set
 
-    fun updateUserId(value: String) {
-        uiState = uiState.copy(userId = value, errorMessage = null)
+    fun updateLoginEmail(value: String) = update { copy(loginEmail = value, errorMessage = null) }
+    fun updateLoginPassword(value: String) = update { copy(loginPassword = value, errorMessage = null) }
+    fun updateName(value: String) = update { copy(name = value) }
+    fun updateSignUpEmail(value: String) = update { copy(signUpEmail = value) }
+    fun updateSignUpPassword(value: String) = update { copy(signUpPassword = value) }
+    fun updatePhoneNumber(value: String) = update { copy(phoneNumber = value) }
+    fun setTermsAgreement(value: Boolean) = update { copy(agreedToTerms = value) }
+    fun setPrivacyAgreement(value: Boolean) = update { copy(agreedToPrivacy = value) }
+    fun setLocationAgreement(value: Boolean) = update { copy(agreedToLocation = value) }
+    fun setAllAgreements(value: Boolean) = update {
+        copy(
+            agreedToTerms = value,
+            agreedToPrivacy = value,
+            agreedToLocation = value,
+        )
     }
+    fun selectUserType(value: UserType) = update { copy(userType = value) }
+    fun setNotificationPermission(value: Boolean) = update { copy(notificationPermission = value) }
+    fun setActivityPermission(value: Boolean) = update { copy(activityPermission = value) }
+    fun setContactsPermission(value: Boolean) = update { copy(contactsPermission = value) }
+    fun openSignUp() = update { copy(step = AuthStep.SIGN_UP) }
+    fun continueToTerms() = update { copy(step = AuthStep.TERMS) }
+    fun continueToUserType() = update { copy(step = AuthStep.USER_TYPE) }
+    fun continueToPermissions() = update { copy(step = AuthStep.PERMISSIONS) }
 
-    fun updatePassword(value: String) {
-        uiState = uiState.copy(password = value, errorMessage = null)
-    }
-
-    fun selectUserType(value: UserType) {
-        uiState = uiState.copy(userType = value)
-    }
-
-    /**
-     * 로그인 API 호출. 이메일/비밀번호 형식 검증은 하지 않으며(빈 값 여부는 canLogin에서 확인),
-     * 실제 일치 여부 확인은 백엔드가 담당한다. 성공 시 토큰이 저장되고 onSuccess가 호출된다.
-     */
     fun login(onSuccess: () -> Unit) {
         if (!uiState.canLogin) return
         val request = uiState.toLoginRequest()
@@ -40,13 +49,30 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    authRepository.login(email = request.userId, password = request.password)
+                    authRepository.login(email = request.email, password = request.password)
                 }
                 uiState = uiState.copy(isLoading = false)
                 onSuccess()
             } catch (e: Exception) {
-                uiState = uiState.copy(isLoading = false, errorMessage = e.message ?: "로그인에 실패했습니다.")
+                uiState = uiState.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "로그인에 실패했습니다.",
+                )
             }
         }
+    }
+
+    fun goBack() = update {
+        copy(step = when (step) {
+            AuthStep.LOGIN -> AuthStep.LOGIN
+            AuthStep.SIGN_UP -> AuthStep.LOGIN
+            AuthStep.TERMS -> AuthStep.SIGN_UP
+            AuthStep.USER_TYPE -> AuthStep.TERMS
+            AuthStep.PERMISSIONS -> AuthStep.USER_TYPE
+        })
+    }
+
+    private inline fun update(block: LoginUiState.() -> LoginUiState) {
+        uiState = uiState.block()
     }
 }
