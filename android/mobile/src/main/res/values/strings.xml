@@ -18,6 +18,13 @@
     <string name="layer_facilities">안전시설</string>
     <string name="layer_cctv">CCTV</string>
     <string name="layer_security_lights">보안등</string>
+    <string name="layer_danger_zones">위험구간</string>
+    <string name="sos_label">SOS</string>
+    <string name="sos_accessibility_label">긴급 SOS, 112 전화 연결</string>
+    <string name="sos_dialog_title">긴급 SOS</string>
+    <string name="sos_dialog_message">긴급 상황인가요? 112 전화 화면으로 이동합니다.</string>
+    <string name="sos_call_112">112 전화 연결</string>
+    <string name="cancel">취소</string>
     <string name="cctv_details">%1$s\n설치 목적: %2$s · 카메라 %3$d대</string>
     <string name="cctv_load_failed">천안 CCTV 데이터를 불러오지 못했습니다.</string>
     <string name="security_light_details">%1$s\n%2$s · 보안등 %3$d개</string>

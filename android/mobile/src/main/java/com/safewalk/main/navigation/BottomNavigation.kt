@@ -1,7 +1,9 @@
 package com.safewalk.main.navigation
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
 import com.safewalk.R
@@ -36,6 +38,16 @@ fun Activity.bindBottomNavigation(selectedTab: MainTab) {
             )
             overridePendingTransition(0, 0)
         }
+    }
+    findViewById<View>(R.id.nav_sos).setOnClickListener {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.sos_dialog_title)
+            .setMessage(R.string.sos_dialog_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.sos_call_112) { _, _ ->
+                startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:112")))
+            }
+            .show()
     }
 }
 

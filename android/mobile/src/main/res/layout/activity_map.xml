@@ -173,7 +173,7 @@
                     android:minWidth="104dp"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="생활안전지도"
+                    android:text="@string/layer_danger_zones"
                     android:textColor="@color/map_filter_text"
                     android:textSize="12sp" />
             </LinearLayout>

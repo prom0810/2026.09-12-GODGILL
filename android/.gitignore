@@ -3,7 +3,16 @@
 
 # Android Studio local settings
 .idea/
+*.iml
 local.properties
 
 # Module build outputs
 **/build/
+**/.cxx/
+**/.externalNativeBuild/
+
+# Local captures and logs
+captures/
+*.log
+.DS_Store
+Thumbs.db
