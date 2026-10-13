@@ -1,0 +1,9 @@
+# Gradle working directory
+.gradle/
+
+# Android Studio local settings
+.idea/
+local.properties
+
+# Module build outputs
+**/build/
