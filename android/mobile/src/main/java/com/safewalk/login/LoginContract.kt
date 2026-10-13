@@ -1,6 +1,6 @@
 package com.safewalk.login
 
-enum class AuthStep { LOGIN, SIGN_UP, USER_TYPE, PERMISSIONS }
+enum class AuthStep { LOGIN, SIGN_UP, TERMS, USER_TYPE, PERMISSIONS }
 
 enum class UserType { CHILD, GUARDIAN, COMPANION, ADULT, MINOR }
 
@@ -13,6 +13,8 @@ data class LoginUiState(
     val signUpPassword: String = "",
     val phoneNumber: String = "",
     val agreedToTerms: Boolean = false,
+    val agreedToPrivacy: Boolean = false,
+    val agreedToLocation: Boolean = false,
     val userType: UserType? = null,
     val notificationPermission: Boolean = true,
     val activityPermission: Boolean = true,
@@ -24,8 +26,16 @@ data class LoginUiState(
         get() = loginEmail.isNotBlank() && loginPassword.isNotBlank() && !isLoading
 
     val canContinueSignUp: Boolean
-        // TODO 회원가입 API 연결 시 서버 정책에 맞는 필드별 검증을 적용합니다.
-        get() = agreedToTerms
+        get() = name.isNotBlank() &&
+            signUpEmail.isNotBlank() &&
+            signUpPassword.isNotBlank() &&
+            phoneNumber.isNotBlank()
+
+    val canContinueTerms: Boolean
+        get() = agreedToTerms && agreedToPrivacy
+
+    val allAgreementsSelected: Boolean
+        get() = agreedToTerms && agreedToPrivacy && agreedToLocation
 
     val canContinueUserType: Boolean
         get() = userType != null

@@ -24,11 +24,21 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSignUpPassword(value: String) = update { copy(signUpPassword = value) }
     fun updatePhoneNumber(value: String) = update { copy(phoneNumber = value) }
     fun setTermsAgreement(value: Boolean) = update { copy(agreedToTerms = value) }
+    fun setPrivacyAgreement(value: Boolean) = update { copy(agreedToPrivacy = value) }
+    fun setLocationAgreement(value: Boolean) = update { copy(agreedToLocation = value) }
+    fun setAllAgreements(value: Boolean) = update {
+        copy(
+            agreedToTerms = value,
+            agreedToPrivacy = value,
+            agreedToLocation = value,
+        )
+    }
     fun selectUserType(value: UserType) = update { copy(userType = value) }
     fun setNotificationPermission(value: Boolean) = update { copy(notificationPermission = value) }
     fun setActivityPermission(value: Boolean) = update { copy(activityPermission = value) }
     fun setContactsPermission(value: Boolean) = update { copy(contactsPermission = value) }
     fun openSignUp() = update { copy(step = AuthStep.SIGN_UP) }
+    fun continueToTerms() = update { copy(step = AuthStep.TERMS) }
     fun continueToUserType() = update { copy(step = AuthStep.USER_TYPE) }
     fun continueToPermissions() = update { copy(step = AuthStep.PERMISSIONS) }
 
@@ -56,7 +66,8 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         copy(step = when (step) {
             AuthStep.LOGIN -> AuthStep.LOGIN
             AuthStep.SIGN_UP -> AuthStep.LOGIN
-            AuthStep.USER_TYPE -> AuthStep.SIGN_UP
+            AuthStep.TERMS -> AuthStep.SIGN_UP
+            AuthStep.USER_TYPE -> AuthStep.TERMS
             AuthStep.PERMISSIONS -> AuthStep.USER_TYPE
         })
     }

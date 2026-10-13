@@ -66,11 +66,15 @@ fun LoginScreen(
     onSignUpPasswordChange: (String) -> Unit,
     onPhoneNumberChange: (String) -> Unit,
     onTermsAgreementChange: (Boolean) -> Unit,
+    onPrivacyAgreementChange: (Boolean) -> Unit,
+    onLocationAgreementChange: (Boolean) -> Unit,
+    onAllAgreementsChange: (Boolean) -> Unit,
     onUserTypeChange: (UserType) -> Unit,
     onNotificationPermissionChange: (Boolean) -> Unit,
     onActivityPermissionChange: (Boolean) -> Unit,
     onContactsPermissionChange: (Boolean) -> Unit,
     onOpenSignUp: () -> Unit,
+    onContinueToTerms: () -> Unit,
     onContinueToUserType: () -> Unit,
     onContinueToPermissions: () -> Unit,
     onBack: () -> Unit,
@@ -97,7 +101,15 @@ fun LoginScreen(
                     onEmailChange = onSignUpEmailChange,
                     onPasswordChange = onSignUpPasswordChange,
                     onPhoneNumberChange = onPhoneNumberChange,
+                    onBack = onBack,
+                    onNext = onContinueToTerms,
+                )
+                AuthStep.TERMS -> TermsAgreementPage(
+                    state = state,
                     onTermsAgreementChange = onTermsAgreementChange,
+                    onPrivacyAgreementChange = onPrivacyAgreementChange,
+                    onLocationAgreementChange = onLocationAgreementChange,
+                    onAllAgreementsChange = onAllAgreementsChange,
                     onBack = onBack,
                     onNext = onContinueToUserType,
                 )
@@ -218,7 +230,6 @@ private fun SignUpPage(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onPhoneNumberChange: (String) -> Unit,
-    onTermsAgreementChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -233,7 +244,7 @@ private fun SignUpPage(
             AppTextField(state.signUpEmail, onEmailChange, "이메일", "example@email.com", KeyboardType.Email)
             Spacer(Modifier.height(14.dp))
             AppTextField(
-                state.signUpPassword, onPasswordChange, "비밀번호", "6자 이상 입력해주세요",
+                state.signUpPassword, onPasswordChange, "비밀번호", "비밀번호를 입력해주세요",
                 password = true,
             )
             Spacer(Modifier.height(14.dp))
@@ -241,21 +252,87 @@ private fun SignUpPage(
                 state.phoneNumber, onPhoneNumberChange, "휴대폰 번호", "010-0000-0000",
                 KeyboardType.Phone,
             )
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { onTermsAgreementChange(!state.agreedToTerms) },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(
-                    checked = state.agreedToTerms,
-                    onCheckedChange = onTermsAgreementChange,
-                    colors = CheckboxDefaults.colors(checkedColor = Accent),
-                )
-                Text("이용약관 및 개인정보 처리방침에 동의합니다. (필수)", color = Muted, fontSize = 11.sp)
-            }
             Spacer(Modifier.height(18.dp))
         }
         PrimaryButton("다음", state.canContinueSignUp, onNext)
+    }
+}
+
+@Composable
+private fun TermsAgreementPage(
+    state: LoginUiState,
+    onTermsAgreementChange: (Boolean) -> Unit,
+    onPrivacyAgreementChange: (Boolean) -> Unit,
+    onLocationAgreementChange: (Boolean) -> Unit,
+    onAllAgreementsChange: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+) {
+    OnboardingLayout(title = "약관 동의", step = 2, onBack = onBack) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Text("서비스 이용을 위해\n동의가 필요해요", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Spacer(Modifier.height(7.dp))
+            Text("필수 항목에 동의해야 회원가입을 계속할 수 있습니다.", fontSize = 13.sp, color = Muted)
+            Spacer(Modifier.height(24.dp))
+
+            AgreementRow(
+                title = "전체 동의",
+                description = "필수 및 선택 항목을 모두 확인하고 동의합니다.",
+                checked = state.allAgreementsSelected,
+                emphasized = true,
+                onCheckedChange = onAllAgreementsChange,
+            )
+            Spacer(Modifier.height(12.dp))
+            AgreementRow(
+                title = "[필수] 서비스 이용약관 동의",
+                description = "서비스 이용 조건과 사용자 책임에 관한 내용입니다.",
+                checked = state.agreedToTerms,
+                onCheckedChange = onTermsAgreementChange,
+            )
+            AgreementRow(
+                title = "[필수] 개인정보 수집·이용 동의",
+                description = "이름, 이메일, 휴대폰 번호를 회원 관리와 안전 기능 제공에 사용하며 탈퇴 시 파기합니다.",
+                checked = state.agreedToPrivacy,
+                onCheckedChange = onPrivacyAgreementChange,
+            )
+            AgreementRow(
+                title = "[선택] 위치기반 서비스 이용 동의",
+                description = "현재 위치를 활용해 주변 안전시설과 경로를 안내합니다.",
+                checked = state.agreedToLocation,
+                onCheckedChange = onLocationAgreementChange,
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+        PrimaryButton("동의하고 계속", state.canContinueTerms, onNext)
+    }
+}
+
+@Composable
+private fun AgreementRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    emphasized: Boolean = false,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (emphasized) Soft else Color.Transparent, RoundedCornerShape(8.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = if (emphasized) 10.dp else 2.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = CheckboxDefaults.colors(checkedColor = Accent),
+        )
+        Column(Modifier.weight(1f).padding(top = 10.dp, end = 4.dp)) {
+            Text(title, color = Ink, fontSize = 13.sp, fontWeight = if (emphasized) FontWeight.Bold else FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(description, color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+        }
     }
 }
 
@@ -266,7 +343,7 @@ private fun UserTypePage(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    OnboardingLayout(title = "사용자 유형 선택", step = 2, onBack = onBack) {
+    OnboardingLayout(title = "사용자 유형 선택", step = 3, onBack = onBack) {
         Text("어떻게 이용하시나요?", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Spacer(Modifier.height(6.dp))
         Text("알맞은 유형을 선택하면 꼭 필요한 기능을 먼저 보여드려요.", fontSize = 13.sp, color = Muted)
@@ -336,7 +413,7 @@ private fun PermissionPage(
     onStart: () -> Unit,
     onSkip: () -> Unit,
 ) {
-    OnboardingLayout(title = "권한 설정", step = 3, onBack = onBack) {
+    OnboardingLayout(title = "권한 설정", step = 4, onBack = onBack) {
         Text("안전 기능에 필요한 권한", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Spacer(Modifier.height(6.dp))
         Text("필요한 권한만 선택할 수 있어요. 설정에서 언제든 바꿀 수 있습니다.", fontSize = 13.sp, color = Muted)
@@ -425,7 +502,7 @@ private fun OnboardingLayout(
             Spacer(Modifier.width(36.dp))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            repeat(3) { index ->
+            repeat(4) { index ->
                 Box(
                     Modifier.weight(1f).height(3.dp)
                         .background(if (index < step) Ink else Line, RoundedCornerShape(3.dp)),
@@ -499,11 +576,15 @@ private fun LoginPreview() {
         onSignUpPasswordChange = {},
         onPhoneNumberChange = {},
         onTermsAgreementChange = {},
+        onPrivacyAgreementChange = {},
+        onLocationAgreementChange = {},
+        onAllAgreementsChange = {},
         onUserTypeChange = {},
         onNotificationPermissionChange = {},
         onActivityPermissionChange = {},
         onContactsPermissionChange = {},
         onOpenSignUp = {},
+        onContinueToTerms = {},
         onContinueToUserType = {},
         onContinueToPermissions = {},
         onBack = {},
