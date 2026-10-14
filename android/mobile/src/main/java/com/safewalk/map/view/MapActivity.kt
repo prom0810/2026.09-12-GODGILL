@@ -19,6 +19,7 @@ import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -34,6 +35,7 @@ import com.safewalk.BuildConfig
 import com.safewalk.R
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.main.navigation.bindBottomNavigation
+import com.safewalk.main.navigation.showSosDialog
 import com.safewalk.map.model.CctvSite
 import com.safewalk.map.model.Facility
 import com.safewalk.map.model.FacilityType
@@ -52,6 +54,16 @@ import kotlin.math.ceil
 
 class MapActivity : ComponentActivity() {
     private val viewModel: MapViewModel by viewModels()
+    private val routeComparisonLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val isSafeRoute = result.data?.getBooleanExtra(
+            RouteComparisonActivity.EXTRA_IS_SAFE_ROUTE,
+            true,
+        ) ?: return@registerForActivityResult
+        viewModel.setDisplayedRoute(isSafeRoute)
+    }
 
     private var mapView: MapView? = null
     private var kakaoMap: KakaoMap? = null
@@ -73,10 +85,13 @@ class MapActivity : ComponentActivity() {
     private lateinit var startSetButton: Button
     private lateinit var endQuery: EditText
     private lateinit var endSetButton: Button
-    private lateinit var shortestRouteButton: Button
-    private lateinit var safeRouteButton: Button
+    private lateinit var compareRouteButton: Button
     private lateinit var resetRouteButton: Button
     private lateinit var routeResultText: TextView
+    private lateinit var layerStatus: TextView
+    private lateinit var routeGuidanceActions: View
+    private lateinit var routeShareLocationButton: Button
+    private lateinit var routeSosButton: Button
 
     private val shortestRouteColor = Color.rgb(198, 40, 40)
     private val safeRouteColor = Color.rgb(46, 125, 50)
@@ -111,10 +126,13 @@ class MapActivity : ComponentActivity() {
         startSetButton = findViewById(R.id.route_start_button)
         endQuery = findViewById(R.id.route_end_query)
         endSetButton = findViewById(R.id.route_end_button)
-        shortestRouteButton = findViewById(R.id.route_shortest_button)
-        safeRouteButton = findViewById(R.id.route_safe_button)
+        compareRouteButton = findViewById(R.id.route_compare_button)
         resetRouteButton = findViewById(R.id.route_reset_button)
         routeResultText = findViewById(R.id.route_result_text)
+        layerStatus = findViewById(R.id.layer_status)
+        routeGuidanceActions = findViewById(R.id.route_guidance_actions)
+        routeShareLocationButton = findViewById(R.id.route_share_location_button)
+        routeSosButton = findViewById(R.id.route_sos_button)
     }
 
     private fun configureSystemBars() {
@@ -144,20 +162,20 @@ class MapActivity : ComponentActivity() {
             queryInput.imeHintLocales = LocaleList.forLanguageTags("ko-KR,en-US")
         }
         cctvOverlay.onMarkerClick = { site ->
-            searchStatus.text = getString(
+            showLayerStatus(getString(
                 R.string.cctv_details,
                 site.address,
                 site.purpose,
                 site.cameraCount,
-            )
+            ))
         }
         securityLightOverlay.onMarkerClick = { site, count ->
-            searchStatus.text = getString(
+            showLayerStatus(getString(
                 R.string.security_light_details,
                 site.name,
                 site.address,
                 count,
-            )
+            ))
         }
         facilitiesToggle.setOnCheckedChangeListener { _, checked ->
             viewModel.setFacilitiesEnabled(checked)
@@ -166,6 +184,7 @@ class MapActivity : ComponentActivity() {
         cctvToggle.setOnCheckedChangeListener { _, checked ->
             viewModel.setCctvEnabled(checked)
             cctvOverlay.visibility = if (checked) View.VISIBLE else View.INVISIBLE
+            if (!checked) layerStatus.visibility = View.GONE
         }
         securityLightsToggle.setOnCheckedChangeListener { _, checked ->
             viewModel.setSecurityLightsEnabled(checked)
@@ -190,8 +209,9 @@ class MapActivity : ComponentActivity() {
         endSetButton.setOnClickListener {
             viewModel.searchRoutePoint(endQuery.text.toString(), isStart = false)
         }
-        shortestRouteButton.setOnClickListener { viewModel.showRoute(isSafeRoute = false) }
-        safeRouteButton.setOnClickListener { viewModel.showRoute(isSafeRoute = true) }
+        compareRouteButton.setOnClickListener { viewModel.compareRoutes() }
+        routeShareLocationButton.isEnabled = false
+        routeSosButton.setOnClickListener { showSosDialog() }
         resetRouteButton.setOnClickListener {
             viewModel.resetRoute()
             startQuery.text.clear()
@@ -353,6 +373,9 @@ class MapActivity : ComponentActivity() {
                 }
             }
             is MapEffect.ChooseRoutePoint -> showRoutePointPicker(effect.isStart, effect.places)
+            is MapEffect.OpenRouteComparison -> routeComparisonLauncher.launch(
+                RouteComparisonActivity.createIntent(this, effect),
+            )
             is MapEffect.ShowMessage -> showMessage(effect.text)
         }
     }
@@ -370,9 +393,16 @@ class MapActivity : ComponentActivity() {
         val message = getString(text.resourceId, *text.arguments.toTypedArray())
         if (text.resourceId in routeMessageResources) {
             routeResultText.text = message
+        } else if (text.resourceId in layerMessageResources) {
+            showLayerStatus(message)
         } else {
             searchStatus.text = message
         }
+    }
+
+    private fun showLayerStatus(message: String) {
+        layerStatus.text = message
+        layerStatus.visibility = View.VISIBLE
     }
 
     private fun searchPlaces() {
@@ -469,6 +499,7 @@ class MapActivity : ComponentActivity() {
     }
 
     private fun renderRouteSummary(route: RouteUiState) {
+        routeGuidanceActions.visibility = if (route.isGuidanceActive) View.VISIBLE else View.GONE
         if (route.isLoading || route.shortestResult == null && route.safeResult == null) return
         routeResultText.text = buildString {
             route.shortestResult?.let {
@@ -515,6 +546,12 @@ class MapActivity : ComponentActivity() {
     }
 
     private companion object {
+        val layerMessageResources = setOf(
+            R.string.cctv_loaded,
+            R.string.cctv_load_failed,
+            R.string.security_light_load_failed,
+            R.string.safemap_load_failed,
+        )
         val routeMessageResources = setOf(
             R.string.route_point_searching,
             R.string.route_point_not_found,

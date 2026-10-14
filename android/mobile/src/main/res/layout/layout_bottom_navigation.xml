@@ -59,6 +59,29 @@
             android:textSize="11sp" />
     </LinearLayout>
 
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:foregroundGravity="center"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/nav_sos"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/sos_button_background"
+            android:clickable="true"
+            android:contentDescription="@string/sos_accessibility_label"
+            android:elevation="6dp"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="@string/sos_label"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
     <LinearLayout
         android:id="@+id/nav_notifications"
         android:layout_width="0dp"

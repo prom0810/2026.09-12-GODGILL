@@ -150,16 +150,61 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         val point = place.toGeoPoint()
         _uiState.update { state ->
             state.copy(route = if (isStart) {
-                state.route.copy(startPoint = point, shortestResult = null, safeResult = null)
+                state.route.copy(
+                    startPoint = point,
+                    startName = place.name,
+                    shortestResult = null,
+                    safeResult = null,
+                )
             } else {
-                state.route.copy(endPoint = point, shortestResult = null, safeResult = null)
+                state.route.copy(
+                    endPoint = point,
+                    endName = place.name,
+                    shortestResult = null,
+                    safeResult = null,
+                )
             })
         }
         showMessage(if (isStart) R.string.route_start_set else R.string.route_end_set, place.name)
         emitEffect(MapEffect.MoveCamera(point))
+        val route = _uiState.value.route
+        if (route.startPoint != null && route.endPoint != null) {
+            calculateRoutes(isSafeRoute = true, openComparison = true)
+        }
     }
 
     fun showRoute(isSafeRoute: Boolean) {
+        calculateRoutes(isSafeRoute, openComparison = false)
+    }
+
+    fun compareRoutes() {
+        val route = _uiState.value.route
+        if (route.startPoint == null || route.endPoint == null) {
+            showMessage(R.string.route_need_points)
+            return
+        }
+        val shortest = route.shortestResult
+        val safe = route.safeResult
+        if (shortest != null && safe != null) {
+            emitRouteComparison(route, shortest, safe)
+        } else {
+            calculateRoutes(isSafeRoute = true, openComparison = true)
+        }
+    }
+
+    fun setDisplayedRoute(isSafeRoute: Boolean) {
+        _uiState.update { state ->
+            val result = if (isSafeRoute) state.route.safeResult else state.route.shortestResult
+            if (result == null) state else state.copy(
+                route = state.route.copy(
+                    displayedIsSafe = isSafeRoute,
+                    isGuidanceActive = true,
+                ),
+            )
+        }
+    }
+
+    private fun calculateRoutes(isSafeRoute: Boolean, openComparison: Boolean) {
         val state = _uiState.value
         val start = state.route.startPoint
         val end = state.route.endPoint
@@ -206,6 +251,11 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                         if ((if (isSafeRoute) result.safe else result.shortest) == null) {
                             showMessage(R.string.route_not_found)
                         }
+                        val shortest = result.shortest
+                        val safe = result.safe
+                        if (openComparison && shortest != null && safe != null) {
+                            emitRouteComparison(state.route, shortest, safe)
+                        }
                     }
                 }
             }.onFailure {
@@ -218,6 +268,21 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     fun resetRoute() {
         routeJob?.cancel()
         _uiState.update { it.copy(route = RouteUiState()) }
+    }
+
+    private fun emitRouteComparison(
+        route: RouteUiState,
+        shortest: RouteAStar.RouteResult,
+        safe: RouteAStar.RouteResult,
+    ) {
+        emitEffect(MapEffect.OpenRouteComparison(
+            startName = route.startName,
+            endName = route.endName,
+            shortestDistanceMeters = shortest.totalDistanceMeters.toInt(),
+            shortestSafetyScore = (shortest.averageSafetyScore * 100).toInt(),
+            safeDistanceMeters = safe.totalDistanceMeters.toInt(),
+            safeSafetyScore = (safe.averageSafetyScore * 100).toInt(),
+        ))
     }
 
     private fun loadSafeMap(viewport: MapViewport) {
@@ -250,6 +315,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { sites ->
                     routeGraph = null
                     _uiState.update { it.copy(cctvSites = sites) }
+                    showMessage(R.string.cctv_loaded, sites.size)
                 }
                 .onFailure { showMessage(R.string.cctv_load_failed) }
         }

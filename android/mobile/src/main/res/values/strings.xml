@@ -18,7 +18,15 @@
     <string name="layer_facilities">안전시설</string>
     <string name="layer_cctv">CCTV</string>
     <string name="layer_security_lights">보안등</string>
+    <string name="layer_danger_zones">위험구간</string>
+    <string name="sos_label">SOS</string>
+    <string name="sos_accessibility_label">긴급 SOS, 112 전화 연결</string>
+    <string name="sos_dialog_title">긴급 SOS</string>
+    <string name="sos_dialog_message">긴급 상황인가요? 112 전화 화면으로 이동합니다.</string>
+    <string name="sos_call_112">112 전화 연결</string>
+    <string name="cancel">취소</string>
     <string name="cctv_details">%1$s\n설치 목적: %2$s · 카메라 %3$d대</string>
+    <string name="cctv_loaded">CCTV %1$d개 지점을 표시합니다.</string>
     <string name="cctv_load_failed">천안 CCTV 데이터를 불러오지 못했습니다.</string>
     <string name="security_light_details">%1$s\n%2$s · 보안등 %3$d개</string>
     <string name="security_light_load_failed">보안등 데이터를 불러오지 못했습니다.</string>
@@ -33,4 +41,28 @@
     <string name="route_not_found">경로를 찾을 수 없습니다.</string>
     <string name="route_summary_shortest">최단 %1$dm·%2$d분·%3$d점</string>
     <string name="route_summary_safe">안전 %1$dm·%2$d분·%3$d점</string>
+    <string name="compare_routes">경로 비교</string>
+    <string name="back">뒤로</string>
+    <string name="back_symbol" translatable="false">‹</string>
+    <string name="route_comparison_title">경로 비교</string>
+    <string name="route_comparison_endpoints">%1$s  →  %2$s</string>
+    <string name="choose_route">이동할 경로를 선택하세요</string>
+    <string name="route_comparison_description">거리와 예상 시간, 안전 점수를 함께 비교할 수 있어요.</string>
+    <string name="safe_route_title">안전 우선 경로</string>
+    <string name="shortest_route_title">최단 경로</string>
+    <string name="recommended">추천</string>
+    <string name="route_comparison_metrics">%1$d분   %2$s   안전도 %3$d점</string>
+    <string name="safe_route_description">조금 더 걸리더라도 안전도가 높은 길을 우선해요.</string>
+    <string name="shortest_route_description">이동 거리가 짧은 길을 우선해요.</string>
+    <string name="distance_meters">%1$dm</string>
+    <string name="distance_kilometers">%1$skm</string>
+    <string name="start_safe_route_guide">안전 경로 안내 시작</string>
+    <string name="start_shortest_route_guide">최단 경로 안내 시작</string>
+    <string name="share_location">위치 공유</string>
+    <string name="emergency_sos">긴급 SOS</string>
+    <string name="location_checking">현재 위치를 확인하고 있습니다…</string>
+    <string name="location_permission_denied">위치를 공유하려면 위치 권한이 필요합니다.</string>
+    <string name="location_unavailable">현재 위치를 확인할 수 없습니다. 위치 서비스를 켠 뒤 다시 시도해 주세요.</string>
+    <string name="location_share_title">현재 위치 공유</string>
+    <string name="location_share_message">안심동행으로 이동 중입니다.\n출발지: %1$s\n도착지: %2$s\n현재 위치: %3$s</string>
 </resources>
