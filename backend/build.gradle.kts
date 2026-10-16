@@ -31,6 +31,10 @@ dependencies {
 
     runtimeOnly("org.postgresql:postgresql")
 
+    // 제보 사진 저장소(Supabase Storage)를 S3 호환 API로 사용한다. AWS S3로 옮겨도 그대로 쓸 수 있다.
+    implementation(platform("software.amazon.awssdk:bom:2.31.0"))
+    implementation("software.amazon.awssdk:s3")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
