@@ -10,7 +10,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.safewalk.wear"
+        applicationId = "com.safewalk"
         minSdk = 30
         targetSdk = 37
         versionCode = 1
