@@ -36,6 +36,8 @@ safewalk/
         ├── auth/                    # 회원가입/로그인 API, JWT 발급·검증
         ├── user/                    # 사용자 정보, 사용자 유형
         ├── guardian/                # 보호자/지인 추가·조회·삭제
+        ├── report/                  # 위험 제보 작성·조회, 제보 사진 추가·삭제
+        ├── storage/                 # 이미지 저장소 (Supabase Storage / 로컬 폴더)
         ├── route/                   # 안전 경로 추천 알고리즘, 가중치 적용, 검색
         ├── notification/            # 알림 발송
         ├── emergency/               # SOS, 위치 공유, 도착 확인
@@ -205,6 +207,116 @@ powershell -ExecutionPolicy Bypass -File .\http\auth-guardian-test.ps1
 - 아이디/비밀번호 찾기 (3·4차 MVP 예정)
 - 웨어러블 기기의 토큰 전달 방식, 계정 없는 보호자용 위치 공유 인증
 
+## 위험 제보 · 제보 사진 저장소 — 2026-10-16 (backend)
+
+사용자가 위험 지점을 사진과 함께 제보하는 API와, 사진을 저장하는 **이미지 저장소**를 추가했다.
+사진 파일은 **Supabase Storage**(비공개 버킷 `risk-report-images`)에 저장하고, DB(`risk_report_image.storage_path`)에는
+URL이 아니라 버킷 안의 파일 위치(예: `reports/12/3f2a….png`)만 저장한다.
+Android 쪽은 아직 반영되지 않았다.
+
+```
+Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)──▶ Supabase Storage (비공개 버킷)
+                                         └─▶ risk_report / risk_report_image 저장
+조회: 앱 → 백엔드 → 만료 시간이 있는 사진 URL(기본 10분) 발급 → 앱이 그 URL로 이미지 표시
+```
+
+### API
+
+사진을 함께 보내므로 작성·사진 추가는 JSON이 아니라 **`multipart/form-data`**로 요청한다.
+
+| 메서드 | 경로 | 토큰 | 설명 |
+|---|---|---|---|
+| POST | `/api/risk-reports` | 필요 | 제보 작성 (사진 0~3장 함께) |
+| GET | `/api/risk-reports/{reportId}` | 필요 | 내 제보 상세 + 사진 URL |
+| POST | `/api/risk-reports/{reportId}/images` | 필요 | 내 제보에 사진 추가 |
+| DELETE | `/api/risk-reports/{reportId}/images/{imageId}` | 필요 | 내 제보의 사진 1장 삭제 |
+
+제보 작성 요청 필드:
+
+| 필드 | 필수 | 설명 |
+|---|---|---|
+| `riskType` | O | `DARK_ROAD`(어두운 길) / `DAMAGED_SIDEWALK`(파손된 보도) / `CONSTRUCTION`(공사 구간) / `ILLEGAL_PARKING`(불법 주정차) / `OTHER`(기타). 한글 값도 허용 |
+| `lat`, `lng` | O | 위도(-90~90), 경도(-180~180) |
+| `address` | - | 255자 이하 |
+| `description` | - | 500자 이하 |
+| `anonymous` | - | 익명 제보 여부, 기본 `false` |
+| `images` | - | 사진 파일. 같은 이름(`images`)으로 여러 개 |
+
+제보 응답 예시:
+
+```json
+{ "reportId": 12, "riskType": "DARK_ROAD", "riskTypeLabel": "어두운 길",
+  "lat": 36.809, "lng": 127.147, "address": "천안역 동부광장 인근", "description": "가로등이 꺼져 있음",
+  "anonymous": false, "status": "PENDING", "createdAt": "...", "updatedAt": null,
+  "images": [ { "imageId": 31, "url": "https://...", "urlExpiresInSeconds": 600, "createdAt": "..." } ] }
+```
+
+> 사진 `url`은 일정 시간 뒤 만료된다. 앱에 저장해 두지 말고, 필요할 때 제보를 다시 조회해서 새 URL을 받는다.
+
+### 규칙
+
+| 구분 | 규칙 |
+|---|---|
+| 사진 형식 | JPEG / PNG / WebP만 허용. 파일명이나 Content-Type이 아니라 **파일 내용**으로 판별 |
+| 사진 크기·개수 | 1장 10MB 이하, 제보 1건당 최대 3장 |
+| 권한 | 본인 제보만 조회·수정 가능. 다른 사람의 제보는 404 |
+| 사진 변경 | 처리 전(`PENDING`) 제보만 사진 추가·삭제 가능 |
+| 실패 처리 | 사진 업로드 후 DB 저장이 실패하면 올라간 파일을 자동 삭제. 사진 삭제 시 DB 반영 후 저장소 파일 삭제 |
+
+새로 추가된 상태 코드:
+
+| 코드 | 의미 |
+|---|---|
+| 400 | 지원하지 않는 사진 형식, 사진 개수 초과, 필수 값(`lat` 등)·파일 누락, 잘못된 위험 유형 |
+| 404 | 제보·사진 없음 (다른 사람의 제보 포함) |
+| 413 | 사진 1장이 10MB 초과 |
+| 415 | multipart가 아닌 형식으로 요청 |
+| 502 | 이미지 저장소(Supabase Storage) 통신 실패 |
+
+> 10MB를 넘는 파일은 서버가 413 응답 대신 업로드 도중 연결을 끊을 수 있다.
+> **Android에서는 업로드 전에 사진을 압축하고 크기를 확인**하는 것을 권장한다 (긴 변 1600px, JPEG 품질 80 정도면 1장에 수백 KB).
+
+### 저장소 설정 (`STORAGE_TYPE`)
+
+| 값 | 동작 |
+|---|---|
+| `supabase` | Supabase Storage에 저장. `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET` 필요 |
+| `local` 또는 생략 | **개발용.** `backend/local-storage/` 폴더에 저장하고 `/local-storage/**` 주소로 제공 (만료 없음, 인증 없음). 저장소 키가 없는 팀원도 백엔드를 실행할 수 있다 |
+
+- 값은 Supabase Dashboard → Storage → Settings(S3 Configuration)에서 확인·발급한다.
+- **S3 Access Key는 모든 버킷에 접근할 수 있는 서버 전용 키다.** Android 코드, 채팅방, 저장소에 올리지 않는다.
+- 서버 시작 로그에 `이미지 저장소: Supabase Storage` 또는 `이미지 저장소: 로컬 폴더`가 표시된다.
+
+### 추가/수정된 파일 — backend/
+
+| 파일 | 설명 |
+|---|---|
+| `storage/` (신규) | `ImageStorage` 인터페이스, `SupabaseImageStorage`(AWS SDK v2 S3 클라이언트), `LocalImageStorage` + `LocalStorageWebConfig`(개발용), `ImageStorageException` |
+| `report/` (신규) | `RiskReport`, `RiskReportImage` 엔티티, `RiskType`, `ReportStatus`, Repository, `RiskReportService`, `RiskReportImageService`, `RiskReportController`, 응답 DTO, `RiskReportNotFoundException` |
+| `global/GlobalExceptionHandler.java` | 400(파라미터·파일 누락), 404(제보), 413, 415, 502 처리 추가 |
+| `build.gradle.kts` | AWS SDK for Java v2 (`software.amazon.awssdk:s3`) 추가 |
+| `src/main/resources/application.yml` | 업로드 크기 제한(1장 10MB, 요청 35MB), `storage.*` 설정 추가 |
+| `.env.example` | `STORAGE_TYPE`, `STORAGE_ENDPOINT` 등 저장소 환경변수 추가 |
+| `.gitignore` | `local-storage/` 제외 |
+| `http/risk-report-image-test.ps1` | PowerShell 자동 테스트 (21개 케이스) |
+
+### 테스트 방법
+
+백엔드를 실행한 상태에서 `backend` 폴더 기준으로:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\http\risk-report-image-test.ps1
+```
+
+제보 작성·조회, 사진 추가·삭제, 형식·크기·개수 제한, 다른 사용자 접근 차단을 확인하고,
+사진 URL로 직접 내려받아 **저장소에 실제로 저장·삭제됐는지**까지 검사한다 (2026-10-16 Supabase 기준 21개 모두 통과).
+실행할 때마다 테스트 계정 2개, 제보 2건, 사진 2장이 DB와 버킷에 남는다.
+
+### 보류된 기능
+
+- 제보 목록 조회, 관리자 승인/반려(`APPROVED` 시 `risk_area` 연결)
+- 제보 삭제 (구현 시 저장소 파일도 함께 삭제해야 함 — DB 행은 CASCADE로 지워지지만 파일은 남음)
+
 ## 다운받아 실행할 때 확인/수정할 것
 
 - **android** — `common/network/ApiClient.kt`의 `baseUrl`을 실행할 PC의 로컬 네트워크 IP로
@@ -212,5 +324,9 @@ powershell -ExecutionPolicy Bypass -File .\http\auth-guardian-test.ps1
   동작하지 않아 실제 IP 방식을 쓰고 있다. `local.properties.example`을 `local.properties`로
   복사하고 Kakao API 키도 입력해야 한다.
 - **backend** — `.env.example`을 참고해 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`(Supabase),
-  `JWT_SECRET` 환경변수를 실행 전에 설정해야 한다 (IntelliJ Run Configuration 또는 터미널
-  `export`). 이 값들을 `application.yml`에 직접 쓰거나 커밋하지 않는다.
+  `JWT_SECRET` 환경변수를 실행 전에 설정해야 한다 (`backend/.env` 파일 — `./gradlew bootRun` 실행 시
+  자동으로 읽힘. IntelliJ Run 버튼으로 실행할 때는 Run Configuration에 직접 입력). 이 값들을
+  `application.yml`에 직접 쓰거나 커밋하지 않는다.
+- **backend (제보 사진)** — Supabase Storage를 쓰려면 `.env`에 `STORAGE_TYPE=supabase`와
+  `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`을 넣는다.
+  생략하면 개발용 로컬 폴더(`backend/local-storage/`)에 저장된다.
