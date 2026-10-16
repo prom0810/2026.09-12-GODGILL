@@ -2,41 +2,60 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 심박: API 35 이하 BODY_SENSORS / API 36(Wear OS 6)+ health.READ_HEART_RATE -->
+    <uses-permission android:name="android.permission.BODY_SENSORS" android:maxSdkVersion="35" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
 
     <uses-feature android:name="android.hardware.type.watch" />
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:supportsRtl="true"
+        android:label="갓길"
         android:theme="@android:style/Theme.DeviceDefault">
-        <uses-library
-            android:name="com.google.android.wearable"
-            android:required="true" />
-        <uses-library
-            android:name="wear-sdk"
-            android:required="false" />
 
-        <!--
-               Set to true if your app is Standalone, that is, it does not require the handheld
-               app to run.
-        -->
-        <meta-data
-            android:name="com.google.android.wearable.standalone"
-            android:value="true" />
+        <uses-library android:name="com.google.android.wearable" android:required="true" />
+        <uses-library android:name="wear-sdk" android:required="false" />
+        <!-- 폰 앱 없이도 설치·동작하는 워치 단독 앱 -->
+        <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
 
+        <!-- 런처 = 안전 앱 -->
         <activity
             android:name=".presentation.MainActivity"
             android:exported="true"
-            android:taskAffinity=""
-            android:theme="@style/MainActivityTheme.Starting">
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
 
+        <!-- 기존 CSV 녹화 화면(설정 > 데이터 수집 에서 진입) -->
+        <activity
+            android:name=".presentation.RecorderActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".sensor.MonitoringService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
+
+        <!-- 폰 -> 워치 메시지(취소 등). 폰이 없어도 무해 -->
+        <service
+            android:name=".sync.WearMessageService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/safewalk" />
+            </intent-filter>
+        </service>
+    </application>
 </manifest>
