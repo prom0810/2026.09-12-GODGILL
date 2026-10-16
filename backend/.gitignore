@@ -24,3 +24,6 @@ Thumbs.db
 !.env.example
 application-local.yml
 application-secret.yml
+
+### 로컬 개발용 이미지 저장 폴더 (STORAGE_TYPE=local) ###
+local-storage/

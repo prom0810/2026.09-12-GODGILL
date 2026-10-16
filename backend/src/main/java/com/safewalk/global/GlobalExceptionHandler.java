@@ -6,14 +6,23 @@ import com.safewalk.auth.InvalidCredentialsException;
 import com.safewalk.auth.UnauthorizedException;
 import com.safewalk.guardian.DuplicateGuardianException;
 import com.safewalk.guardian.GuardianNotFoundException;
+import com.safewalk.report.RiskReportNotFoundException;
+import com.safewalk.storage.ImageStorageException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -23,6 +32,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException e) {
@@ -46,6 +57,53 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GuardianNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleGuardianNotFound(GuardianNotFoundException e) {
         return fail(HttpStatus.NOT_FOUND, e, "보호자를 찾을 수 없습니다.");
+    }
+
+    @ExceptionHandler(RiskReportNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRiskReportNotFound(RiskReportNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "제보를 찾을 수 없습니다.");
+    }
+
+    /** 필수 폼/쿼리 값 누락. 예: 제보 작성 시 lat 없음 */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameter(MissingServletRequestParameterException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("필수 값이 없습니다: " + e.getParameterName()));
+    }
+
+    /** 필수 파일 누락. 예: 사진 추가 시 images 없음 */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingPart(MissingServletRequestPartException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("필수 파일이 없습니다: " + e.getRequestPartName()));
+    }
+
+    /** 업로드 크기 초과 (application.yml의 spring.servlet.multipart 제한) */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.fail("파일이 너무 큽니다. 사진 1장은 10MB 이하로 올려 주세요."));
+    }
+
+    /** multipart 요청 형식 오류 */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMultipart(MultipartException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("파일 업로드 요청(multipart/form-data) 형식이 올바르지 않습니다."));
+    }
+
+    /** Content-Type 불일치. 예: 사진 업로드 API에 JSON으로 요청 */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaType(HttpMediaTypeNotSupportedException e) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ApiResponse.fail("지원하지 않는 요청 형식입니다: " + e.getContentType()));
+    }
+
+    /** 이미지 저장소(Supabase Storage) 통신 실패. 원인은 서버 로그에만 남긴다. */
+    @ExceptionHandler(ImageStorageException.class)
+    public ResponseEntity<ApiResponse<Void>> handleImageStorage(ImageStorageException e) {
+        log.error("이미지 저장소 오류", e);
+        return fail(HttpStatus.BAD_GATEWAY, e, "이미지 저장소 처리 중 오류가 발생했습니다.");
     }
 
     /** 존재하지 않는 경로 */
