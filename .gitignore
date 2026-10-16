@@ -34,3 +34,10 @@ application-secret.yml
 ### OS ###
 .DS_Store
 Thumbs.db
+
+# Android Studio / Gradle 캐시
+android/.gradle/
+android/.idea/
+android/build/
+android/*/build/
+android/local.properties

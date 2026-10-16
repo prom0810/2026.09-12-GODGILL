@@ -10,7 +10,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.safewalk.wear"
+        applicationId = "com.safewalk"
         minSdk = 30
         targetSdk = 37
         versionCode = 1
@@ -51,4 +51,6 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.health:health-services-client:1.1.0-alpha05")
+
 }
