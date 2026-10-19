@@ -1,0 +1,51 @@
+
+name: Commit Message Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commit-message-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate commit messages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # 허용 유형: Chore, Design, Docs, Feat, Fix, Infra, Refactor
+          # 콜론 앞뒤 공백 허용, 대소문자 구분 없음
+          PATTERN='^(chore|design|docs|feat|fix|infra|refactor) *: *[^ ].*$'
+
+          # PR의 모든 커밋 메시지 첫 줄 조회
+          gh api --paginate \
+            "repos/$GH_REPO/pulls/$PR_NUMBER/commits" \
+            --jq '.[].commit.message | split("\n")[0]' \
+            > /tmp/commit_messages.txt
+
+          echo "Checking commit messages..."
+
+          FAILED=0
+
+          while IFS= read -r MESSAGE; do
+            if echo "$MESSAGE" | grep -Eiq "$PATTERN"; then
+              echo "PASS: $MESSAGE"
+            else
+              echo "FAIL: $MESSAGE"
+              FAILED=1
+            fi
+          done < /tmp/commit_messages.txt
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "Invalid commit messages detected."
+            exit 1
+          fi
+
+          echo "All commit messages are valid."
