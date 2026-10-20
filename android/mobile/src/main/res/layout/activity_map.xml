@@ -173,32 +173,33 @@
                     android:minWidth="104dp"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="생활안전지도"
+                    android:text="@string/layer_danger_zones"
                     android:textColor="@color/map_filter_text"
                     android:textSize="12sp" />
             </LinearLayout>
         </HorizontalScrollView>
+        <TextView
+            android:id="@+id/layer_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityLiveRegion="polite"
+            android:textColor="#59605D"
+            android:textSize="12sp"
+            android:visibility="gone" />
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:orientation="horizontal">
             <Button
-                android:id="@+id/route_shortest_button"
+                android:id="@+id/route_compare_button"
                 android:layout_width="0dp"
-                android:layout_weight="1"
+                android:layout_weight="2"
                 android:layout_height="wrap_content"
                 android:backgroundTint="#252A28"
                 android:textColor="#FFFFFF"
-                android:text="최단경로" />
-            <Button
-                android:id="@+id/route_safe_button"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:backgroundTint="#252A28"
-                android:textColor="#FFFFFF"
-                android:text="안전경로" />
+                android:text="@string/compare_routes" />
             <Button
                 android:id="@+id/route_reset_button"
                 android:layout_width="0dp"
@@ -215,6 +216,36 @@
             android:layout_marginTop="4dp"
             android:accessibilityLiveRegion="polite"
             android:textColor="#202124" />
+        <LinearLayout
+            android:id="@+id/route_guidance_actions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/route_share_location_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:backgroundTint="#EEF0EF"
+                android:text="@string/share_location"
+                android:textColor="#252A28"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/route_sos_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:backgroundTint="#C62828"
+                android:text="@string/emergency_sos"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <include layout="@layout/layout_bottom_navigation" />

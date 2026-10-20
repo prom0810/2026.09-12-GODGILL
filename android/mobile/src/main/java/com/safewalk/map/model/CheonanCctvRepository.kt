@@ -1,9 +1,7 @@
 package com.safewalk.map.model
 
-import java.net.URL
-import java.nio.charset.Charset
+import android.content.res.AssetManager
 import java.util.Locale
-import javax.net.ssl.HttpsURLConnection
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.sin
@@ -17,34 +15,30 @@ data class CctvSite(
     val cameraCount: Int,
 )
 
-class CheonanCctvRepository {
+class CheonanCctvRepository(private val assets: AssetManager) {
     fun loadNearCheonanStation(): List<CctvSite> {
-        val connection = URL(CSV_URL).openConnection() as HttpsURLConnection
-        return try {
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
-            connection.instanceFollowRedirects = true
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("CCTV CSV returned HTTP ${connection.responseCode}")
-            }
-            val lines = connection.inputStream.bufferedReader(Charset.forName("MS949"))
-                .use { it.readLines() }
-            if (lines.isEmpty()) return emptyList()
-            val header = parseCsvLine(lines.first()).mapIndexed { index, name -> name to index }.toMap()
+        val assetName = assets.list("")
+            ?.firstOrNull { it.endsWith(".csv", true) && "CCTV" in it.uppercase(Locale.ROOT) }
+            ?: throw IllegalStateException("CCTV CSV 파일을 찾을 수 없습니다")
+        val grouped = linkedMapOf<String, MutableCctvSite>()
+        assets.open(assetName).bufferedReader(Charsets.UTF_8).useLines { lines ->
+            val iterator = lines.iterator()
+            if (!iterator.hasNext()) return emptyList()
+            val header = parseCsvLine(iterator.next())
+                .mapIndexed { index, name -> name.removePrefix("\uFEFF") to index }.toMap()
             val latitudeIndex = header.getValue("WGS84위도")
             val longitudeIndex = header.getValue("WGS84경도")
             val roadAddressIndex = header.getValue("소재지도로명주소")
             val lotAddressIndex = header.getValue("소재지지번주소")
             val purposeIndex = header.getValue("설치목적구분")
             val countIndex = header.getValue("카메라대수")
-            val grouped = linkedMapOf<String, MutableCctvSite>()
-            lines.drop(1).forEach { line ->
-                val columns = parseCsvLine(line)
-                if (columns.size <= maxOf(latitudeIndex, longitudeIndex, countIndex)) return@forEach
-                val latitude = columns[latitudeIndex].toDoubleOrNull() ?: return@forEach
-                val longitude = columns[longitudeIndex].toDoubleOrNull() ?: return@forEach
+            while (iterator.hasNext()) {
+                val columns = parseCsvLine(iterator.next())
+                if (columns.size <= maxOf(latitudeIndex, longitudeIndex, countIndex)) continue
+                val latitude = columns[latitudeIndex].toDoubleOrNull() ?: continue
+                val longitude = columns[longitudeIndex].toDoubleOrNull() ?: continue
                 if (distanceKm(STATION_LATITUDE, STATION_LONGITUDE, latitude, longitude) > RADIUS_KM) {
-                    return@forEach
+                    continue
                 }
                 val key = String.format(Locale.US, "%.7f,%.7f", latitude, longitude)
                 val site = grouped.getOrPut(key) {
@@ -57,10 +51,8 @@ class CheonanCctvRepository {
                 }
                 site.cameraCount += columns[countIndex].toIntOrNull() ?: 1
             }
-            grouped.values.map { it.toCctvSite() }
-        } finally {
-            connection.disconnect()
         }
+        return grouped.values.map { it.toCctvSite() }
     }
 
     private fun parseCsvLine(line: String): List<String> {
@@ -108,8 +100,6 @@ class CheonanCctvRepository {
     }
 
     companion object {
-        private const val CSV_URL =
-            "https://alldam.chungnam.go.kr/bigdata/collect/file/download.do?fileSid=5166"
         private const val STATION_LATITUDE = 36.8100
         private const val STATION_LONGITUDE = 127.1467
         private const val RADIUS_KM = 1.5
