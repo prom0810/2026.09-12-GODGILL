@@ -1,0 +1,32 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          title = os.environ['PR_TITLE']
+          pattern = r'^\[[^\[\]\s]+\][ \t]+\S.*$'
+          if not re.fullmatch(pattern, title):
+              print('::error::PR 제목 형식: [도메인] 구현/변경 내용 + (선택) #이슈번호')
+              sys.exit(1)
+          if re.search(r'\s+#\S+$', title) and not re.search(r'\s+#\d+$', title):
+              print('::error::이슈 번호는 #123처럼 작성해주세요.')
+              sys.exit(1)
+          print('PR 제목 검사 통과:', title)
+          PY

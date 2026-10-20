@@ -1,0 +1,44 @@
+name: Commit Message Guide
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commit-message-guide:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check commit messages (advisory only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/commits" \
+            --jq '.[].commit.message | split("\n")[0]' > /tmp/commit_subjects.txt
+
+          pattern='^(Feat|Fix|Chore|Docs|Refactor|Design|Infra)[[:space:]]*:[[:space:]]*[^[:space:]].*$'
+          invalid=0
+
+          echo '## 커밋 메시지 작성 규칙 (권장)' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Feat, Fix, Chore, Docs, Refactor, Design, Infra 유형을 사용해주세요.' >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS= read -r subject; do
+            if printf '%s\n' "$subject" | grep -Eiq "$pattern"; then
+              echo "PASS: $subject"
+            else
+              echo "::warning::권장 커밋 형식이 아닙니다: $subject"
+              printf -- '- 권장 형식 위반: `%s`\n' "$subject" >> "$GITHUB_STEP_SUMMARY"
+              invalid=$((invalid + 1))
+            fi
+          done < /tmp/commit_subjects.txt
+
+          if [ "$invalid" -gt 0 ]; then
+            echo "총 $invalid개의 커밋 메시지가 권장 규칙과 다릅니다. 병합은 차단하지 않습니다." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '모든 커밋 메시지가 권장 규칙을 충족했습니다.' >> "$GITHUB_STEP_SUMMARY"
+          fi
