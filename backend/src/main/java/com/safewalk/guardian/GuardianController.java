@@ -5,6 +5,7 @@ import com.safewalk.global.LoginUser;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,8 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 보호자 추가·조회·삭제 API. 모든 요청에 "Authorization: Bearer {토큰}" 헤더가 필요하다.
+ * 보호자 추가·조회·수정·삭제 API. 모든 요청에 "Authorization: Bearer {토큰}" 헤더가 필요하다.
  * 어느 사용자의 보호자인지는 요청 바디가 아니라 토큰에서 결정한다(@LoginUser).
+ * 규칙은 {@link GuardianService} 참고.
  */
 @RestController
 @RequestMapping("/api/guardians")
@@ -33,6 +35,16 @@ public class GuardianController {
     @GetMapping
     public ApiResponse<List<GuardianResponse>> getGuardians(@LoginUser Long userId) {
         return ApiResponse.ok(guardianService.getGuardians(userId));
+    }
+
+    /** 보낸 필드만 수정한다. 예: { "isPrimary": true } */
+    @PatchMapping("/{guardianId}")
+    public ApiResponse<GuardianResponse> updateGuardian(
+            @LoginUser Long userId,
+            @PathVariable Long guardianId,
+            @RequestBody GuardianUpdateRequest request
+    ) {
+        return ApiResponse.ok(guardianService.updateGuardian(userId, guardianId, request));
     }
 
     /** 성공 시 { "success": true, "data": null, "message": null } */

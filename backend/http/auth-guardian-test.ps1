@@ -1,5 +1,5 @@
 ﻿# ─────────────────────────────────────────────────────────────────────
-# 회원가입 · JWT 인증 · 보호자 API(추가·조회·삭제) 자동 테스트 (PowerShell)
+# 회원가입 · JWT 인증 · 보호자 API(추가·조회·수정·삭제) 자동 테스트 (PowerShell)
 #
 # auth-guardian.http 와 같은 시나리오를 IntelliJ 라이선스 없이 실행한다.
 #
@@ -298,6 +298,104 @@ Test-Case "19. 잘못된 보호자 ID 형식 거부" $r 400
 # 20. 토큰 없이 삭제 → 401
 $r = Send-Api -Method "DELETE" -Path "/api/guardians/$($kidGuardianIds[0])"
 Test-Case "20. 토큰 없이 삭제 거부" $r 401
+
+# ── 대표 보호자 · 보호자 수정 (DB v3 반영) ──────────────────────────────
+# 이 시점 미성년자 보호자: $kidGuardianIds[0](김엄마) 1명. 가입 때 첫 보호자라 자동으로 대표다.
+$kidMomId = $kidGuardianIds[0]
+
+# 21. 남은 보호자가 대표인지 + 새 필드 확인
+$r = Send-Api -Method "GET" -Path "/api/guardians" -Token $kidToken
+Test-Case "21. 첫 보호자 자동 대표 지정 · 새 응답 필드" $r 200 {
+    param($res)
+    $g = @($res.Body.data)[0]
+    if ($g.isPrimary -ne $true) { return "isPrimary가 true가 아님: $($g.isPrimary)" }
+    if ($g.registrationStatus -ne "UNREGISTERED") { return "registrationStatus: $($g.registrationStatus)" }
+    if ($g.canViewLocation -ne $false) { return "canViewLocation: $($g.canViewLocation)" }
+    $true
+}
+
+# 22. 대표로 지정하며 추가 → 200, 새 보호자가 대표
+$r = Send-Api -Method "POST" -Path "/api/guardians" -Token $kidToken -Body ([ordered]@{
+    name            = "김아빠"
+    phone           = "010-8888-$Run"
+    relationship    = "PARENT"
+    isPrimary       = $true
+    canViewLocation = $true
+})
+Test-Case "22. 대표로 지정하며 보호자 추가" $r 200 {
+    param($res)
+    if ($res.Body.data.isPrimary -ne $true) { return "isPrimary가 true가 아님" }
+    if ($res.Body.data.canViewLocation -ne $true) { return "canViewLocation이 true가 아님" }
+    $true
+}
+$kidDadId = $null
+if ($r.Body -and $r.Body.data) { $kidDadId = $r.Body.data.guardianId }
+
+# 23. 목록: 대표는 1명뿐 (김엄마는 해제됨)
+$r = Send-Api -Method "GET" -Path "/api/guardians" -Token $kidToken
+Test-Case "23. 대표 보호자는 1명만 유지" $r 200 {
+    param($res)
+    $primaries = @(@($res.Body.data) | Where-Object { $_.isPrimary -eq $true })
+    if ($primaries.Count -ne 1) { return "대표 수가 1이 아니라 $($primaries.Count)" }
+    if ($primaries[0].guardianId -ne $kidDadId) { return "대표가 김아빠가 아님: $($primaries[0].name)" }
+    $true
+}
+
+# 24. 수정: 이름·위치 열람 변경 + 김엄마를 다시 대표로 → 200
+$r = Send-Api -Method "PATCH" -Path "/api/guardians/$kidMomId" -Token $kidToken -Body ([ordered]@{
+    name            = "엄마"
+    isPrimary       = $true
+    canViewLocation = $true
+})
+Test-Case "24. 보호자 수정 (이름·대표·위치 열람)" $r 200 {
+    param($res)
+    $d = $res.Body.data
+    if ($d.name -ne "엄마") { return "이름이 바뀌지 않음: $($d.name)" }
+    if ($d.isPrimary -ne $true) { return "대표로 바뀌지 않음" }
+    if ($d.canViewLocation -ne $true) { return "canViewLocation이 바뀌지 않음" }
+    if ($d.relationship -ne "PARENT") { return "생략한 relationship이 바뀜: $($d.relationship)" }
+    $true
+}
+
+# 25. 대표 보호자를 직접 해제 → 400
+$r = Send-Api -Method "PATCH" -Path "/api/guardians/$kidMomId" -Token $kidToken -Body @{ isPrimary = $false }
+Test-Case "25. 대표 보호자 직접 해제 거부" $r 400
+
+# 26. 전화번호 수정 → 400
+$r = Send-Api -Method "PATCH" -Path "/api/guardians/$kidDadId" -Token $kidToken -Body @{ phone = "010-9999-$Run" }
+Test-Case "26. 보호자 전화번호 수정 거부" $r 400
+
+# 27. 다른 사용자의 보호자 수정 → 404
+$r = Send-Api -Method "PATCH" -Path "/api/guardians/$kidDadId" -Token $adultToken -Body @{ name = "남의보호자" }
+Test-Case "27. 다른 사용자의 보호자 수정 거부" $r 404
+
+# 28. 대표(엄마) 삭제 → 200
+$r = Send-Api -Method "DELETE" -Path "/api/guardians/$kidMomId" -Token $kidToken
+Test-Case "28. 대표 보호자 삭제" $r 200
+
+# 29. 목록: 김아빠 1명이 대표 승계
+$r = Send-Api -Method "GET" -Path "/api/guardians" -Token $kidToken
+Test-Case "29. 대표 삭제 후 남은 보호자가 대표 승계" $r 200 {
+    param($res)
+    $list = @($res.Body.data | Where-Object { $_ })
+    if ($list.Count -ne 1) { return "보호자 수가 1이 아니라 $($list.Count)" }
+    if ($list[0].isPrimary -ne $true) { return "남은 보호자가 대표가 아님" }
+    $true
+}
+
+# 30. 가입 시 대표 2명 지정 → 400
+$r = Send-Api -Method "POST" -Path "/api/auth/signup" -Body ([ordered]@{
+    email     = "kid-2primary$Run@test.com"
+    password  = "1234"
+    name      = "최둘"
+    phone     = "010-1212-$Run"
+    userType  = "MINOR"
+    guardians = @(
+        [ordered]@{ name = "가"; phone = "010-1313-$Run"; relationship = "PARENT"; isPrimary = $true },
+        [ordered]@{ name = "나"; phone = "010-1414-$Run"; relationship = "PARENT"; isPrimary = $true }
+    )
+})
+Test-Case "30. 가입 시 대표 보호자 2명 지정 거부" $r 400
 
 # ── 요약 ──────────────────────────────────────────────────────────────
 $total = $script:passCount + $script:failCount

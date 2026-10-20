@@ -317,6 +317,70 @@ powershell -ExecutionPolicy Bypass -File .\http\risk-report-image-test.ps1
 - 제보 목록 조회, 관리자 승인/반려(`APPROVED` 시 `risk_area` 연결)
 - 제보 삭제 (구현 시 저장소 파일도 함께 삭제해야 함 — DB 행은 CASCADE로 지워지지만 파일은 남음)
 
+## 보호자 엔티티 DB v3 반영 · 보호자 수정 API — 2026-10-20 (backend)
+
+`Guardian` 엔티티가 DB v3 `guardian` 테이블의 새 컬럼을 매핑하지 않던 문제를 고치고,
+보호자/지인 연결 기능(초대·수락)의 바탕이 되는 **대표 보호자**와 **보호자 정보 수정 API**를 추가했다.
+초대·수락·연결 해제 API는 아직 없다.
+
+### Android 쪽 영향
+
+- 보호자 응답에 필드가 추가됐다. 기존 필드는 그대로라 지금 코드는 수정 없이 동작한다.
+- 보호자 추가 요청에 `isPrimary`, `canViewLocation`을 선택적으로 보낼 수 있다 (생략 가능).
+
+```json
+{ "guardianId": 3, "name": "김엄마", "phone": "010-9876-5432",
+  "relationship": "PARENT", "relationshipLabel": "부모",
+  "isPrimary": true, "registrationStatus": "UNREGISTERED", "canViewLocation": false,
+  "createdAt": "...", "connectedAt": null }
+```
+
+### API
+
+| 메서드 | 경로 | 토큰 | 설명 |
+|---|---|---|---|
+| PATCH | `/api/guardians/{guardianId}` | 필요 | 보호자 정보 수정 (신규). 보낸 필드만 바뀐다 |
+
+```json
+PATCH /api/guardians/3
+{ "name": "엄마", "relationship": "PARENT", "isPrimary": true, "canViewLocation": true }
+```
+
+### 규칙
+
+| 구분 | 규칙 |
+|---|---|
+| 대표 보호자 | 사용자당 최대 1명 (DB `uq_guardian_primary_active`). 대표가 없을 때 추가한 보호자는 자동으로 대표가 된다. `isPrimary: true`로 추가·수정하면 기존 대표는 자동 해제 |
+| 대표 해제 | 대표에게 `isPrimary: false`를 보내면 400. 다른 보호자를 대표로 지정하면 바뀐다 |
+| 대표 삭제 | 남은 보호자 중 가장 먼저 등록된 사람이 대표가 된다 |
+| 회원가입 | `guardians` 중 `isPrimary: true`는 1명까지 (2명 이상이면 400) |
+| 수정 | `name`, `relationship`, `isPrimary`, `canViewLocation`만 수정 가능. `phone`을 보내면 400 (보호자 계정 연결의 기준 값이라 삭제 후 다시 등록) |
+| 연결 상태 | 새 보호자는 `UNREGISTERED`. 삭제 시 `INVITED`·`CONNECTED`였다면 `REVOKED`로 바뀐다 |
+| 위치 열람 | `canViewLocation` 기본값 false |
+
+### 추가/수정된 파일 — backend/
+
+| 파일 | 설명 |
+|---|---|
+| `guardian/Guardian.java` | `guardian_user_id`, `is_primary`, `registration_status`, `can_view_location`, `connected_at` 매핑. setter 대신 `markPrimary()`, `changeName()` 등 의미 있는 메서드로 변경 |
+| `guardian/RegistrationStatus.java` (신규) | `UNREGISTERED` / `INVITED` / `CONNECTED` / `REVOKED` |
+| `guardian/GuardianUpdateRequest.java` (신규) | 수정 요청 |
+| `guardian/GuardianRequest.java`, `GuardianResponse.java` | 새 필드 추가 |
+| `guardian/GuardianService.java`, `GuardianController.java`, `GuardianRepository.java` | 대표 보호자 규칙, 수정 API, 삭제 시 상태 변경 |
+| `db/v3/06_backfill_primary_guardian.sql` (신규) | 기존 사용자에게 대표 보호자 지정 (1회 실행) |
+| `http/auth-guardian-test.ps1`, `auth-guardian.http` | 21~30번 케이스 추가 (총 34개) |
+
+### DB 작업 (Supabase에 한 번 실행)
+
+v3 마이그레이션 때 `is_primary`가 기본값 false로 추가돼서, 기존 사용자는 대표 보호자가 없다.
+Supabase SQL Editor에서 `backend/db/v3/06_backfill_primary_guardian.sql`을 한 번 실행한다
+(사용자별로 가장 먼저 등록된 보호자를 대표로 지정, 여러 번 실행해도 결과 같음). 스키마는 바뀌지 않는다.
+
+### 보류된 기능
+
+- 연결 초대 보내기·받은 초대 조회·수락/거절·연결 해제 API
+- 보호자 입장의 "내가 보호 중인 사용자" 목록, FCM 토큰 등록, 알림 목록
+
 ## 다운받아 실행할 때 확인/수정할 것
 
 - **android** — `common/network/ApiClient.kt`의 `baseUrl`을 실행할 PC의 로컬 네트워크 IP로
