@@ -1,5 +1,6 @@
 package com.safewalk.main.navigation
 
+
 import android.os.Bundle
 import android.view.WindowInsets
 import androidx.activity.ComponentActivity
