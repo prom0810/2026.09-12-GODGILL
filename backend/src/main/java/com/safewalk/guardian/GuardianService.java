@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 본인 전화번호는 보호자로 등록 불가 (400)
  *  - 같은 사용자에게 같은 전화번호 중복 등록 불가 (409). 삭제된 보호자의 번호는 다시 등록할 수 있다.
  *  - 사용자당 최대 {@link #MAX_GUARDIANS}명 (400)
- *  - 새 보호자는 registration_status = UNREGISTERED로 저장한다 (계정 연결은 초대·수락 API에서 처리 예정)
+ *  - 새 보호자는 registration_status = UNREGISTERED로 저장한다 (계정 연결은 {@link GuardianConnectionService})
  *
  * 대표 보호자 규칙:
  *  - 사용자당 삭제되지 않은 대표 보호자는 최대 1명 (DB uq_guardian_primary_active)

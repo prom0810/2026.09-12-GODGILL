@@ -9,8 +9,8 @@ package com.safewalk.guardian;
  *              guardian_user_id·connected_at이 반드시 있어야 한다 (DB 제약 ck_guardian_connected)
  * - REVOKED: 연결이 해제된 상태
  *
- * 초대·수락·해제 API는 아직 없다. 지금은 보호자 추가 시 UNREGISTERED로 저장하고,
- * 삭제 시 INVITED/CONNECTED 상태였다면 REVOKED로 바꾸는 것만 한다.
+ * 상태를 바꾸는 API는 {@link GuardianConnectionController}(초대·수락·거절·해제), 전이 규칙은 {@link Guardian} 참고.
+ * 보호자를 삭제(DELETE)할 때 INVITED/CONNECTED였다면 REVOKED로 바뀐다.
  */
 public enum RegistrationStatus {
     UNREGISTERED,

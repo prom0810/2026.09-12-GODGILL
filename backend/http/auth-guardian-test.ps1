@@ -1,5 +1,5 @@
 ﻿# ─────────────────────────────────────────────────────────────────────
-# 회원가입 · JWT 인증 · 보호자 API(추가·조회·수정·삭제) 자동 테스트 (PowerShell)
+# 회원가입 · JWT 인증 · 보호자 API(추가·조회·수정·삭제·계정 연결) 자동 테스트 (PowerShell)
 #
 # auth-guardian.http 와 같은 시나리오를 IntelliJ 라이선스 없이 실행한다.
 #
@@ -397,6 +397,158 @@ $r = Send-Api -Method "POST" -Path "/api/auth/signup" -Body ([ordered]@{
 })
 Test-Case "30. 가입 시 대표 보호자 2명 지정 거부" $r 400
 
+# ── 보호자 계정 연결 (초대 → 수락 → 해제) ─────────────────────────────
+# 이 시점 미성년자(김안심)의 보호자: 김아빠($kidDadId, 010-8888-$Run) 1명, 상태 UNREGISTERED.
+# 김아빠가 같은 번호로 앱에 가입해 초대를 받는다.
+$dadEmail = "dad$Run@test.com"
+
+# 31. 보호자(김아빠) 계정 가입 → 200
+$r = Send-Api -Method "POST" -Path "/api/auth/signup" -Body ([ordered]@{
+    email    = $dadEmail
+    password = "1234"
+    name     = "김아빠"
+    phone    = "010-8888-$Run"
+    userType = "ADULT"
+})
+Test-Case "31. 보호자 계정 가입" $r 200
+$dadToken = Get-Token $r
+
+# 32. 초대 전에는 받은 초대 없음 → 0건
+$r = Send-Api -Method "GET" -Path "/api/guardians/invitations" -Token $dadToken
+Test-Case "32. 초대 전 받은 초대 0건" $r 200 {
+    param($res)
+    $count = @($res.Body.data | Where-Object { $_ }).Count
+    if ($count -eq 0) { $true } else { "받은 초대가 $count건" }
+}
+
+# 33. 사용자가 초대 보내기 → 200, INVITED
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/invite" -Token $kidToken
+Test-Case "33. 연결 초대 보내기" $r 200 {
+    param($res)
+    if ($res.Body.data.registrationStatus -eq "INVITED") { $true } else { "상태: $($res.Body.data.registrationStatus)" }
+}
+
+# 34. 같은 보호자에게 다시 초대 → 409
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/invite" -Token $kidToken
+Test-Case "34. 중복 초대 거부" $r 409
+
+# 35. 보호자: 받은 초대 1건, 보낸 사람 이름 확인
+$r = Send-Api -Method "GET" -Path "/api/guardians/invitations" -Token $dadToken
+Test-Case "35. 받은 초대 조회" $r 200 {
+    param($res)
+    $list = @($res.Body.data | Where-Object { $_ })
+    if ($list.Count -ne 1) { return "받은 초대가 1건이 아니라 $($list.Count)건" }
+    if ($list[0].guardianId -ne $kidDadId) { return "초대 ID가 다름: $($list[0].guardianId)" }
+    if ($list[0].wardName -ne "김안심") { return "보낸 사람 이름: $($list[0].wardName)" }
+    if ($list[0].relationship -ne "PARENT") { return "관계: $($list[0].relationship)" }
+    $true
+}
+
+# 36. 번호가 다른 계정(성인)이 남의 초대 수락 → 404
+$r = Send-Api -Method "POST" -Path "/api/guardians/invitations/$kidDadId/accept" -Token $adultToken
+Test-Case "36. 다른 사람의 초대 수락 거부" $r 404
+
+# 37. 보호자: 초대 수락 → 200
+$r = Send-Api -Method "POST" -Path "/api/guardians/invitations/$kidDadId/accept" -Token $dadToken
+Test-Case "37. 초대 수락" $r 200 {
+    param($res)
+    if ($res.Body.data.wardName -ne "김안심") { return "wardName: $($res.Body.data.wardName)" }
+    if (-not $res.Body.data.connectedAt) { return "connectedAt이 비어 있음" }
+    $true
+}
+
+# 38. 이미 수락한 초대 다시 수락 → 409
+$r = Send-Api -Method "POST" -Path "/api/guardians/invitations/$kidDadId/accept" -Token $dadToken
+Test-Case "38. 이미 수락한 초대 재수락 거부" $r 409
+
+# 39. 사용자 쪽 목록: CONNECTED + connectedAt
+$r = Send-Api -Method "GET" -Path "/api/guardians" -Token $kidToken
+Test-Case "39. 사용자 쪽에서 연결 상태 확인" $r 200 {
+    param($res)
+    $g = @($res.Body.data | Where-Object { $_.guardianId -eq $kidDadId })[0]
+    if ($g.registrationStatus -ne "CONNECTED") { return "상태: $($g.registrationStatus)" }
+    if (-not $g.connectedAt) { return "connectedAt이 비어 있음" }
+    $true
+}
+
+# 40. 보호자 쪽 보호 대상 목록 → 1명
+$r = Send-Api -Method "GET" -Path "/api/guardians/wards" -Token $dadToken
+Test-Case "40. 내가 보호 중인 사용자 목록" $r 200 {
+    param($res)
+    $list = @($res.Body.data | Where-Object { $_ })
+    if ($list.Count -ne 1) { return "보호 대상이 1명이 아니라 $($list.Count)명" }
+    if ($list[0].wardName -ne "김안심") { return "wardName: $($list[0].wardName)" }
+    if ($list[0].isPrimary -ne $true) { return "대표 보호자 표시가 아님" }
+    if ($list[0].canViewLocation -ne $true) { return "위치 열람 허용 값이 다름" }
+    $true
+}
+
+# 41. 연결된 보호자에게 다시 초대 → 409
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/invite" -Token $kidToken
+Test-Case "41. 연결된 보호자 재초대 거부" $r 409
+
+# 42. 연결과 무관한 계정이 연결 끊기 → 404
+$r = Send-Api -Method "POST" -Path "/api/guardians/wards/$kidDadId/leave" -Token $adultToken
+Test-Case "42. 다른 사람의 연결 끊기 거부" $r 404
+
+# 43. 보호자가 스스로 연결 끊기 → 200
+$r = Send-Api -Method "POST" -Path "/api/guardians/wards/$kidDadId/leave" -Token $dadToken
+Test-Case "43. 보호자가 연결 끊기" $r 200
+
+# 44. 보호자 쪽 보호 대상 → 0명
+$r = Send-Api -Method "GET" -Path "/api/guardians/wards" -Token $dadToken
+Test-Case "44. 연결 끊은 뒤 보호 대상 0명" $r 200 {
+    param($res)
+    $count = @($res.Body.data | Where-Object { $_ }).Count
+    if ($count -eq 0) { $true } else { "보호 대상이 $count명" }
+}
+
+# 45. 사용자 쪽 상태 → REVOKED
+$r = Send-Api -Method "GET" -Path "/api/guardians" -Token $kidToken
+Test-Case "45. 사용자 쪽 상태 REVOKED" $r 200 {
+    param($res)
+    $g = @($res.Body.data | Where-Object { $_.guardianId -eq $kidDadId })[0]
+    if ($g.registrationStatus -eq "REVOKED") { $true } else { "상태: $($g.registrationStatus)" }
+}
+
+# 46. 해제된 보호자 다시 초대 → 200, INVITED
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/invite" -Token $kidToken
+Test-Case "46. 해제된 보호자 재초대" $r 200 {
+    param($res)
+    if ($res.Body.data.registrationStatus -eq "INVITED") { $true } else { "상태: $($res.Body.data.registrationStatus)" }
+}
+
+# 47. 보호자: 초대 거절 → 200
+$r = Send-Api -Method "POST" -Path "/api/guardians/invitations/$kidDadId/reject" -Token $dadToken
+Test-Case "47. 초대 거절" $r 200
+
+# 48. 거절 후 사용자 쪽 상태 → UNREGISTERED
+$r = Send-Api -Method "GET" -Path "/api/guardians" -Token $kidToken
+Test-Case "48. 거절 후 상태 UNREGISTERED" $r 200 {
+    param($res)
+    $g = @($res.Body.data | Where-Object { $_.guardianId -eq $kidDadId })[0]
+    if ($g.registrationStatus -eq "UNREGISTERED") { $true } else { "상태: $($g.registrationStatus)" }
+}
+
+# 49. 다시 초대 → 200
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/invite" -Token $kidToken
+Test-Case "49. 다시 초대" $r 200
+
+# 50. 사용자가 초대 취소 → 200, UNREGISTERED
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/revoke" -Token $kidToken
+Test-Case "50. 보낸 초대 취소" $r 200 {
+    param($res)
+    if ($res.Body.data.registrationStatus -eq "UNREGISTERED") { $true } else { "상태: $($res.Body.data.registrationStatus)" }
+}
+
+# 51. 연결도 초대도 아닌 보호자 해제 → 409
+$r = Send-Api -Method "POST" -Path "/api/guardians/$kidDadId/revoke" -Token $kidToken
+Test-Case "51. 연결되지 않은 보호자 해제 거부" $r 409
+
+# 52. 토큰 없이 받은 초대 조회 → 401
+$r = Send-Api -Method "GET" -Path "/api/guardians/invitations"
+Test-Case "52. 토큰 없이 받은 초대 조회 거부" $r 401
+
 # ── 요약 ──────────────────────────────────────────────────────────────
 $total = $script:passCount + $script:failCount
 Write-Host ""
@@ -406,7 +558,7 @@ if ($script:failCount -eq 0) {
     Write-Host "결과: $total개 중 $($script:passCount)개 통과, $($script:failCount)개 실패" -ForegroundColor Red
 }
 Write-Host ""
-Write-Host "이번 실행에서 만든 테스트 계정: $adultEmail, $kidEmail" -ForegroundColor DarkGray
+Write-Host "이번 실행에서 만든 테스트 계정: $adultEmail, $kidEmail, $dadEmail" -ForegroundColor DarkGray
 Write-Host ""
 
 $client.Dispose()

@@ -156,6 +156,56 @@ public class Guardian {
         this.primary = false;
     }
 
+    // ── 계정 연결 상태 전이 ─────────────────────────────────────────────
+    //  UNREGISTERED/REVOKED ──invite──▶ INVITED ──accept──▶ CONNECTED ──revoke/leave──▶ REVOKED
+    //                                   INVITED ──reject/cancelInvite──▶ UNREGISTERED
+    // 허용되지 않는 상태에서 호출하면 GuardianStateException(409).
+
+    /** 연결 초대 보내기 (보호받는 사용자가 호출). 해제된 보호자도 다시 초대할 수 있다. */
+    public void invite() {
+        if (registrationStatus == RegistrationStatus.INVITED) {
+            throw new GuardianStateException("이미 초대를 보낸 보호자입니다.");
+        }
+        if (registrationStatus == RegistrationStatus.CONNECTED) {
+            throw new GuardianStateException("이미 연결된 보호자입니다.");
+        }
+        this.registrationStatus = RegistrationStatus.INVITED;
+        this.guardianUser = null;
+        this.connectedAt = null;
+    }
+
+    /** 보낸 초대 취소 (보호받는 사용자가 호출) */
+    public void cancelInvite() {
+        requireStatus(RegistrationStatus.INVITED, "초대 중인 보호자가 아닙니다.");
+        this.registrationStatus = RegistrationStatus.UNREGISTERED;
+    }
+
+    /** 초대 수락 (보호자가 자기 계정으로 호출). DB 제약상 CONNECTED에는 guardian_user_id·connected_at이 필수다. */
+    public void accept(User guardianAccount) {
+        requireStatus(RegistrationStatus.INVITED, "수락할 수 있는 초대가 없습니다.");
+        this.guardianUser = guardianAccount;
+        this.registrationStatus = RegistrationStatus.CONNECTED;
+        this.connectedAt = OffsetDateTime.now();
+    }
+
+    /** 초대 거절 (보호자가 호출) */
+    public void reject() {
+        requireStatus(RegistrationStatus.INVITED, "거절할 수 있는 초대가 없습니다.");
+        this.registrationStatus = RegistrationStatus.UNREGISTERED;
+    }
+
+    /** 연결 해제 (보호받는 사용자 또는 보호자가 호출). 연결 이력(guardian_user_id, connected_at)은 남긴다. */
+    public void revoke() {
+        requireStatus(RegistrationStatus.CONNECTED, "연결된 보호자가 아닙니다.");
+        this.registrationStatus = RegistrationStatus.REVOKED;
+    }
+
+    private void requireStatus(RegistrationStatus expected, String message) {
+        if (registrationStatus != expected) {
+            throw new GuardianStateException(message);
+        }
+    }
+
     /**
      * soft delete: 행은 남기고 deleted_at만 기록한다.
      * 초대 중이거나 연결된 보호자였다면 연결도 끊는다(REVOKED). 연결 이력(guardian_user_id, connected_at)은 남긴다.

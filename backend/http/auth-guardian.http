@@ -388,3 +388,190 @@ Content-Type: application/json
 }
 
 > {% client.test("대표 2명 거부", () => client.assert(response.status === 400, "status=" + response.status)); %}
+
+### ── 보호자 계정 연결 (초대 → 수락 → 해제) ─────────────────────────────
+### 이 시점 미성년자(김안심)의 보호자: kidGuardian3(김아빠, 010-8888-{{run}}) 1명. 김아빠가 같은 번호로 가입해 초대를 받는다.
+
+### 31. 보호자(김아빠) 계정 가입
+POST {{host}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "dad{{run}}@test.com",
+  "password": "1234",
+  "name": "김아빠",
+  "phone": "010-8888-{{run}}",
+  "userType": "ADULT"
+}
+
+> {%
+    client.test("보호자(김아빠) 계정 가입", () => { client.assert(response.status === 200, "status=" + response.status); });
+    client.global.set("dadToken", response.body.data.accessToken);
+%}
+
+### 32. 초대 전 받은 초대 0건
+GET {{host}}/api/guardians/invitations
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("초대 전 받은 초대 0건", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.length === 0, "응답 값 확인 실패"); });
+%}
+
+### 33. 연결 초대 보내기 → INVITED
+POST {{host}}/api/guardians/{{kidGuardian3}}/invite
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("연결 초대 보내기 → INVITED", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.registrationStatus === "INVITED", "응답 값 확인 실패"); });
+%}
+
+### 34. 중복 초대 → 409
+POST {{host}}/api/guardians/{{kidGuardian3}}/invite
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("중복 초대 → 409", () => { client.assert(response.status === 409, "status=" + response.status); });
+%}
+
+### 35. 받은 초대 1건 (보낸 사람 김안심)
+GET {{host}}/api/guardians/invitations
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("받은 초대 1건 (보낸 사람 김안심)", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.length === 1 && response.body.data[0].wardName === "김안심", "응답 값 확인 실패"); });
+%}
+
+### 36. 다른 사람의 초대 수락 → 404
+POST {{host}}/api/guardians/invitations/{{kidGuardian3}}/accept
+Authorization: Bearer {{adultToken}}
+
+> {%
+    client.test("다른 사람의 초대 수락 → 404", () => { client.assert(response.status === 404, "status=" + response.status); });
+%}
+
+### 37. 초대 수락
+POST {{host}}/api/guardians/invitations/{{kidGuardian3}}/accept
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("초대 수락", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.connectedAt !== null, "응답 값 확인 실패"); });
+%}
+
+### 38. 이미 수락한 초대 재수락 → 409
+POST {{host}}/api/guardians/invitations/{{kidGuardian3}}/accept
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("이미 수락한 초대 재수락 → 409", () => { client.assert(response.status === 409, "status=" + response.status); });
+%}
+
+### 39. 사용자 쪽 상태 CONNECTED
+GET {{host}}/api/guardians
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("사용자 쪽 상태 CONNECTED", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.find(g => g.guardianId == client.global.get("kidGuardian3")).registrationStatus === "CONNECTED", "응답 값 확인 실패"); });
+%}
+
+### 40. 내가 보호 중인 사용자 1명
+GET {{host}}/api/guardians/wards
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("내가 보호 중인 사용자 1명", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.length === 1 && response.body.data[0].wardName === "김안심", "응답 값 확인 실패"); });
+%}
+
+### 41. 연결된 보호자 재초대 → 409
+POST {{host}}/api/guardians/{{kidGuardian3}}/invite
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("연결된 보호자 재초대 → 409", () => { client.assert(response.status === 409, "status=" + response.status); });
+%}
+
+### 42. 다른 사람의 연결 끊기 → 404
+POST {{host}}/api/guardians/wards/{{kidGuardian3}}/leave
+Authorization: Bearer {{adultToken}}
+
+> {%
+    client.test("다른 사람의 연결 끊기 → 404", () => { client.assert(response.status === 404, "status=" + response.status); });
+%}
+
+### 43. 보호자가 연결 끊기
+POST {{host}}/api/guardians/wards/{{kidGuardian3}}/leave
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("보호자가 연결 끊기", () => { client.assert(response.status === 200, "status=" + response.status); });
+%}
+
+### 44. 연결 끊은 뒤 보호 대상 0명
+GET {{host}}/api/guardians/wards
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("연결 끊은 뒤 보호 대상 0명", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.length === 0, "응답 값 확인 실패"); });
+%}
+
+### 45. 사용자 쪽 상태 REVOKED
+GET {{host}}/api/guardians
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("사용자 쪽 상태 REVOKED", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.find(g => g.guardianId == client.global.get("kidGuardian3")).registrationStatus === "REVOKED", "응답 값 확인 실패"); });
+%}
+
+### 46. 해제된 보호자 재초대
+POST {{host}}/api/guardians/{{kidGuardian3}}/invite
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("해제된 보호자 재초대", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.registrationStatus === "INVITED", "응답 값 확인 실패"); });
+%}
+
+### 47. 초대 거절
+POST {{host}}/api/guardians/invitations/{{kidGuardian3}}/reject
+Authorization: Bearer {{dadToken}}
+
+> {%
+    client.test("초대 거절", () => { client.assert(response.status === 200, "status=" + response.status); });
+%}
+
+### 48. 거절 후 상태 UNREGISTERED
+GET {{host}}/api/guardians
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("거절 후 상태 UNREGISTERED", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.find(g => g.guardianId == client.global.get("kidGuardian3")).registrationStatus === "UNREGISTERED", "응답 값 확인 실패"); });
+%}
+
+### 49. 다시 초대
+POST {{host}}/api/guardians/{{kidGuardian3}}/invite
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("다시 초대", () => { client.assert(response.status === 200, "status=" + response.status); });
+%}
+
+### 50. 보낸 초대 취소 → UNREGISTERED
+POST {{host}}/api/guardians/{{kidGuardian3}}/revoke
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("보낸 초대 취소 → UNREGISTERED", () => { client.assert(response.status === 200, "status=" + response.status); client.assert(response.body.data.registrationStatus === "UNREGISTERED", "응답 값 확인 실패"); });
+%}
+
+### 51. 연결되지 않은 보호자 해제 → 409
+POST {{host}}/api/guardians/{{kidGuardian3}}/revoke
+Authorization: Bearer {{kidToken}}
+
+> {%
+    client.test("연결되지 않은 보호자 해제 → 409", () => { client.assert(response.status === 409, "status=" + response.status); });
+%}
+
+### 52. 토큰 없이 받은 초대 조회 → 401
+GET {{host}}/api/guardians/invitations
+
+> {%
+    client.test("토큰 없이 받은 초대 조회 → 401", () => { client.assert(response.status === 401, "status=" + response.status); });
+%}
