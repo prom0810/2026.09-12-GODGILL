@@ -24,6 +24,7 @@
     <string name="security_light_load_failed">보안등 데이터를 불러오지 못했습니다.</string>
 <string name="route_point_searching">"%1$s" 검색 중...</string>
     <string name="route_point_not_found">"%1$s" 검색 결과가 없습니다.</string>
+    <string name="route_history_applied">최근 경로: %1$s → %2$s (경로 버튼을 눌러 다시 계산하세요)</string>
     <string name="route_start_set">출발지: %1$s</string>
     <string name="route_end_set">도착지: %1$s</string>
     <string name="route_need_points">출발지와 도착지를 먼저 설정해주세요.</string>
