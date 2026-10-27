@@ -53,3 +53,14 @@ storage:
   bucket: ${STORAGE_BUCKET:risk-report-images}
   signed-url-ttl-minutes: ${STORAGE_SIGNED_URL_TTL_MINUTES:10}
   local-dir: ${STORAGE_LOCAL_DIR:./local-storage}
+
+# 푸시 알림(FCM). 값은 backend/.env에서 읽는다 (.env.example 참고).
+#  - FIREBASE_CREDENTIALS_PATH 있음 : 그 서비스 계정 키로 실제 FCM 발송
+#  - 없음(빈 값)                    : 발송 내용을 서버 로그에만 출력 (키 없는 팀원도 bootRun 가능)
+firebase:
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+
+# 개발용 API. 운영 배포에서는 false로 둘 것.
+#  - POST /api/dev/push-test : 내 기기로 테스트 푸시 보내기
+dev:
+  push-test-enabled: ${DEV_PUSH_TEST_ENABLED:false}

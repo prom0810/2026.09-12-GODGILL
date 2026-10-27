@@ -381,6 +381,142 @@ Supabase SQL Editor에서 `backend/db/v3/06_backfill_primary_guardian.sql`을 �
 - 연결 초대 보내기·받은 초대 조회·수락/거절·연결 해제 API
 - 보호자 입장의 "내가 보호 중인 사용자" 목록, FCM 토큰 등록, 알림 목록
 
+## 보호자 계정 연결 API (초대 · 수락 · 해제) — 2026-10-20 (backend)
+
+보호자로 등록된 사람이 **같은 전화번호로 앱에 가입**하면, 사용자가 보낸 연결 초대를 받아 수락할 수 있다.
+연결되면 보호자 쪽에서 "내가 보호 중인 사용자" 목록을 볼 수 있다. 위치 조회·알림 발송은 아직 없다.
+
+### 흐름
+
+```
+사용자(보호받는 사람)                       보호자 계정 (같은 번호로 가입)
+POST /api/guardians/{id}/invite  ──────▶  GET  /api/guardians/invitations
+   UNREGISTERED → INVITED                 POST /api/guardians/invitations/{id}/accept  → CONNECTED
+                                          POST /api/guardians/invitations/{id}/reject  → UNREGISTERED
+POST /api/guardians/{id}/revoke                GET  /api/guardians/wards
+   INVITED → UNREGISTERED (초대 취소)           POST /api/guardians/wards/{id}/leave         → REVOKED
+   CONNECTED → REVOKED (연결 해제)
+```
+
+`{id}`는 모두 보호자 행의 `guardianId`다 (초대 ID = 연결 ID).
+
+### API
+
+| 메서드 | 경로 | 호출하는 사람 | 설명 |
+|---|---|---|---|
+| POST | `/api/guardians/{guardianId}/invite` | 사용자 | 연결 초대 보내기. UNREGISTERED·REVOKED에서 가능 |
+| POST | `/api/guardians/{guardianId}/revoke` | 사용자 | 초대 취소(INVITED → UNREGISTERED) 또는 연결 해제(CONNECTED → REVOKED) |
+| GET | `/api/guardians/invitations` | 보호자 | 내 전화번호로 온 초대 목록 |
+| POST | `/api/guardians/invitations/{guardianId}/accept` | 보호자 | 수락 → CONNECTED |
+| POST | `/api/guardians/invitations/{guardianId}/reject` | 보호자 | 거절 → UNREGISTERED |
+| GET | `/api/guardians/wards` | 보호자 | 내가 보호 중인 사용자 목록 |
+| POST | `/api/guardians/wards/{guardianId}/leave` | 보호자 | 스스로 연결 끊기 → REVOKED |
+
+받은 초대 응답 (수락 전에는 상대 이름과 관계만 보여준다):
+
+```json
+{ "guardianId": 7, "wardName": "김안심", "relationship": "PARENT", "relationshipLabel": "부모" }
+```
+
+보호 대상 응답:
+
+```json
+{ "guardianId": 7, "wardName": "김안심", "wardPhone": "010-1234-5678",
+  "relationship": "PARENT", "relationshipLabel": "부모",
+  "isPrimary": true, "canViewLocation": true, "connectedAt": "..." }
+```
+
+### 규칙
+
+| 구분 | 규칙 |
+|---|---|
+| 초대 매칭 | 보호자 행의 `phone`과 같은 번호로 가입한 계정이 받는다. 초대할 때 그 번호의 계정이 없어도 되고, 나중에 가입하면 보인다 |
+| 상태 오류 | 이미 초대·연결된 보호자 재초대, 이미 수락한 초대 재수락, 연결되지 않은 보호자 해제 등은 **409** |
+| 접근 제한 | 내 번호가 아닌 초대, 내가 연결되지 않은 사용자, 남의 보호자는 **404** (존재 여부를 드러내지 않음) |
+| 위치 열람 | `canViewLocation`은 사용자만 바꿀 수 있다 (`PATCH /api/guardians/{id}`). 보호자는 조회만 |
+| 삭제와의 관계 | 사용자가 보호자를 삭제(DELETE)하면 연결도 REVOKED가 된다. 해제(revoke)는 보호자 행을 남긴다 |
+| 동시 요청 | 수락·거절·끊기는 보호자 행을 잠그고 처리한다 |
+
+### ⚠ 보안 주의 (MVP 한계)
+
+가입 시 **전화번호 본인 인증이 없다**. 다른 사람의 번호로 가입하면 그 사람에게 온 초대를 수락할 수 있고,
+사용자가 위치 열람을 허용해 두었다면 위치 조회 API가 생긴 뒤 위치까지 볼 수 있게 된다.
+본인 인증(`users.identity_verified`)을 도입하면 `GuardianConnectionService.accept()`에서 인증된 계정만 수락하도록 바꿔야 한다.
+
+### 추가/수정된 파일 — backend/
+
+| 파일 | 설명 |
+|---|---|
+| `guardian/GuardianConnectionController.java`, `GuardianConnectionService.java` (신규) | 연결 API 7개 |
+| `guardian/GuardianInvitationResponse.java`, `WardResponse.java` (신규) | 받은 초대, 보호 대상 응답 |
+| `guardian/GuardianStateException.java` (신규) | 상태가 맞지 않을 때 409 |
+| `guardian/Guardian.java` | 상태 전이 메서드 `invite()`, `cancelInvite()`, `accept()`, `reject()`, `revoke()` |
+| `guardian/GuardianRepository.java` | 번호로 초대 조회, 보호 대상 조회, 잠금 조회 |
+| `global/GlobalExceptionHandler.java` | `GuardianStateException` → 409 |
+| `http/auth-guardian-test.ps1`, `auth-guardian.http` | 31~52번 케이스 추가 (총 56개) |
+
+DB 변경은 없다 (v3 `guardian` 컬럼을 그대로 사용).
+
+### 보류된 기능
+
+- 초대 푸시 알림 (FCM 토큰 등록 `user_device`, 알림 이력 `notification`) — 지금은 앱이 받은 초대 목록을 직접 조회
+- 보호자의 위치 조회 (`canViewLocation` 확인 후 응답)
+- 전화번호 본인 인증
+
+## 푸시 알림(FCM) 기반 · 기기 토큰 API — 2026-10-27 (backend)
+
+SOS 보호자 알림의 바탕 작업. 앱이 FCM 토큰을 서버에 등록하고, 서버가 그 기기로 푸시를 보낼 수 있다.
+SOS API 자체는 아직 없다 (명세: Claude 프로젝트 문서 `emergency-sos-api-v1`).
+
+### API (모두 JWT 필요)
+
+| 메서드 | 경로 | 언제 | 요청 본문 |
+|---|---|---|---|
+| PUT | `/api/users/me/devices` | 로그인 직후, `onNewToken`(토큰 갱신) 때 | `{ "fcmToken": "...", "deviceType": "ANDROID" }` (deviceType 선택: ANDROID / WEAR_OS) |
+| DELETE | `/api/users/me/devices` | 로그아웃 때 | `{ "fcmToken": "..." }` |
+| POST | `/api/dev/push-test` | (개발용) 내 기기로 테스트 푸시 | `{ "title": "...", "body": "..." }` 둘 다 선택 |
+
+### 규칙
+- 같은 토큰을 다시 등록하면 새 행을 만들지 않고 기존 기기를 다시 활성화한다.
+- 같은 폰에서 다른 계정으로 로그인해 등록하면 기기의 주인이 새 계정으로 바뀐다. 이전 계정 알림은 이 폰으로 더 이상 오지 않는다.
+- 해제(DELETE)는 내 기기가 아니거나 없는 토큰이어도 200이다. 로그아웃이 이 API 때문에 실패하지 않게 하려는 것이다.
+- FCM이 "없는/잘못된 토큰"(UNREGISTERED, INVALID_ARGUMENT, SENDER_ID_MISMATCH)이라고 답하면 그 기기를 자동으로 비활성화한다.
+- 푸시는 Android 우선순위 HIGH로 보낸다 (절전 상태에서도 바로 도착하게. SOS용).
+- 400: fcmToken 없음·공백·512자 초과, 없는 deviceType / 401: JWT 없음
+
+### 설정 (`backend/.env`)
+| 키 | 값 | 설명 |
+|---|---|---|
+| `FIREBASE_CREDENTIALS_PATH` | `firebase-service-account.json` | Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키. 상대 경로는 backend 폴더 기준. **생략하면 푸시를 보내지 않고 서버 로그에만 출력**(키 없는 팀원용) |
+| `DEV_PUSH_TEST_ENABLED` | `true` | `/api/dev/push-test` 켜기. 운영 배포에서는 넣지 않는다 (없으면 404) |
+
+- 서비스 계정 키는 Firebase 프로젝트 관리자 권한이다. `backend/firebase-service-account.json`, `*firebase-adminsdk*.json`은 `.gitignore`에 등록되어 있다. 메신저로 공유하지 말고, 필요한 팀원은 콘솔에서 따로 발급한다.
+- 경로를 넣었는데 파일이 없거나 잘못된 파일이면 서버가 시작되지 않는다 (조용히 콘솔 모드로 바뀌지 않게).
+- 문자(SMS)는 MVP 동안 항상 서버 로그 출력이다 (`ConsoleSmsSender`).
+
+### 추가/수정된 파일 — backend/
+- `build.gradle.kts`: `com.google.firebase:firebase-admin:9.8.0`
+- `application.yml`: `firebase.credentials-path`, `dev.push-test-enabled`
+- `.env.example`, `.gitignore`
+- `device/`: `UserDevice`(user_device 엔티티), `DeviceType`, `UserDeviceRepository`, `DeviceService`, `DeviceController`, `DeviceRequests`, `DeviceResponse`
+- `notification/`: `PushSender`·`FcmPushSender`·`ConsolePushSender`, `SmsSender`·`ConsoleSmsSender`, `PushSenderConfig`, `PushMessage`, `PushResult`, `DevPushTestController`, `NotificationService`(pushToUser·sendSms 추가)
+- `http/device-push-test.ps1`, `http/device-push.http`
+
+### 테스트 방법
+```
+powershell -ExecutionPolicy Bypass -File .\http\device-push-test.ps1
+```
+가짜 토큰을 쓰므로 폰에는 알림이 가지 않는다. FCM 모드에서는 22번이 "Firebase 서버 인증 정상"을 확인한다
+(가짜 토큰만 INVALID_ARGUMENT로 거절되면 서비스 계정 키는 정상). 실제 도착 확인은 앱이 토큰을 등록한 뒤 `/api/dev/push-test`.
+
+### ⚠ 프론트(Android) 작업 필요
+- Firebase 콘솔에서 Android 앱(패키지 `com.safewalk`) 등록 → `google-services.json`을 `android/mobile/`에
+- 루트 `build.gradle.kts`에 `com.google.gms.google-services` 플러그인, `mobile`에 플러그인 + `firebase-messaging`
+- `FirebaseMessagingService`: `onNewToken`에서 PUT 호출, `onMessageReceived`에서 data(`type` 등) 처리
+- 로그인 직후 PUT, 로그아웃 시 DELETE (DELETE에 JSON 본문이 있으므로 OkHttp 사용 권장)
+- Android 13 이상 `POST_NOTIFICATIONS` 권한 요청
+- 워치는 따로 등록하지 않아도 폰 알림이 Wear OS로 전달된다
+
 ## 다운받아 실행할 때 확인/수정할 것
 
 - **android** — `common/network/ApiClient.kt`의 `baseUrl`을 실행할 PC의 로컬 네트워크 IP로
@@ -394,3 +530,5 @@ Supabase SQL Editor에서 `backend/db/v3/06_backfill_primary_guardian.sql`을 �
 - **backend (제보 사진)** — Supabase Storage를 쓰려면 `.env`에 `STORAGE_TYPE=supabase`와
   `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`을 넣는다.
   생략하면 개발용 로컬 폴더(`backend/local-storage/`)에 저장된다.
+- **backend (푸시)** — 실제 FCM 발송은 `.env`에 `FIREBASE_CREDENTIALS_PATH`(서비스 계정 키 경로)가 필요하다.
+  생략하면 서버 로그에만 출력된다. 키 파일은 커밋하지 않는다.
