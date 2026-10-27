@@ -1,4 +1,4 @@
-package com.safewalk.roadimage;
+package com.safewalk.ai.roadimage;
 
 import com.safewalk.global.ApiResponse;
 import java.util.List;

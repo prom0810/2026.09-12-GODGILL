@@ -1,4 +1,4 @@
-package com.safewalk.roadimage;
+package com.safewalk.ai.roadimage;
 
 import java.util.Comparator;
 import java.util.List;

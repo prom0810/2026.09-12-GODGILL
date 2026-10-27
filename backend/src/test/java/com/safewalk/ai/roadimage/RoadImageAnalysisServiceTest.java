@@ -1,4 +1,4 @@
-package com.safewalk.roadimage;
+package com.safewalk.ai.roadimage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

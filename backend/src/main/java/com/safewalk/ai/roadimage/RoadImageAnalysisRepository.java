@@ -1,4 +1,4 @@
-package com.safewalk.roadimage;
+package com.safewalk.ai.roadimage;
 
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;

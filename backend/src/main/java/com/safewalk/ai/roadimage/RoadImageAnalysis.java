@@ -1,4 +1,4 @@
-package com.safewalk.roadimage;
+package com.safewalk.ai.roadimage;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
