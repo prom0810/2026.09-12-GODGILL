@@ -6,11 +6,19 @@ import android.graphics.Point
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.os.LocaleList
+import android.text.Editable
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.TextWatcher
+import android.text.style.ForegroundColorSpan
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
+import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -37,7 +45,9 @@ import com.safewalk.main.navigation.bindBottomNavigation
 import com.safewalk.map.model.CctvSite
 import com.safewalk.map.model.Facility
 import com.safewalk.map.model.FacilityType
+import com.safewalk.map.model.HistoryKind
 import com.safewalk.map.model.Place
+import com.safewalk.map.model.SearchHistoryItem
 import com.safewalk.map.model.SecurityLightSite
 import com.safewalk.map.model.WmsBounds
 import com.safewalk.map.viewmodel.GeoPoint
@@ -76,6 +86,7 @@ class MapActivity : ComponentActivity() {
     private lateinit var shortestRouteButton: Button
     private lateinit var safeRouteButton: Button
     private lateinit var resetRouteButton: Button
+    private lateinit var historyList: ListView
     private lateinit var routeResultText: TextView
 
     private val shortestRouteColor = Color.rgb(198, 40, 40)
@@ -114,6 +125,7 @@ class MapActivity : ComponentActivity() {
         shortestRouteButton = findViewById(R.id.route_shortest_button)
         safeRouteButton = findViewById(R.id.route_safe_button)
         resetRouteButton = findViewById(R.id.route_reset_button)
+        historyList = findViewById(R.id.route_history_list)
         routeResultText = findViewById(R.id.route_result_text)
     }
 
@@ -190,6 +202,7 @@ class MapActivity : ComponentActivity() {
         endSetButton.setOnClickListener {
             viewModel.searchRoutePoint(endQuery.text.toString(), isStart = false)
         }
+        configureHistoryDropdown()
         shortestRouteButton.setOnClickListener { viewModel.showRoute(isSafeRoute = false) }
         safeRouteButton.setOnClickListener { viewModel.showRoute(isSafeRoute = true) }
         resetRouteButton.setOnClickListener {
@@ -295,6 +308,7 @@ class MapActivity : ComponentActivity() {
         searchButton.isEnabled = !state.isSearching
         renderSearchResults(state.searchResults)
         kakaoMap?.let { renderMapLayers(state, it) }
+        refreshHistoryDropdown()
         renderRouteSummary(state.route)
     }
 
@@ -352,6 +366,10 @@ class MapActivity : ComponentActivity() {
                     )
                 }
             }
+            is MapEffect.FillRouteQueries -> {
+                effect.startName?.let { startQuery.setText(it) }
+                effect.endName?.let { endQuery.setText(it) }
+            }
             is MapEffect.ChooseRoutePoint -> showRoutePointPicker(effect.isStart, effect.places)
             is MapEffect.ShowMessage -> showMessage(effect.text)
         }
@@ -364,6 +382,135 @@ class MapActivity : ComponentActivity() {
             .setItems(labels) { _, index -> viewModel.selectRoutePoint(places[index], isStart) }
             .setNegativeButton("취소", null)
             .show()
+    }
+
+    // ---- 최근 검색(장소·경로) 드롭다운: 출발/도착 입력창을 누르면 아래에 펼쳐진다 ----
+
+    private sealed interface HistoryRow {
+        data class Entry(val item: SearchHistoryItem) : HistoryRow
+        data object More : HistoryRow
+        data object Clear : HistoryRow
+    }
+
+    private var historyRows: List<HistoryRow> = emptyList()
+    private var historyTargetIsStart = true
+    private var historyExpanded = false
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private fun configureHistoryDropdown() {
+        val focusListener = View.OnFocusChangeListener { _, _ -> refreshHistoryDropdown() }
+        val textListener = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) = refreshHistoryDropdown()
+        }
+        startQuery.onFocusChangeListener = focusListener
+        endQuery.onFocusChangeListener = focusListener
+        startQuery.addTextChangedListener(textListener)
+        endQuery.addTextChangedListener(textListener)
+        startQuery.setOnClickListener { refreshHistoryDropdown() }
+        endQuery.setOnClickListener { refreshHistoryDropdown() }
+
+        historyList.setOnItemClickListener { _, _, position, _ ->
+            when (val row = historyRows.getOrNull(position)) {
+                is HistoryRow.Entry -> {
+                    viewModel.applyHistory(row.item, historyTargetIsStart)
+                    closeHistoryDropdown()
+                }
+                HistoryRow.More -> {
+                    historyExpanded = true
+                    refreshHistoryDropdown()
+                }
+                HistoryRow.Clear -> {
+                    viewModel.clearHistory()
+                    closeHistoryDropdown()
+                }
+                null -> Unit
+            }
+        }
+        historyList.setOnItemLongClickListener { _, _, position, _ ->
+            val row = historyRows.getOrNull(position) as? HistoryRow.Entry
+            if (row != null) viewModel.deleteHistory(row.item)
+            row != null
+        }
+    }
+
+    /** 포커스가 있는 입력창이 비어 있고 기록이 있을 때만 펼친다. */
+    private fun refreshHistoryDropdown() {
+        val target = when {
+            startQuery.hasFocus() -> startQuery
+            endQuery.hasFocus() -> endQuery
+            else -> null
+        }
+        val history = viewModel.uiState.value.history
+        if (target == null || target.text.isNotBlank() || history.isEmpty()) {
+            historyList.visibility = View.GONE
+            return
+        }
+        historyTargetIsStart = target === startQuery
+        val hasMore = !historyExpanded && history.size > HISTORY_COLLAPSED_COUNT
+        val shown = if (historyExpanded) history else history.take(HISTORY_COLLAPSED_COUNT)
+        historyRows = shown.map { HistoryRow.Entry(it) } +
+            listOfNotNull(if (hasMore) HistoryRow.More else null, HistoryRow.Clear)
+        historyList.adapter = HistoryAdapter(historyRows)
+        historyList.visibility = View.VISIBLE
+    }
+
+    private fun closeHistoryDropdown() {
+        historyExpanded = false
+        historyList.visibility = View.GONE
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+            .hideSoftInputFromWindow(startQuery.windowToken, 0)
+        currentFocus?.clearFocus()
+    }
+
+    private inner class HistoryAdapter(private val rows: List<HistoryRow>) : BaseAdapter() {
+        override fun getCount() = rows.size
+        override fun getItem(position: Int) = rows[position]
+        override fun getItemId(position: Int) = position.toLong()
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = (convertView as? TextView) ?: TextView(this@MapActivity).apply {
+                minHeight = dp(44)
+                gravity = Gravity.CENTER_VERTICAL
+                compoundDrawablePadding = dp(12)
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                textSize = 15f
+            }
+            var iconRes = 0
+            when (val row = rows[position]) {
+                is HistoryRow.Entry -> {
+                    val item = row.item
+                    if (item.kind == HistoryKind.ROUTE) {
+                        // 출발지 → 도착지 (출발지·화살표는 회색, 도착지는 진하게)
+                        val prefix = item.name.length + 3
+                        view.text = SpannableString("${item.name} → ${item.endName}").apply {
+                            setSpan(ForegroundColorSpan(Color.GRAY), 0, prefix, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        }
+                        iconRes = android.R.drawable.ic_menu_directions
+                    } else {
+                        view.text = item.name
+                        iconRes = android.R.drawable.ic_menu_mylocation
+                    }
+                    view.setTextColor(Color.rgb(32, 33, 36))
+                }
+                HistoryRow.More -> {
+                    view.text = "더보기 ⌄"
+                    view.setTextColor(Color.GRAY)
+                }
+                HistoryRow.Clear -> {
+                    view.text = "전체 삭제 (항목을 길게 누르면 삭제)"
+                    view.setTextColor(Color.GRAY)
+                }
+            }
+            val icon = if (iconRes != 0) getDrawable(iconRes)?.mutate()?.apply {
+                setTint(Color.GRAY)
+                setBounds(0, 0, dp(20), dp(20))
+            } else null
+            view.setCompoundDrawablesRelative(icon, null, null, null)
+            return view
+        }
     }
 
     private fun showMessage(text: UiText) {
@@ -515,6 +662,7 @@ class MapActivity : ComponentActivity() {
     }
 
     private companion object {
+        private const val HISTORY_COLLAPSED_COUNT = 5
         val routeMessageResources = setOf(
             R.string.route_point_searching,
             R.string.route_point_not_found,
@@ -525,6 +673,7 @@ class MapActivity : ComponentActivity() {
             R.string.route_network_failed,
             R.string.route_out_of_area,
             R.string.route_not_found,
+            R.string.route_history_applied,
         )
     }
 }

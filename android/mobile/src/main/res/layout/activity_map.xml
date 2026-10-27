@@ -86,6 +86,17 @@
                 android:text="도착지 설정" />
         </LinearLayout>
 
+        <!-- 최근 검색(장소·경로): 출발/도착 입력창을 눌렀고 비어 있을 때만 펼쳐짐 -->
+        <ListView
+            android:id="@+id/route_history_list"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="4dp"
+            android:background="#FFFFFF"
+            android:divider="#E6E8E7"
+            android:dividerHeight="1dp"
+            android:visibility="gone" />
+
     </LinearLayout>
 
     <!-- 하단: 최단경로/안전경로/초기화 버튼 + 결과 텍스트 -->

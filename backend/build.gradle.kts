@@ -21,6 +21,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
     // 비밀번호 해시(BCrypt)용. 아직 Spring Security 필터 체인은 쓰지 않아 starter 대신 최소 의존성만 추가.
     implementation("org.springframework.security:spring-security-crypto")
 
@@ -39,6 +42,8 @@ dependencies {
     implementation("com.google.firebase:firebase-admin:9.8.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testCompileOnly("org.projectlombok:lombok")
+    testAnnotationProcessor("org.projectlombok:lombok")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
