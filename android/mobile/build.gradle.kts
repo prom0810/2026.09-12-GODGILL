@@ -56,6 +56,8 @@ dependencies {
     implementation("com.kakao.maps.open:android:2.15.2")
     implementation("com.google.android.gms:play-services-wearable:18.2.0")   // 워치 연동
     implementation("androidx.activity:activity-compose:1.8.2")
+    // Wearable pulls Fragment 1.1.0 transitively, which is too old for Activity Result APIs.
+    implementation("androidx.fragment:fragment:1.9.1")
     implementation(platform("androidx.compose:compose-bom:2026.02.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -63,5 +65,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
