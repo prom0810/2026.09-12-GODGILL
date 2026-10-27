@@ -78,6 +78,7 @@ object SosManager {
             tick = null
             if (SafetyState.countdown > 0) {
                 val rec = record("CANCELLED")
+                if (type == EventType.FALL) com.safewalk.wear.log.EventSnapshot.save(app, "CANCELLED", startMs)   // 오탐 센서 구간 저장
                 SafetyState.lastMessage = "취소되었습니다"
                 AlertSinks.dispatch(app, rec)        // 오탐 라벨도 서버로 보낸다
             }
@@ -99,6 +100,7 @@ object SosManager {
 
     private fun confirm(app: Context) {
         val rec = record("CONFIRMED")
+        if (type == EventType.FALL) com.safewalk.wear.log.EventSnapshot.save(app, "CONFIRMED", startMs)
         SafetyState.emergencyReason = SafetyState.countdownReason
         SafetyState.emergencyTimeMs = rec.timeMs
         SafetyState.emergencyActive = true
