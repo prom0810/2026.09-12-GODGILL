@@ -22,7 +22,7 @@ interface MapRepository {
 class DefaultMapRepository(
     safeMapServiceKey: String,
     kakaoRestApiKey: String,
-    assets: AssetManager,
+    private val assets: AssetManager,
 ) : MapRepository {
     private val safeMapClient: SafeMapDataSource? =
         safeMapServiceKey.takeIf(String::isNotBlank)?.let(::SafeMapWmsClient)
@@ -54,5 +54,5 @@ class DefaultMapRepository(
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
-    ): RouteGraph = RoadNetworkProvider.buildGraph(cctvSites, securityLightSites, facilities)
+    ): RouteGraph = RoadNetworkProvider.buildGraph(cctvSites, securityLightSites, facilities, assets)
 }
