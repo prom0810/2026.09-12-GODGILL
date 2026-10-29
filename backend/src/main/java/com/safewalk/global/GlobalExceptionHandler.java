@@ -6,6 +6,8 @@ import com.safewalk.auth.InvalidCredentialsException;
 import com.safewalk.auth.UnauthorizedException;
 import com.safewalk.guardian.DuplicateGuardianException;
 import com.safewalk.guardian.GuardianNotFoundException;
+import com.safewalk.guardian.GuardianStateException;
+import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
 import com.safewalk.storage.ImageStorageException;
 import org.slf4j.Logger;
@@ -57,6 +59,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GuardianNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleGuardianNotFound(GuardianNotFoundException e) {
         return fail(HttpStatus.NOT_FOUND, e, "보호자를 찾을 수 없습니다.");
+    }
+
+    @ExceptionHandler(NotificationNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotificationNotFound(NotificationNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "알림을 찾을 수 없습니다.");
     }
 
     @ExceptionHandler(RiskReportNotFoundException.class)
@@ -132,6 +139,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateGuardianException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicateGuardian(DuplicateGuardianException e) {
         return fail(HttpStatus.CONFLICT, e, "이미 등록된 보호자입니다.");
+    }
+
+    /** 보호자 연결 상태가 맞지 않음. 예: 이미 연결된 보호자에게 다시 초대 */
+    @ExceptionHandler(GuardianStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGuardianState(GuardianStateException e) {
+        return fail(HttpStatus.CONFLICT, e, "현재 보호자 연결 상태에서는 처리할 수 없습니다.");
     }
 
     /** 코드 검사를 통과했지만 DB 제약(UNIQUE 등)에 걸린 경우. 예: 같은 전화번호로 동시에 가입 */
