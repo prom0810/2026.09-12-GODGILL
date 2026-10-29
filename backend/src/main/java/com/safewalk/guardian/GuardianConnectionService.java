@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  *    본인 인증(users.identity_verified) 도입 시 accept()에서 인증된 계정만 허용하도록 바꿔야 한다.
  *
  * 상태 전이는 {@link Guardian}의 invite/cancelInvite/accept/reject/revoke 참고. 맞지 않는 상태면 409.
+ * 초대·수락·해제·연결 끊기는 상대방에게 알림(알림함 + 푸시)을 보낸다 → {@link GuardianNotifier}.
  * 다른 사람의 보호자·초대에 접근하면 존재 여부를 드러내지 않도록 404로 응답한다.
  */
 @Service
@@ -30,10 +31,13 @@ public class GuardianConnectionService {
 
     private final GuardianRepository guardianRepository;
     private final UserService userService;
+    private final GuardianNotifier notifier;
 
-    public GuardianConnectionService(GuardianRepository guardianRepository, UserService userService) {
+    public GuardianConnectionService(GuardianRepository guardianRepository, UserService userService,
+                                     GuardianNotifier notifier) {
         this.guardianRepository = guardianRepository;
         this.userService = userService;
+        this.notifier = notifier;
     }
 
     // ── 사용자(ward) 쪽 ───────────────────────────────────────────────
@@ -44,6 +48,7 @@ public class GuardianConnectionService {
         userService.getActiveUserForUpdate(userId);
         Guardian guardian = findOwned(userId, guardianId);
         guardian.invite();
+        notifier.invited(guardian);
         return GuardianResponse.from(guardian);
     }
 
@@ -59,6 +64,7 @@ public class GuardianConnectionService {
             guardian.cancelInvite();
         } else {
             guardian.revoke();
+            notifier.disconnectedByWard(guardian);
         }
         return GuardianResponse.from(guardian);
     }
@@ -84,6 +90,7 @@ public class GuardianConnectionService {
         User me = userService.getActiveUser(accountId);
         Guardian guardian = findInvitationForMe(guardianId, me);
         guardian.accept(me);
+        notifier.accepted(guardian);
         return WardResponse.from(guardian);
     }
 
@@ -117,6 +124,7 @@ public class GuardianConnectionService {
                 .filter(g -> g.getGuardianUser() != null && g.getGuardianUser().getUserId().equals(me.getUserId()))
                 .orElseThrow(() -> new GuardianNotFoundException("연결된 사용자를 찾을 수 없습니다."));
         guardian.revoke();
+        notifier.leftByGuardian(guardian);
     }
 
     // ── 내부 ────────────────────────────────────────────────────────────

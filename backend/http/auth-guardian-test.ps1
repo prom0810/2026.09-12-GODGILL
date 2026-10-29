@@ -553,9 +553,9 @@ Test-Case "52. 토큰 없이 받은 초대 조회 거부" $r 401
 $total = $script:passCount + $script:failCount
 Write-Host ""
 if ($script:failCount -eq 0) {
-    Write-Host "결과: $total개 중 $($script:passCount)개 통과 - 모두 통과했습니다." -ForegroundColor Green
+    Write-Host "결과: $($total)개 중 $($script:passCount)개 통과 - 모두 통과했습니다." -ForegroundColor Green
 } else {
-    Write-Host "결과: $total개 중 $($script:passCount)개 통과, $($script:failCount)개 실패" -ForegroundColor Red
+    Write-Host "결과: $($total)개 중 $($script:passCount)개 통과, $($script:failCount)개 실패" -ForegroundColor Red
 }
 Write-Host ""
 Write-Host "이번 실행에서 만든 테스트 계정: $adultEmail, $kidEmail, $dadEmail" -ForegroundColor DarkGray

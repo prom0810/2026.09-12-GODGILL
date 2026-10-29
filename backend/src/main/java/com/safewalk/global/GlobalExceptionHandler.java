@@ -7,6 +7,7 @@ import com.safewalk.auth.UnauthorizedException;
 import com.safewalk.guardian.DuplicateGuardianException;
 import com.safewalk.guardian.GuardianNotFoundException;
 import com.safewalk.guardian.GuardianStateException;
+import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
 import com.safewalk.storage.ImageStorageException;
 import org.slf4j.Logger;
@@ -58,6 +59,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GuardianNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleGuardianNotFound(GuardianNotFoundException e) {
         return fail(HttpStatus.NOT_FOUND, e, "보호자를 찾을 수 없습니다.");
+    }
+
+    @ExceptionHandler(NotificationNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotificationNotFound(NotificationNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "알림을 찾을 수 없습니다.");
     }
 
     @ExceptionHandler(RiskReportNotFoundException.class)

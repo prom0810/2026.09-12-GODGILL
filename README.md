@@ -459,7 +459,7 @@ DB 변경은 없다 (v3 `guardian` 컬럼을 그대로 사용).
 
 ### 보류된 기능
 
-- 초대 푸시 알림 (FCM 토큰 등록 `user_device`, 알림 이력 `notification`) — 지금은 앱이 받은 초대 목록을 직접 조회
+- ~~초대 푸시 알림~~ → 2026-10-29 구현 (아래 "알림함 API · 보호자 연결 알림")
 - 보호자의 위치 조회 (`canViewLocation` 확인 후 응답)
 - 전화번호 본인 인증
 
@@ -516,6 +516,62 @@ powershell -ExecutionPolicy Bypass -File .\http\device-push-test.ps1
 - 로그인 직후 PUT, 로그아웃 시 DELETE (DELETE에 JSON 본문이 있으므로 OkHttp 사용 권장)
 - Android 13 이상 `POST_NOTIFICATIONS` 권한 요청
 - 워치는 따로 등록하지 않아도 폰 알림이 Wear OS로 전달된다
+
+## 알림함 API · 보호자 연결 알림 — 2026-10-29 (backend)
+
+푸시는 한 번 오고 사라지므로, 모든 알림을 `notification` 테이블에 기록하고 앱 알림함에서 다시 볼 수 있게 했다.
+보호자 연결 상태가 바뀌면 상대방에게 알림(기록 + 푸시)이 간다. DB 변경 없음.
+
+### API (모두 JWT 필요)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/notifications?page=0&size=20` | 내 알림 최신순. 응답 `{ items, page, size, hasNext, unreadCount }`. size 1~50 |
+| GET | `/api/notifications/unread-count` | 안 읽은 알림 수 `{ unreadCount }` (배지용) |
+| PATCH | `/api/notifications/{id}/read` | 읽음 처리. 이미 읽었으면 처음 읽은 시각 유지. 다른 사람 알림이면 404 |
+| PATCH | `/api/notifications/read-all` | 전체 읽음 `{ updatedCount }` |
+
+알림 한 건: `{ notificationId, type, title, content, referenceType, referenceId, read, readAt, createdAt }`
+- `type`: GUARDIAN / EMERGENCY / RISK_AREA (알림함 분류)
+- `referenceType` + `referenceId`: 눌렀을 때 이동할 대상 (보호자 알림은 GUARDIAN + guardianId)
+
+### 보호자 연결 알림
+
+| 이벤트 (푸시 data.type) | 받는 사람 | 언제 |
+|---|---|---|
+| `GUARDIAN_INVITED` | 그 전화번호로 가입한 보호자 계정 | 초대를 보냄 (가입한 계정이 없으면 보내지 않음) |
+| `GUARDIAN_ACCEPTED` | 사용자 | 보호자가 수락 |
+| `GUARDIAN_DISCONNECTED` | 보호자 계정 | 사용자가 연결 해제(revoke)하거나 연결된 보호자를 삭제 |
+| `GUARDIAN_LEFT` | 사용자 | 보호자가 스스로 연결 끊기(leave) |
+
+- 초대 거절, 보낸 초대 취소는 알리지 않는다 (상대에게 부담을 주지 않기 위해. 상태는 목록에서 확인 가능).
+- 푸시 data: `type`(위 이벤트), `category`(GUARDIAN), `notificationId`, `referenceType`, `referenceId`, `guardianId`.
+
+### 동작 원칙 (`NotificationService.notify`)
+- 알림 기록은 본 작업(초대·수락 등)과 같은 트랜잭션 → 본 작업이 실패하면 기록도 취소.
+- 푸시는 그 트랜잭션이 **커밋된 뒤** 발송 → 실패한 작업의 알림이 먼저 가는 일 없음.
+- 푸시가 실패해도 본 작업은 성공 (기록은 남으므로 알림함에서 볼 수 있음).
+- SOS 등 다른 기능도 이 메서드 하나로 알림을 보낸다.
+- 지금은 커밋 직후 같은 요청 안에서 푸시를 보내므로, 초대·수락 응답이 FCM 응답 시간만큼(보통 1초 이내) 늦어질 수 있다. 필요하면 비동기로 바꾼다.
+
+### 추가/수정된 파일 — backend/
+- `notification/`: `Notification`(엔티티), `NotificationType`, `ReferenceType`, `NotificationRepository`, `NotificationController`, `NotificationResponses`, `NotificationNotFoundException`, `PushDelivery`(푸시 + 토큰 정리, 새 트랜잭션), `NotificationService`(notify·알림함 추가)
+- `guardian/`: `GuardianNotifier`(신규), `GuardianConnectionService`·`GuardianService`(알림 호출 추가)
+- `user/UserRepository`: `findByPhoneAndDeletedAtIsNull` (초대 받을 계정 찾기)
+- `global/GlobalExceptionHandler`: 알림 404
+- 테스트: `http/notification-test.ps1`
+
+### 테스트 방법
+```
+powershell -ExecutionPolicy Bypass -File .\http\notification-test.ps1
+```
+아빠·아이 계정으로 초대 → 거절 → 재초대 → 취소 → 수락 → 연결 끊기 → 해제 → 삭제를 진행하며 알림함 기록을 확인한다 (35개).
+기존 `auth-guardian-test.ps1`, `device-push-test.ps1`도 함께 다시 실행해 영향이 없는지 확인한다.
+
+### ⚠ 프론트(Android) 작업
+- 알림함 화면: 목록(무한 스크롤은 `hasNext`), 항목 누르면 `PATCH .../read` 후 `referenceType`에 따라 이동 (GUARDIAN → 초대 목록 또는 보호자 목록)
+- 탭·아이콘 배지: `unread-count`
+- 푸시 수신(`onMessageReceived`) 시 `data.type`으로 화면 분기, 알림함 새로고침
 
 ## 다운받아 실행할 때 확인/수정할 것
 

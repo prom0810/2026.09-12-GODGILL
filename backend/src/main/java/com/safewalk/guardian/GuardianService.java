@@ -46,10 +46,13 @@ public class GuardianService {
 
     private final GuardianRepository guardianRepository;
     private final UserService userService;
+    private final GuardianNotifier notifier;
 
-    public GuardianService(GuardianRepository guardianRepository, UserService userService) {
+    public GuardianService(GuardianRepository guardianRepository, UserService userService,
+                           GuardianNotifier notifier) {
         this.guardianRepository = guardianRepository;
         this.userService = userService;
+        this.notifier = notifier;
     }
 
     /** POST /api/guardians — 로그인한 사용자에게 보호자 1명 추가 */
@@ -110,7 +113,11 @@ public class GuardianService {
         }
 
         boolean wasPrimary = guardian.isPrimary();
+        boolean wasConnected = guardian.getRegistrationStatus() == RegistrationStatus.CONNECTED;
         guardian.delete();
+        if (wasConnected) {
+            notifier.disconnectedByWard(guardian);
+        }
         // 삭제를 먼저 DB에 반영해야, 아래에서 새 대표를 지정할 때 대표 1명 제약에 걸리지 않는다.
         guardianRepository.flush();
 
