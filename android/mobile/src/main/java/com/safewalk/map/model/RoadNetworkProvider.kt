@@ -28,7 +28,8 @@ object RoadNetworkProvider {
     )
 
     private const val CONNECT_TIMEOUT_MS = 8_000
-    private const val READ_TIMEOUT_MS = 15_000
+    private const val SERVER_BUDGET_MS = 10_000L   // 서버 요청 전체 제한 시간
+    private const val MIN_ATTEMPT_MS = 1_500L      // 남은 시간이 이보다 적으면 다음 서버 시도 안 함
     private const val RADIUS_M = 1500.0
     private const val BUNDLED_ASSET = "road_network.json"
     @Throws(IOException::class)
@@ -38,34 +39,43 @@ object RoadNetworkProvider {
         facilities: List<Facility>,
         assets: AssetManager? = null,
     ): RouteGraph {
-        if (assets != null) {
-            try {
-                val json = assets.open(BUNDLED_ASSET).bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-                val graph = parseToGraph(json, cctvSites, securityLightSites, facilities)
-                if (graph.nodes.isNotEmpty() && graph.adjacency.isNotEmpty()) return graph
-            } catch (e: IOException) {
-                // 파일이 없으면 네트워크로 진행
-            } catch (e: org.json.JSONException) {
-                Log.w("RouteDebug", "번들 도로 데이터 파싱 실패: ${e.message}")
-            }
-        }
-
         val query = buildOverpassQuery()
 
+        // 1순위: 서버에서 최신 도로 데이터 요청 (전체 SERVER_BUDGET_MS 안에서만 시도)
         var lastError: IOException? = null
+        val startedAt = System.currentTimeMillis()
         for (mirror in OVERPASS_MIRRORS) {
+            val remaining = SERVER_BUDGET_MS - (System.currentTimeMillis() - startedAt)
+            if (remaining < MIN_ATTEMPT_MS) break
             try {
-                val json = fetchOverpass(mirror, query)
+                val json = fetchOverpass(mirror, query, remaining.toInt())
                 val graph = parseToGraph(json, cctvSites, securityLightSites, facilities)
                 if (graph.nodes.isEmpty() || graph.adjacency.isEmpty()) {
                     throw IOException("Overpass 응답에 유효한 도로 데이터가 없음 (mirror=$mirror)")
                 }
                 return graph
             } catch (e: IOException) {
+                Log.w("RouteDebug", "미러 실패: $mirror → ${e.message}")
                 lastError = e
+            } catch (e: org.json.JSONException) {
+                Log.w("RouteDebug", "미러 응답 파싱 실패: $mirror → ${e.message}")
+                lastError = IOException(e.message, e)
             }
         }
-        throw lastError ?: IOException("모든 Overpass 미러 서버 요청 실패")
+
+        // 2순위: 서버가 안 될 때 앱에 포함된 도로 데이터 사용
+        if (assets != null) {
+            try {
+                val json = assets.open(BUNDLED_ASSET).bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                val graph = parseToGraph(json, cctvSites, securityLightSites, facilities)
+                if (graph.nodes.isNotEmpty() && graph.adjacency.isNotEmpty()) return graph
+            } catch (e: IOException) {
+                Log.w("RouteDebug", "번들 도로 데이터 없음: ${e.message}")
+            } catch (e: org.json.JSONException) {
+                Log.w("RouteDebug", "번들 도로 데이터 파싱 실패: ${e.message}")
+            }
+        }
+        throw lastError ?: IOException("도로 데이터를 불러오지 못했습니다")
     }
 
     private fun buildOverpassQuery(): String {
@@ -80,13 +90,13 @@ object RoadNetworkProvider {
         """.trimIndent()
     }
 
-    private fun fetchOverpass(endpoint: String, query: String): String {
+    private fun fetchOverpass(endpoint: String, query: String, timeoutMs: Int): String {
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
             connection.doOutput = true
-            connection.connectTimeout = CONNECT_TIMEOUT_MS
-            connection.readTimeout = READ_TIMEOUT_MS
+            connection.connectTimeout = minOf(CONNECT_TIMEOUT_MS, timeoutMs)
+            connection.readTimeout = timeoutMs
             // 406 Not Acceptable 방지: Accept/User-Agent 헤더 없는 요청을 거부하는 서버가 있음
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             connection.setRequestProperty("Accept", "*/*")
