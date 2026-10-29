@@ -1,0 +1,59 @@
+### ─────────────────────────────────────────────────────────────────────
+### FCM 토큰 등록·해제 · 테스트 푸시 (IntelliJ HTTP Client)
+###
+### 사용법
+###  1. 백엔드 실행 (bootRun). 테스트 푸시는 .env에 DEV_PUSH_TEST_ENABLED=true 필요
+###  2. 위에서부터 순서대로 ▶ 실행 (로그인 응답의 토큰이 자동 저장됨)
+###  3. 실제 폰 토큰으로 시험하려면 @fcmToken 값을 앱 로그(FirebaseMessaging 토큰)로 바꾼다
+###
+### 자동 테스트(라이선스 없이): powershell -ExecutionPolicy Bypass -File .\http\device-push-test.ps1
+### ─────────────────────────────────────────────────────────────────────
+
+@baseUrl = http://localhost:8080
+@run = 7001
+@fcmToken = test-fcm-token-replace-with-real-device-token
+
+### 1. 테스트 계정 가입
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "push{{run}}@test.com",
+  "password": "1234",
+  "name": "푸시테스트",
+  "phone": "010-7300-{{run}}",
+  "userType": "ADULT"
+}
+
+> {% client.global.set("token", response.body.data.accessToken); %}
+
+### 2. FCM 토큰 등록 (로그인 직후, 토큰 갱신 시)
+PUT {{baseUrl}}/api/users/me/devices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "fcmToken": "{{fcmToken}}",
+  "deviceType": "ANDROID"
+}
+
+### 3. 내 기기로 테스트 푸시 (개발용)
+###    mode=CONSOLE → 서버 로그에만 출력 / mode=FCM → 실제 발송
+###    가짜 토큰이면 errorCodes=INVALID_ARGUMENT, deactivatedCount=1 (서버 인증은 정상이라는 뜻)
+POST {{baseUrl}}/api/dev/push-test
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "안심동행 테스트",
+  "body": "푸시 알림이 도착했나요?"
+}
+
+### 4. FCM 토큰 해제 (로그아웃 시)
+DELETE {{baseUrl}}/api/users/me/devices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "fcmToken": "{{fcmToken}}"
+}

@@ -38,6 +38,9 @@ dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.31.0"))
     implementation("software.amazon.awssdk:s3")
 
+    // FCM 푸시 발송 (SOS 보호자 알림 등). 서비스 계정 키가 없으면 콘솔 출력으로 대체된다.
+    implementation("com.google.firebase:firebase-admin:9.8.0")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")

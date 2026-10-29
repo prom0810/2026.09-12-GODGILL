@@ -10,7 +10,10 @@ import com.safewalk.map.model.MapRepository
 import com.safewalk.map.model.Place
 import com.safewalk.map.model.PlaceSearchException
 import com.safewalk.map.model.RouteAStar
+import com.safewalk.map.model.HistoryKind
 import com.safewalk.map.model.RouteGraph
+import com.safewalk.map.model.SearchHistoryItem
+import com.safewalk.map.model.SearchHistoryStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,7 +33,9 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         assets = application.assets,
     )
 
-    private val _uiState = MutableStateFlow(MapUiState())
+    private val historyStore = SearchHistoryStore(application)
+
+    private val _uiState = MutableStateFlow(MapUiState(history = historyStore.load()))
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
     private val _effects = Channel<MapEffect>(Channel.BUFFERED)
@@ -150,11 +155,12 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         val point = place.toGeoPoint()
         _uiState.update { state ->
             state.copy(route = if (isStart) {
-                state.route.copy(startPoint = point, shortestResult = null, safeResult = null)
+                state.route.copy(startPoint = point, startName = place.name, shortestResult = null, safeResult = null)
             } else {
-                state.route.copy(endPoint = point, shortestResult = null, safeResult = null)
+                state.route.copy(endPoint = point, endName = place.name, shortestResult = null, safeResult = null)
             })
         }
+        saveHistory(SearchHistoryItem.place(place))
         showMessage(if (isStart) R.string.route_start_set else R.string.route_end_set, place.name)
         emitEffect(MapEffect.MoveCamera(point))
     }
@@ -195,6 +201,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                         showMessage(R.string.route_out_of_area)
                     }
                     is RouteCalculation.Complete -> {
+                        if (result.shortest != null || result.safe != null) saveRouteHistory(state.route)
                         _uiState.update {
                             it.copy(route = it.route.copy(
                                 shortestResult = result.shortest,
@@ -213,6 +220,61 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 showMessage(R.string.route_network_failed)
             }
         }
+    }
+
+    private fun saveHistory(item: SearchHistoryItem) {
+        val next = historyStore.add(item)
+        _uiState.update { it.copy(history = next) }
+    }
+
+    /** 경로 계산에 성공한 출발지→도착지를 '경로' 기록으로 저장한다. */
+    private fun saveRouteHistory(route: RouteUiState) {
+        val start = route.startPoint ?: return
+        val end = route.endPoint ?: return
+        saveHistory(SearchHistoryItem.route(
+            startName = route.startName.ifBlank { "출발지" }, startLat = start.latitude, startLng = start.longitude,
+            endName = route.endName.ifBlank { "도착지" }, endLat = end.latitude, endLng = end.longitude,
+        ))
+    }
+
+    /**
+     * 기록을 눌렀을 때. 장소(PLACE)는 눌러 둔 입력창(isStart)의 출발/도착으로,
+     * 경로(ROUTE)는 출발·도착을 한 번에 복원한다(경로는 버튼으로 다시 계산).
+     */
+    fun applyHistory(item: SearchHistoryItem, isStart: Boolean) {
+        when (item.kind) {
+            HistoryKind.PLACE -> {
+                selectRoutePoint(item.toPlace(), isStart)
+                emitEffect(MapEffect.FillRouteQueries(
+                    startName = if (isStart) item.name else null,
+                    endName = if (isStart) null else item.name,
+                ))
+            }
+            HistoryKind.ROUTE -> {
+                val start = GeoPoint(item.latitude, item.longitude)
+                val end = GeoPoint(item.endLatitude, item.endLongitude)
+                routeJob?.cancel()
+                _uiState.update {
+                    it.copy(route = RouteUiState(
+                        startPoint = start, endPoint = end,
+                        startName = item.name, endName = item.endName,
+                    ))
+                }
+                saveHistory(item.copy(savedAt = System.currentTimeMillis()))
+                emitEffect(MapEffect.FillRouteQueries(item.name, item.endName))
+                emitEffect(MapEffect.MoveCamera(start))
+                showMessage(R.string.route_history_applied, item.name, item.endName)
+            }
+        }
+    }
+
+    fun deleteHistory(item: SearchHistoryItem) {
+        _uiState.update { it.copy(history = historyStore.remove(item)) }
+    }
+
+    fun clearHistory() {
+        historyStore.clear()
+        _uiState.update { it.copy(history = emptyList()) }
     }
 
     fun resetRoute() {

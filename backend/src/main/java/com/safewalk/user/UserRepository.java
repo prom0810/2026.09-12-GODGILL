@@ -13,6 +13,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByUserIdAndDeletedAtIsNull(Long userId);
 
+    /** 이 전화번호로 가입한 (탈퇴하지 않은) 계정. 보호자 연결 초대 알림을 받을 사람을 찾을 때 쓴다. */
+    Optional<User> findByPhoneAndDeletedAtIsNull(String phone);
+
     /**
      * 탈퇴하지 않은 사용자를 조회하면서 해당 행에 쓰기 잠금(SELECT ... FOR UPDATE)을 건다.
      * 같은 사용자의 보호자 추가·삭제 요청이 동시에 들어와도 차례로 처리되게 해서

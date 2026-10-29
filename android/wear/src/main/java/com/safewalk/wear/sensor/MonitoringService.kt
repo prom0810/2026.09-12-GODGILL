@@ -90,7 +90,9 @@ class MonitoringService : Service() {
 
     /** 폰/서버 전송용 원시 샘플(설정에서 켠 경우에만 동작). */
     private fun onSample(t: Long, ax: Float, ay: Float, az: Float, gx: Float, gy: Float, gz: Float) {
+        fall.setGyro(gx, gy, gz)
         TelemetryStreamer.onSample(t, ax, ay, az, gx, gy, gz, SafetyState.bpm)
+        com.safewalk.wear.log.EventSnapshot.feed(t, ax, ay, az, gx, gy, gz, SafetyState.bpm)
     }
 
     private fun onHeartRate(t: Long, bpm: Double) {
