@@ -8,6 +8,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import android.content.res.AssetManager
+import android.util.Log
 
 /**
  * Overpass API로 실제 보행자 도로망(OSM)을 받아와 [RouteGraph]로 변환한다.
@@ -28,13 +30,26 @@ object RoadNetworkProvider {
     private const val CONNECT_TIMEOUT_MS = 8_000
     private const val READ_TIMEOUT_MS = 15_000
     private const val RADIUS_M = 1500.0
-
+    private const val BUNDLED_ASSET = "road_network.json"
     @Throws(IOException::class)
     fun buildGraph(
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
+        assets: AssetManager? = null,
     ): RouteGraph {
+        if (assets != null) {
+            try {
+                val json = assets.open(BUNDLED_ASSET).bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                val graph = parseToGraph(json, cctvSites, securityLightSites, facilities)
+                if (graph.nodes.isNotEmpty() && graph.adjacency.isNotEmpty()) return graph
+            } catch (e: IOException) {
+                // 파일이 없으면 네트워크로 진행
+            } catch (e: org.json.JSONException) {
+                Log.w("RouteDebug", "번들 도로 데이터 파싱 실패: ${e.message}")
+            }
+        }
+
         val query = buildOverpassQuery()
 
         var lastError: IOException? = null
