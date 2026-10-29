@@ -50,6 +50,9 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+    sourceSets {
+        getByName("test").resources.directories.add("src/main/assets")
+    }
 }
 
 dependencies {
@@ -66,5 +69,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
+    testImplementation("org.json:json:20260814")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
