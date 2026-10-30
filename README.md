@@ -100,9 +100,9 @@ API 경로와 응답 JSON 형식(`{success, data, message}`)은 그대로이므�
 ## 로그인/회원가입 개선 · 보호자 기능 — 2026-10-01 (backend)
 
 백엔드에 **JWT 인증 검사**, **회원가입 항목 확장**, **보호자/지인 관리 API**를 추가했다.
-Android 쪽은 아직 반영되지 않았다 (아래 "프론트 반영 필요" 참고).
+Android 쪽도 v3 요청/응답과 보호자 연결 관리 화면까지 반영됐다.
 
-### ⚠️ 프론트 반영 필요 (반영 전까지 앱 회원가입이 실패함)
+### Android 프론트 반영 완료
 
 1. 회원가입 요청에 `name`, `phone`이 **필수**로 추가됐다. 미성년자(`MINOR`)는 `guardians`도 1명 이상 필수다.
 2. `/api/auth/**`를 제외한 **모든 API**에 `Authorization: Bearer {토큰}` 헤더가 필요하다.
@@ -212,7 +212,7 @@ powershell -ExecutionPolicy Bypass -File .\http\auth-guardian-test.ps1
 사용자가 위험 지점을 사진과 함께 제보하는 API와, 사진을 저장하는 **이미지 저장소**를 추가했다.
 사진 파일은 **Supabase Storage**(비공개 버킷 `risk-report-images`)에 저장하고, DB(`risk_report_image.storage_path`)에는
 URL이 아니라 버킷 안의 파일 위치(예: `reports/12/3f2a….png`)만 저장한다.
-Android 쪽은 아직 반영되지 않았다.
+Android 제보 탭에서 현재 위치·위험 유형·익명 여부와 사진 최대 3장을 multipart로 전송하도록 반영됐다.
 
 ```
 Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)──▶ Supabase Storage (비공개 버킷)
@@ -509,11 +509,11 @@ powershell -ExecutionPolicy Bypass -File .\http\device-push-test.ps1
 가짜 토큰을 쓰므로 폰에는 알림이 가지 않는다. FCM 모드에서는 22번이 "Firebase 서버 인증 정상"을 확인한다
 (가짜 토큰만 INVALID_ARGUMENT로 거절되면 서비스 계정 키는 정상). 실제 도착 확인은 앱이 토큰을 등록한 뒤 `/api/dev/push-test`.
 
-### ⚠ 프론트(Android) 작업 필요
+### 프론트(Android) 반영 완료
 - Firebase 콘솔에서 Android 앱(패키지 `com.safewalk`) 등록 → `google-services.json`을 `android/mobile/`에
 - 루트 `build.gradle.kts`에 `com.google.gms.google-services` 플러그인, `mobile`에 플러그인 + `firebase-messaging`
 - `FirebaseMessagingService`: `onNewToken`에서 PUT 호출, `onMessageReceived`에서 data(`type` 등) 처리
-- 로그인 직후 PUT, 로그아웃 시 DELETE (DELETE에 JSON 본문이 있으므로 OkHttp 사용 권장)
+- 로그인 직후 PUT, 로그아웃 시 JSON 본문을 포함한 DELETE 호출
 - Android 13 이상 `POST_NOTIFICATIONS` 권한 요청
 - 워치는 따로 등록하지 않아도 폰 알림이 Wear OS로 전달된다
 
@@ -568,15 +568,15 @@ powershell -ExecutionPolicy Bypass -File .\http\notification-test.ps1
 아빠·아이 계정으로 초대 → 거절 → 재초대 → 취소 → 수락 → 연결 끊기 → 해제 → 삭제를 진행하며 알림함 기록을 확인한다 (35개).
 기존 `auth-guardian-test.ps1`, `device-push-test.ps1`도 함께 다시 실행해 영향이 없는지 확인한다.
 
-### ⚠ 프론트(Android) 작업
+### 프론트(Android) 반영 완료
 - 알림함 화면: 목록(무한 스크롤은 `hasNext`), 항목 누르면 `PATCH .../read` 후 `referenceType`에 따라 이동 (GUARDIAN → 초대 목록 또는 보호자 목록)
 - 탭·아이콘 배지: `unread-count`
 - 푸시 수신(`onMessageReceived`) 시 `data.type`으로 화면 분기, 알림함 새로고침
 
 ## 다운받아 실행할 때 확인/수정할 것
 
-- **android** — `common/network/ApiClient.kt`의 `baseUrl`을 실행할 PC의 로컬 네트워크 IP로
-  바꿔야 한다 (`ipconfig`로 확인). 에뮬레이터 표준 별칭 `10.0.2.2`와 `adb reverse`는 이 환경에서
+- **android** — `local.properties`의 `BACKEND_BASE_URL`을 실행할 PC의 로컬 네트워크 IP로
+  설정해야 한다 (`ipconfig`로 확인). 에뮬레이터 표준 별칭 `10.0.2.2`와 `adb reverse`는 이 환경에서
   동작하지 않아 실제 IP 방식을 쓰고 있다. `local.properties.example`을 `local.properties`로
   복사하고 Kakao API 키도 입력해야 한다.
 - **backend** — `.env.example`을 참고해 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`(Supabase),

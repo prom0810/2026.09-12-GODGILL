@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.safewalk.auth.AuthRepository
+import com.safewalk.auth.GuardianSignupApiRequest
+import com.safewalk.notification.FcmTokenManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,6 +25,8 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSignUpEmail(value: String) = update { copy(signUpEmail = value) }
     fun updateSignUpPassword(value: String) = update { copy(signUpPassword = value) }
     fun updatePhoneNumber(value: String) = update { copy(phoneNumber = value) }
+    fun updateGuardianName(value: String) = update { copy(guardianName = value, errorMessage = null) }
+    fun updateGuardianPhone(value: String) = update { copy(guardianPhone = value, errorMessage = null) }
     fun setTermsAgreement(value: Boolean) = update { copy(agreedToTerms = value) }
     fun setPrivacyAgreement(value: Boolean) = update { copy(agreedToPrivacy = value) }
     fun setLocationAgreement(value: Boolean) = update { copy(agreedToLocation = value) }
@@ -52,11 +56,46 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     authRepository.login(email = request.email, password = request.password)
                 }
                 uiState = uiState.copy(isLoading = false)
+                FcmTokenManager.sync(getApplication())
                 onSuccess()
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoading = false,
                     errorMessage = e.message ?: "로그인에 실패했습니다.",
+                )
+            }
+        }
+    }
+
+    fun signup(onSuccess: () -> Unit) {
+        if (!uiState.canContinueSignUp || !uiState.canContinueUserType || uiState.isLoading) return
+        val request = uiState.toSignUpRequest()
+        val backendType = if (request.userType == UserType.CHILD) "MINOR" else "ADULT"
+        val guardians = if (request.userType == UserType.CHILD) {
+            listOf(GuardianSignupApiRequest(request.guardianName, request.guardianPhone))
+        } else {
+            emptyList()
+        }
+        uiState = uiState.copy(isLoading = true, errorMessage = null)
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    authRepository.signup(
+                        email = request.email,
+                        password = request.password,
+                        name = request.name,
+                        phone = request.phoneNumber,
+                        userType = backendType,
+                        guardians = guardians,
+                    )
+                }
+                uiState = uiState.copy(isLoading = false)
+                FcmTokenManager.sync(getApplication())
+                onSuccess()
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "회원가입에 실패했습니다.",
                 )
             }
         }

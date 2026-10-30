@@ -41,3 +41,4 @@ android/.idea/
 android/build/
 android/*/build/
 android/local.properties
+android/mobile/google-services.json

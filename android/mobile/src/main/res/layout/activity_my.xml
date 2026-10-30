@@ -36,6 +36,7 @@
                 android:src="@drawable/ic_nav_my"
                 android:tint="#737A77" />
             <TextView
+                android:id="@+id/my_user_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -44,6 +45,7 @@
                 android:textSize="19sp"
                 android:textStyle="bold" />
             <TextView
+                android:id="@+id/my_user_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -61,15 +63,18 @@
                 android:textColor="#FFFFFF"
                 android:textStyle="bold" />
         </LinearLayout>
-        <TextView
+        <Button
+            android:id="@+id/my_guardian_button"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="52dp"
             android:layout_marginTop="16dp"
             android:background="@drawable/map_panel_background"
-            android:padding="18dp"
-            android:text="알림 설정                                      ›"
+            android:gravity="start|center_vertical"
+            android:paddingHorizontal="18dp"
+            android:text="보호자 연결 관리  ›"
             android:textColor="#343A37"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:visibility="gone" />
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -79,6 +84,15 @@
             android:text="앱 정보                                         ›"
             android:textColor="#343A37"
             android:textSize="14sp" />
+        <Button
+            android:id="@+id/my_logout_button"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#E9EEEB"
+            android:text="로그아웃"
+            android:textColor="#343A37"
+            android:visibility="gone" />
     </LinearLayout>
 
     <include layout="@layout/layout_bottom_navigation" />

@@ -92,10 +92,10 @@ Release 빌드는 난독화 검증용 unsigned APK를 생성하며 배포 서명
   설정되어 있다. 배포 전 백엔드를 HTTPS로 바꾸고 이 속성은 제거해야 한다.
 - 통신은 이 프로젝트의 기존 방식(Retrofit 없이 `HttpURLConnection` 직접 사용)을 그대로
   따랐다 — `KakaoPlaceSearch`/`NearbyFacilitySearch`와 같은 패턴.
-- 회원가입 화면에는 아직 이름·전화번호 입력이 없다(이메일·비밀번호·사용자 유형만). 사용자
-  유형(성인/미성년자) 구분은 현재 뼈대만 있고 유형별 추천 로직과는 아직 연결되지 않았다.
-- 로그인 성공 시 발급되는 JWT는 `TokenStore`(SharedPreferences)에 저장만 하고, 아직 이후
-  API 호출에 자동으로 실어 보내지는 않는다(그런 API가 아직 없음).
+- 회원가입은 이름·전화번호·사용자 유형을 백엔드 v3 계약에 맞춰 전송한다. 아이 유형은 대표
+  보호자 이름과 전화번호를 함께 등록하며, 상대방이 초대를 수락한 뒤 계정 연결이 완료된다.
+- 로그인 성공 시 발급되는 JWT는 `TokenStore`에 저장되고 보호자·알림·기기 API 요청에 자동으로
+  포함된다. 401 응답을 받으면 만료된 로컬 세션을 정리한다.
 
 ## 추가 파일
 
@@ -120,3 +120,19 @@ Release 빌드는 난독화 검증용 unsigned APK를 생성하며 배포 서명
 - [카카오맵 사용 설정](https://developers.kakao.com/docs/ko/kakaomap/common)
 - [키 해시 안내](https://developers.kakao.com/docs/ko/android/getting-started)
 - [AGP 9.3 호환성](https://developer.android.com/build/releases/agp-9-3-0-release-notes)
+
+## 보호자·알림·FCM 연동
+
+- MY 탭의 `보호자 연결 관리`에서 보호자/지인 등록, 대표 보호자 변경, 위치 열람 허용,
+  초대·취소·해제·삭제와 받은 요청 수락·거절, 보호 대상 연결 끊기를 처리한다.
+- 알림 탭은 `/api/notifications` 페이지 조회, 안 읽은 수 배지, 개별 읽음, 모두 읽음을 지원한다.
+  보호자 알림을 누르면 보호자 연결 관리 화면으로 이동한다.
+- 제보 탭은 현재 위치, 위험 유형, 설명, 익명 여부와 사진 최대 3장을 multipart 요청으로
+  `/api/risk-reports`에 등록한다. 사진은 JPEG/PNG/WebP, 장당 10MB 이하로 제한한다.
+- `local.properties`의 `BACKEND_BASE_URL`로 개발 서버 주소를 설정한다.
+- 실제 FCM을 받으려면 Firebase Console에서 Android 앱 `com.safewalk`을 등록하고 받은
+  `google-services.json`을 `android/mobile/google-services.json`에 둔다. 이 파일은 커밋하지 않는다.
+  파일이 없는 개발/CI 환경에서는 Firebase 초기화를 건너뛰며 나머지 앱 기능과 빌드는 동작한다.
+- 로그인 또는 토큰 갱신 시 `PUT /api/users/me/devices`, 로그아웃 시
+  `DELETE /api/users/me/devices`가 호출된다. 백엔드의 `FIREBASE_CREDENTIALS_PATH`는 서버 발송용
+  서비스 계정 설정이며 Android의 `google-services.json`과 용도가 다르다.

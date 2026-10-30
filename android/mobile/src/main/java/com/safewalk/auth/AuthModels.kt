@@ -4,7 +4,18 @@ package com.safewalk.auth
 data class SignupApiRequest(
     val email: String,
     val password: String,
+    val name: String,
+    val phone: String,
     val userType: String,
+    val guardians: List<GuardianSignupApiRequest> = emptyList(),
+)
+
+data class GuardianSignupApiRequest(
+    val name: String,
+    val phone: String,
+    val relationship: String = "PARENT",
+    val isPrimary: Boolean = true,
+    val canViewLocation: Boolean = true,
 )
 
 /** 백엔드 LoginRequest와 필드를 맞춘 네트워크 요청 모델. */
