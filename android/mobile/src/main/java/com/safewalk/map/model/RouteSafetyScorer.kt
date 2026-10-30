@@ -43,7 +43,7 @@ object RouteSafetyScorer {
 
     /**
      * 정규화 없이 원시 안전도 점수를 계산한다.
-     * 그래프 전체 min~max 기준 정규화는 [RoadNetworkProvider]가 담당한다
+     * 그래프 전체 min~max 기준 정규화는 [OverpassGraphParser]가 담당한다
      * (이론적 상/하한으로 정규화하면 실제 점수 차이가 눌려버리는 문제가 있어,
      *  실제 관찰된 값 범위를 쓰는 동적 정규화 방식을 쓴다).
      */
