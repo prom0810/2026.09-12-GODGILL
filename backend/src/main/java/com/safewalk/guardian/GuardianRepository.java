@@ -40,4 +40,8 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
     Optional<Guardian> findActiveByIdForUpdate(@Param("guardianId") Long guardianId);
 
     boolean existsByUser_UserIdAndPhoneAndDeletedAtIsNull(Long userId, String phone);
+
+    /** 이 사용자(ward)의 보호자 중 내 계정과 연결된(CONNECTED) 행. SOS 열람 권한 확인용 */
+    Optional<Guardian> findFirstByUser_UserIdAndGuardianUser_UserIdAndRegistrationStatusAndDeletedAtIsNull(
+            Long userId, Long guardianUserId, RegistrationStatus registrationStatus);
 }

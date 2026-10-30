@@ -4,6 +4,9 @@ import com.safewalk.auth.DuplicateEmailException;
 import com.safewalk.auth.DuplicatePhoneException;
 import com.safewalk.auth.InvalidCredentialsException;
 import com.safewalk.auth.UnauthorizedException;
+import com.safewalk.emergency.EmergencyAlreadyOpenException;
+import com.safewalk.emergency.EmergencyNotFoundException;
+import com.safewalk.emergency.EmergencyStateException;
 import com.safewalk.guardian.DuplicateGuardianException;
 import com.safewalk.guardian.GuardianNotFoundException;
 import com.safewalk.guardian.GuardianStateException;
@@ -13,7 +16,9 @@ import com.safewalk.storage.ImageStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -45,14 +50,14 @@ public class GlobalExceptionHandler {
     /** JSON 형식 오류, 타입 불일치(예: guardians에 배열이 아닌 값) 등 요청 바디를 읽지 못한 경우 */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("요청 본문(JSON) 형식이 올바르지 않습니다."));
     }
 
     /** 경로 변수 타입 불일치. 예: DELETE /api/guardians/abc */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("요청 값의 형식이 올바르지 않습니다: " + e.getName()));
     }
 
@@ -74,35 +79,35 @@ public class GlobalExceptionHandler {
     /** 필수 폼/쿼리 값 누락. 예: 제보 작성 시 lat 없음 */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingParameter(MissingServletRequestParameterException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("필수 값이 없습니다: " + e.getParameterName()));
     }
 
     /** 필수 파일 누락. 예: 사진 추가 시 images 없음 */
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingPart(MissingServletRequestPartException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("필수 파일이 없습니다: " + e.getRequestPartName()));
     }
 
     /** 업로드 크기 초과 (application.yml의 spring.servlet.multipart 제한) */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("파일이 너무 큽니다. 사진 1장은 10MB 이하로 올려 주세요."));
     }
 
     /** multipart 요청 형식 오류 */
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ApiResponse<Void>> handleMultipart(MultipartException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("파일 업로드 요청(multipart/form-data) 형식이 올바르지 않습니다."));
     }
 
     /** Content-Type 불일치. 예: 사진 업로드 API에 JSON으로 요청 */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleMediaType(HttpMediaTypeNotSupportedException e) {
-        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("지원하지 않는 요청 형식입니다: " + e.getContentType()));
     }
 
@@ -116,13 +121,13 @@ public class GlobalExceptionHandler {
     /** 존재하지 않는 경로 */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("존재하지 않는 API입니다."));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON).body(ApiResponse.fail("존재하지 않는 API입니다."));
     }
 
     /** 경로는 있지만 지원하지 않는 HTTP 메서드. 예: DELETE /api/guardians (ID 없음) */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
-        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("지원하지 않는 요청 방식입니다: " + e.getMethod()));
     }
 
@@ -147,10 +152,28 @@ public class GlobalExceptionHandler {
         return fail(HttpStatus.CONFLICT, e, "현재 보호자 연결 상태에서는 처리할 수 없습니다.");
     }
 
+    @ExceptionHandler(EmergencyNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmergencyNotFound(EmergencyNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "SOS를 찾을 수 없습니다.");
+    }
+
+    /** 이미 진행 중인 SOS가 있음 → data.emergencyId로 기존 사건을 알려 준다 (앱은 그 사건으로 이어서 진행) */
+    @ExceptionHandler(EmergencyAlreadyOpenException.class)
+    public ResponseEntity<ApiResponse<Map<String, Long>>> handleEmergencyAlreadyOpen(EmergencyAlreadyOpenException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON)
+                .body(new ApiResponse<>(false, Map.of("emergencyId", e.getEmergencyId()), e.getMessage()));
+    }
+
+    /** 긴급 사건 상태가 맞지 않음. 예: 이미 종료된 SOS를 다시 종료 */
+    @ExceptionHandler(EmergencyStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmergencyState(EmergencyStateException e) {
+        return fail(HttpStatus.CONFLICT, e, "현재 SOS 상태에서는 처리할 수 없습니다.");
+    }
+
     /** 코드 검사를 통과했지만 DB 제약(UNIQUE 등)에 걸린 경우. 예: 같은 전화번호로 동시에 가입 */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
+        return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail("이미 등록된 정보와 중복됩니다."));
     }
 
@@ -171,6 +194,6 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiResponse<Void>> fail(HttpStatus status, Exception e, String defaultMessage) {
         String message = e.getMessage() != null ? e.getMessage() : defaultMessage;
-        return ResponseEntity.status(status).body(ApiResponse.fail(message));
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(ApiResponse.fail(message));
     }
 }

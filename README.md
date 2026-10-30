@@ -573,6 +573,77 @@ powershell -ExecutionPolicy Bypass -File .\http\notification-test.ps1
 - 탭·아이콘 배지: `unread-count`
 - 푸시 수신(`onMessageReceived`) 시 `data.type`으로 화면 분기, 알림함 새로고침
 
+## SOS · 보호자 실시간 위치 공유 — 2026-10-30 (backend)
+
+SOS를 누르면 보호자에게 FCM 푸시가 가고, 보호자가 알림을 눌러 지도 화면을 열면 **SSE**로 사용자의 위치를 실시간으로 받는다.
+위치 이력은 DB에 저장하지 않는다 (최신 1개만 서버 메모리, 발생 위치만 `emergency_event.lat/lng`). DB 변경 없음.
+
+### 흐름
+```
+[사용자 폰] SOS → 10초 확인 팝업(앱) → POST /api/emergencies
+            └ 5초마다 POST /api/emergencies/{id}/locations   (Foreground Service, 멈춰 있어도 전송)
+[서버]      앱 연결 보호자 전원: 알림함 + FCM / 대표 보호자가 앱 미연결이면 그 1명에게 문자(MVP 서버 로그)
+            새 위치 → SSE로 즉시 전달
+[보호자 폰] 푸시 탭 → 지도 화면 → GET /api/emergencies/{id}/stream (SSE) → 마커 이동
+종료        PATCH /api/emergencies/{id} → SSE status 이벤트 후 연결 닫힘, 종료 알림
+```
+
+### API (모두 JWT 필요)
+| 메서드 | 경로 | 호출 | 설명 |
+|---|---|---|---|
+| POST | `/api/emergencies` | 사용자 | SOS 시작 → 201. `{ "source": "MOBILE"\|"WEARABLE", "lat", "lng", "accuracy" }` (GPS 없으면 lat/lng 생략). 진행 중 SOS가 있으면 409 + `data.emergencyId` |
+| POST | `/api/emergencies/{id}/locations` | 사용자 | 위치 전송 → 204. `{ "lat", "lng", "accuracy", "recordedAt" }`. 종료된 SOS면 409 → 전송 중지 |
+| PATCH | `/api/emergencies/{id}` | 사용자·보호자 | 종료 `{ "status" }`. 사용자: RESOLVED/FALSE_ALARM/CANCELLED, 보호자: RESOLVED만 |
+| GET | `/api/emergencies/active` | 사용자 | 진행 중인 내 SOS (없으면 null). 앱 재시작 시 위치 전송 재개용 |
+| GET | `/api/emergencies/shared` | 보호자 | 보호 중인 사람들의 진행 중 SOS (푸시를 놓쳤을 때) |
+| GET | `/api/emergencies/{id}` | 사용자·보호자 | 상세 |
+| GET | `/api/emergencies/{id}/stream` | 보호자 | **SSE** 실시간 위치 |
+| GET | `/api/emergencies/{id}/locations/latest` | 보호자 | 최신 위치 1건 (SSE를 못 쓸 때) |
+
+- 권한: 당사자, 또는 당사자와 **CONNECTED**인 보호자. 위치(stream, latest, 상세의 발생 위치)는 `canViewLocation=true`인 보호자만. 그 외 404.
+- 지금은 `type=SOS`만 (낙상·심박 감지는 웨어러블·경로 기능 이후). 기존 스텁 `POST /api/emergency/sos`는 삭제.
+
+### SSE 이벤트
+| 이벤트 | data | 시점 |
+|---|---|---|
+| `location` | `{lat, lng, accuracy, recordedAt}` | 연결 직후 현재 위치 1건, 이후 새 위치마다 |
+| `location_stale` | `{lastRecordedAt}` | 위치가 30초 동안 안 옴 → "마지막 위치" 표시 (다음 location으로 해제) |
+| `status` | `{status, resolvedAt}` | 종료 → 직후 서버가 연결을 닫음 (다시 연결하지 않음) |
+| `:ping` (주석) | — | 20초마다 연결 유지 |
+
+연결은 최대 30분, 끊기면 앱이 다시 연결한다.
+
+### 자동 처리 (5초마다 검사)
+| 조건 | 동작 |
+|---|---|
+| 마지막 위치 수신 후 30초 | SSE `location_stale` |
+| 마지막 위치 수신 후 3분 | 위치 열람 보호자에게 "위치 수신 끊김" 푸시 1회 |
+| 발생 후 2시간 | 자동 종료 (CANCELLED, 종료자 없음) |
+
+시간은 `.env`의 `EMERGENCY_STALE_SECONDS`, `EMERGENCY_LOST_SECONDS`, `EMERGENCY_AUTO_CLOSE_SECONDS`로 바꿀 수 있다 (테스트용).
+
+### 푸시 data.type
+`EMERGENCY_STARTED`(보호자) · `EMERGENCY_ENDED`(보호자, 보호자가 종료했거나 자동 종료면 당사자에게도) · `EMERGENCY_LOCATION_LOST`(위치 열람 보호자). 모두 `emergencyId` 포함, 알림함 `type=EMERGENCY`.
+
+### 추가/수정된 파일 — backend/
+- `emergency/`: `EmergencyEvent`·`EmergencyEventLog`(엔티티), enum 4개, 리포지토리 2개, `EmergencyService`, `EmergencyEventController`, `EmergencySseHub`(SSE 연결 관리), `LocationStore`·`InMemoryLocationStore`(최신 위치, MSA 때 Redis로 교체), `EmergencyWatchdog`(자동 처리), `EmergencyProperties`, 요청·응답·예외
+- `global/`: `AfterCommit`(커밋 후 실행), `SchedulingConfig`(@EnableScheduling), `GlobalExceptionHandler`(SOS 404·409, 오류 응답을 항상 JSON으로 — SSE 요청의 오류도 읽을 수 있게)
+- `guardian/GuardianRepository`, `notification/NotificationService`(문자도 커밋 후 발송), `application.yml`, `.env.example`
+- `emergency/EmergencyController`: `/sos` 스텁 삭제 (`/arrival`은 경로 기능용으로 유지)
+- 테스트: `http/sos-test.ps1`, 단위 테스트 `EmergencyEventTest`, `InMemoryLocationStoreTest` (CI)
+
+### 테스트 방법
+```
+powershell -ExecutionPolicy Bypass -File .\http\sos-test.ps1
+```
+자동 처리까지 보려면 `.env`에 짧은 시간을 넣고 `-Timers`를 붙인다 (스크립트 맨 위 설명).
+
+### ⚠ 프론트(Android) 작업
+- 사용자: SOS 10초 팝업 → `POST /api/emergencies`, `FusedLocationProviderClient` + `foregroundServiceType="location"` 서비스로 **5초마다(멈춰 있어도)** 위치 전송, 409면 중지. 앱 시작 시 `GET /active`로 재개. 종료 2중 확인
+- 워치 SOS: 워치 → 폰 앱 → `source=WEARABLE`로 호출 (`watch/Protocol.kt`)
+- 보호자: `EMERGENCY_STARTED` 푸시 탭 → 지도 화면에서 SSE 연결(OkHttp `okhttp-sse`), `location`마다 카카오맵 마커 이동, `location_stale`이면 "마지막 위치" 표시, `status`면 종료 화면. 앱 시작 시 `GET /shared` 확인
+- 권한: 위치(백그라운드 포함), 알림(Android 13+)
+
 ## 다운받아 실행할 때 확인/수정할 것
 
 - **android** — `common/network/ApiClient.kt`의 `baseUrl`을 실행할 PC의 로컬 네트워크 IP로
