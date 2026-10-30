@@ -127,8 +127,12 @@ Release 빌드는 난독화 검증용 unsigned APK를 생성하며 배포 서명
   초대·취소·해제·삭제와 받은 요청 수락·거절, 보호 대상 연결 끊기를 처리한다.
 - 알림 탭은 `/api/notifications` 페이지 조회, 안 읽은 수 배지, 개별 읽음, 모두 읽음을 지원한다.
   보호자 알림을 누르면 보호자 연결 관리 화면으로 이동한다.
-- 제보 탭은 현재 위치, 위험 유형, 설명, 익명 여부와 사진 최대 3장을 multipart 요청으로
-  `/api/risk-reports`에 등록한다. 사진은 JPEG/PNG/WebP, 장당 10MB 이하로 제한한다.
+- 제보 탭은 `GET /api/risk-reports`의 최신 제보 목록을 기본으로 표시한다. 반려된 제보는
+  목록에서 제외되고, 익명 제보는 작성자 이름을 노출하지 않는다. 목록의 제보를 누르면
+  `GET /api/risk-reports/{reportId}`로 상세 내용·위치·전체 사진을 다시 조회하고, 저장된 좌표는
+  Kakao 지도 미리보기와 제보 위치 마커로 보여준다. `제보 작성`을
+  누르면 현재 위치, 위험 유형, 설명, 익명 여부와 사진 최대 3장을 multipart 요청으로 등록한다.
+  사진은 JPEG/PNG/WebP, 장당 10MB 이하로 제한한다.
 - `local.properties`의 `BACKEND_BASE_URL`로 개발 서버 주소를 설정한다.
 - 실제 FCM을 받으려면 Firebase Console에서 Android 앱 `com.safewalk`을 등록하고 받은
   `google-services.json`을 `android/mobile/google-services.json`에 둔다. 이 파일은 커밋하지 않는다.

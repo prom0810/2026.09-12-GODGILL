@@ -10,130 +10,215 @@
         android:layout_height="match_parent"
         android:layout_marginBottom="68dp"
         android:fillViewport="true">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="24dp">
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="제보"
+                android:text="안전 제보"
                 android:textColor="#171A19"
                 android:textSize="26sp"
                 android:textStyle="bold" />
+
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="길에서 발견한 위험 요소를 알려주세요."
+                android:text="이웃이 공유한 위험 요소를 확인하고 새로운 제보를 등록해 보세요."
                 android:textColor="#737A77"
                 android:textSize="14sp" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
-                android:background="@drawable/map_panel_background"
-                android:elevation="2dp"
-                android:orientation="vertical"
-                android:padding="18dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="제보 유형"
-                    android:textColor="#171A19"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-                <RadioGroup
-                    android:id="@+id/report_category"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp">
-                    <RadioButton
-                        android:id="@+id/report_dark_road"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="어두운 길" />
-                    <RadioButton
-                        android:id="@+id/report_damaged_sidewalk"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="파손된 보도" />
-                    <RadioButton
-                        android:id="@+id/report_construction"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="공사 구간" />
-                    <RadioButton
-                        android:id="@+id/report_illegal_parking"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="불법 주정차" />
-                    <RadioButton
-                        android:id="@+id/report_other"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="기타 안전 관련 제보" />
-                </RadioGroup>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:text="상세 내용"
-                    android:textColor="#171A19"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-                <EditText
-                    android:id="@+id/report_detail"
-                    android:layout_width="match_parent"
-                    android:layout_height="130dp"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/map_filter_unchecked"
-                    android:gravity="top|start"
-                    android:hint="위치와 상황을 자세히 입력해 주세요."
-                    android:inputType="textMultiLine"
-                    android:padding="14dp" />
-                <CheckBox
-                    android:id="@+id/report_anonymous"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="익명으로 제보" />
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal">
+
                 <Button
-                    android:id="@+id/report_select_images"
-                    android:layout_width="match_parent"
+                    android:id="@+id/report_show_feed"
+                    android:layout_width="0dp"
                     android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#252A28"
+                    android:text="제보 목록"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/report_show_form"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
                     android:backgroundTint="#E9EEEB"
-                    android:text="사진 선택 (최대 3장)"
+                    android:text="제보 작성"
                     android:textColor="#343A37" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/report_feed_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
                 <TextView
-                    android:id="@+id/report_images_status"
+                    android:id="@+id/report_feed_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="선택된 사진 없음"
+                    android:padding="14dp"
+                    android:text="제보를 불러오는 중…"
                     android:textColor="#737A77"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/report_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <Button
+                    android:id="@+id/report_load_more"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:backgroundTint="#E9EEEB"
+                    android:text="이전 제보 더 보기"
+                    android:textColor="#343A37"
+                    android:visibility="gone" />
             </LinearLayout>
-            <TextView
-                android:id="@+id/report_status"
+
+            <LinearLayout
+                android:id="@+id/report_form_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="center"
-                android:text="현재 위치를 기준으로 제보합니다."
-                android:textColor="#737A77"
-                android:textSize="12sp" />
-            <Button
-                android:id="@+id/submit_report_button"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="20dp"
-                android:backgroundTint="#252A28"
-                android:text="제보 등록"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/map_panel_background"
+                    android:elevation="2dp"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="제보 유형"
+                        android:textColor="#171A19"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <RadioGroup
+                        android:id="@+id/report_category"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp">
+
+                        <RadioButton
+                            android:id="@+id/report_dark_road"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="어두운 길" />
+
+                        <RadioButton
+                            android:id="@+id/report_damaged_sidewalk"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="파손된 보도" />
+
+                        <RadioButton
+                            android:id="@+id/report_construction"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="공사 구간" />
+
+                        <RadioButton
+                            android:id="@+id/report_illegal_parking"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="불법 주정차" />
+
+                        <RadioButton
+                            android:id="@+id/report_other"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="기타 안전 관련 제보" />
+                    </RadioGroup>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:text="상세 내용"
+                        android:textColor="#171A19"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <EditText
+                        android:id="@+id/report_detail"
+                        android:layout_width="match_parent"
+                        android:layout_height="130dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/map_filter_unchecked"
+                        android:gravity="top|start"
+                        android:hint="위치와 상황을 자세히 입력해 주세요."
+                        android:inputType="textMultiLine"
+                        android:padding="14dp" />
+
+                    <CheckBox
+                        android:id="@+id/report_anonymous"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="익명으로 제보" />
+
+                    <Button
+                        android:id="@+id/report_select_images"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:backgroundTint="#E9EEEB"
+                        android:text="사진 선택 (최대 3장)"
+                        android:textColor="#343A37" />
+
+                    <TextView
+                        android:id="@+id/report_images_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="선택된 사진 없음"
+                        android:textColor="#737A77"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/report_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:text="현재 위치를 기준으로 제보합니다."
+                    android:textColor="#737A77"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/submit_report_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="20dp"
+                    android:backgroundTint="#252A28"
+                    android:text="제보 등록"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 

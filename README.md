@@ -212,7 +212,8 @@ powershell -ExecutionPolicy Bypass -File .\http\auth-guardian-test.ps1
 사용자가 위험 지점을 사진과 함께 제보하는 API와, 사진을 저장하는 **이미지 저장소**를 추가했다.
 사진 파일은 **Supabase Storage**(비공개 버킷 `risk-report-images`)에 저장하고, DB(`risk_report_image.storage_path`)에는
 URL이 아니라 버킷 안의 파일 위치(예: `reports/12/3f2a….png`)만 저장한다.
-Android 제보 탭에서 현재 위치·위험 유형·익명 여부와 사진 최대 3장을 multipart로 전송하도록 반영됐다.
+Android 제보 탭에서 다른 사용자의 제보와 사진을 최신순으로 확인하고, 현재 위치·위험 유형·익명 여부와
+사진 최대 3장을 multipart로 전송할 수 있다.
 
 ```
 Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)──▶ Supabase Storage (비공개 버킷)
@@ -227,7 +228,8 @@ Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)
 | 메서드 | 경로 | 토큰 | 설명 |
 |---|---|---|---|
 | POST | `/api/risk-reports` | 필요 | 제보 작성 (사진 0~3장 함께) |
-| GET | `/api/risk-reports/{reportId}` | 필요 | 내 제보 상세 + 사진 URL |
+| GET | `/api/risk-reports?page=0&size=20` | 필요 | 반려된 글을 제외한 전체 제보 목록 (최신순, size 최대 50) |
+| GET | `/api/risk-reports/{reportId}` | 필요 | 제보 상세 + 사진 URL. 반려 글은 작성자만 조회 가능 |
 | POST | `/api/risk-reports/{reportId}/images` | 필요 | 내 제보에 사진 추가 |
 | DELETE | `/api/risk-reports/{reportId}/images/{imageId}` | 필요 | 내 제보의 사진 1장 삭제 |
 
@@ -247,7 +249,8 @@ Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)
 ```json
 { "reportId": 12, "riskType": "DARK_ROAD", "riskTypeLabel": "어두운 길",
   "lat": 36.809, "lng": 127.147, "address": "천안역 동부광장 인근", "description": "가로등이 꺼져 있음",
-  "anonymous": false, "status": "PENDING", "createdAt": "...", "updatedAt": null,
+  "anonymous": false, "authorName": "김안전", "mine": false,
+  "status": "PENDING", "createdAt": "...", "updatedAt": null,
   "images": [ { "imageId": 31, "url": "https://...", "urlExpiresInSeconds": 600, "createdAt": "..." } ] }
 ```
 
@@ -259,7 +262,9 @@ Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)
 |---|---|
 | 사진 형식 | JPEG / PNG / WebP만 허용. 파일명이나 Content-Type이 아니라 **파일 내용**으로 판별 |
 | 사진 크기·개수 | 1장 10MB 이하, 제보 1건당 최대 3장 |
-| 권한 | 본인 제보만 조회·수정 가능. 다른 사람의 제보는 404 |
+| 조회 범위 | `PENDING`, `APPROVED` 제보는 로그인 사용자에게 공개. `REJECTED` 제보는 작성자만 상세 조회 가능 |
+| 익명 | 익명 제보의 `authorName`은 항상 `익명`으로 응답 |
+| 수정 권한 | 사진 추가·삭제는 본인 제보만 가능. 다른 사람의 제보는 404 |
 | 사진 변경 | 처리 전(`PENDING`) 제보만 사진 추가·삭제 가능 |
 | 실패 처리 | 사진 업로드 후 DB 저장이 실패하면 올라간 파일을 자동 삭제. 사진 삭제 시 DB 반영 후 저장소 파일 삭제 |
 
@@ -308,13 +313,13 @@ Android ──(multipart, Bearer JWT)──▶ Spring Boot ──(S3 호환 API)
 powershell -ExecutionPolicy Bypass -File .\http\risk-report-image-test.ps1
 ```
 
-제보 작성·조회, 사진 추가·삭제, 형식·크기·개수 제한, 다른 사용자 접근 차단을 확인하고,
+제보 작성·조회, 사진 추가·삭제, 형식·크기·개수 제한, 다른 사용자의 사진 변경 차단을 확인하고,
 사진 URL로 직접 내려받아 **저장소에 실제로 저장·삭제됐는지**까지 검사한다 (2026-10-16 Supabase 기준 21개 모두 통과).
 실행할 때마다 테스트 계정 2개, 제보 2건, 사진 2장이 DB와 버킷에 남는다.
 
 ### 보류된 기능
 
-- 제보 목록 조회, 관리자 승인/반려(`APPROVED` 시 `risk_area` 연결)
+- 관리자 승인/반려(`APPROVED` 시 `risk_area` 연결)
 - 제보 삭제 (구현 시 저장소 파일도 함께 삭제해야 함 — DB 행은 CASCADE로 지워지지만 파일은 남음)
 
 ## 보호자 엔티티 DB v3 반영 · 보호자 수정 API — 2026-10-20 (backend)
