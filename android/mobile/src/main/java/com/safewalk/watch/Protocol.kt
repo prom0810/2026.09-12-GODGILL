@@ -29,7 +29,7 @@ object WatchState {
 
 data class WatchAlert(val type: String, val auto: Boolean, val timeMs: Long, val bpm: Double?)
 
-/** 보호자 알림 연동 지점. 백엔드 /api/emergency/sos 가 구현되면 handler 에서 호출하면 된다. */
+/** 보호자 알림 연동 지점. 백엔드 POST /api/emergencies (SOS 시작)가 구현되면 handler 에서 호출하면 된다. */
 object GuardianNotifier {
     @Volatile var handler: ((WatchAlert, Double?, Double?) -> Unit)? = null
 }
