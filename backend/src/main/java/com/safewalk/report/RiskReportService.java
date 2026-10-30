@@ -4,6 +4,8 @@ import com.safewalk.report.RiskReportImageService.ValidatedImage;
 import com.safewalk.user.User;
 import com.safewalk.user.UserService;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,6 +25,7 @@ public class RiskReportService {
 
     private static final int ADDRESS_MAX_LENGTH = 255;
     private static final int DESCRIPTION_MAX_LENGTH = 500;
+    private static final int MAX_PAGE_SIZE = 50;
 
     private final RiskReportRepository reportRepository;
     private final RiskReportImageRepository imageRepository;
@@ -70,16 +73,39 @@ public class RiskReportService {
                 user, riskType, command.lat(), command.lng(), address, description, command.anonymous()));
         List<RiskReportImage> saved = imageService.store(report, images);
 
-        return RiskReportResponse.of(report, imageService.toResponses(saved));
+        return RiskReportResponse.of(report, userId, imageService.toResponses(saved));
     }
 
-    /** GET /api/risk-reports/{reportId} — 본인 제보 상세 (사진 열람 URL 포함) */
+    /** GET /api/risk-reports — 반려되지 않은 제보를 최신순으로 조회한다. */
     @Transactional(readOnly = true)
-    public RiskReportResponse getMyReport(Long userId, Long reportId) {
+    public RiskReportPageResponse getReports(Long userId, int page, int size) {
         userService.getActiveUser(userId);
-        RiskReport report = reportRepository.findByReportIdAndUser_UserId(reportId, userId)
+        if (page < 0) {
+            throw new IllegalArgumentException("page는 0 이상이어야 합니다.");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("size는 1~" + MAX_PAGE_SIZE + " 사이여야 합니다.");
+        }
+        Slice<RiskReport> reports = reportRepository.findByStatusNotOrderByCreatedAtDescReportIdDesc(
+                ReportStatus.REJECTED,
+                PageRequest.of(page, size));
+        List<RiskReportResponse> items = reports.getContent().stream()
+                .map(report -> toResponse(report, userId))
+                .toList();
+        return new RiskReportPageResponse(items, page, size, reports.hasNext());
+    }
+
+    /** GET /api/risk-reports/{reportId} — 다른 사용자의 공개 제보도 조회한다. */
+    @Transactional(readOnly = true)
+    public RiskReportResponse getReport(Long userId, Long reportId) {
+        userService.getActiveUser(userId);
+        RiskReport report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new RiskReportNotFoundException("제보를 찾을 수 없습니다."));
-        return toResponse(report);
+        boolean mine = report.getUser().getUserId().equals(userId);
+        if (report.getStatus() == ReportStatus.REJECTED && !mine) {
+            throw new RiskReportNotFoundException("제보를 찾을 수 없습니다.");
+        }
+        return toResponse(report, userId);
     }
 
     /** POST /api/risk-reports/{reportId}/images — 본인 제보에 사진 추가 */
@@ -96,7 +122,7 @@ public class RiskReportService {
 
         imageService.store(report, images);
         report.touch();
-        return toResponse(report);
+        return toResponse(report, userId);
     }
 
     /** DELETE /api/risk-reports/{reportId}/images/{imageId} — 본인 제보의 사진 1장 삭제 */
@@ -111,7 +137,7 @@ public class RiskReportService {
         imageRepository.delete(image);
         imageService.deleteFileAfterCommit(image.getStoragePath());
         report.touch();
-        return toResponse(report);
+        return toResponse(report, userId);
     }
 
     private RiskReport getEditableReport(Long userId, Long reportId) {
@@ -123,9 +149,9 @@ public class RiskReportService {
         return report;
     }
 
-    private RiskReportResponse toResponse(RiskReport report) {
+    private RiskReportResponse toResponse(RiskReport report, Long viewerId) {
         List<RiskReportImage> images = imageRepository.findByReport_ReportIdOrderByImageIdAsc(report.getReportId());
-        return RiskReportResponse.of(report, imageService.toResponses(images));
+        return RiskReportResponse.of(report, viewerId, imageService.toResponses(images));
     }
 
     private static void checkImageCount(long existing, int adding) {

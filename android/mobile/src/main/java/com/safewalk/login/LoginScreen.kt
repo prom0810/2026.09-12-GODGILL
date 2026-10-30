@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +56,7 @@ private val Line = Color(0xFFE2E5E3)
 private val Soft = Color(0xFFF5F6F5)
 private val ScreenBackground = Color(0xFFFAFBFA)
 private val Accent = Color(0xFF252A28)
+private val ErrorRed = Color(0xFFB3261E)
 
 @Composable
 fun LoginScreen(
@@ -65,6 +67,8 @@ fun LoginScreen(
     onSignUpEmailChange: (String) -> Unit,
     onSignUpPasswordChange: (String) -> Unit,
     onPhoneNumberChange: (String) -> Unit,
+    onGuardianNameChange: (String) -> Unit,
+    onGuardianPhoneChange: (String) -> Unit,
     onTermsAgreementChange: (Boolean) -> Unit,
     onPrivacyAgreementChange: (Boolean) -> Unit,
     onLocationAgreementChange: (Boolean) -> Unit,
@@ -116,6 +120,8 @@ fun LoginScreen(
                 AuthStep.USER_TYPE -> UserTypePage(
                     state = state,
                     onUserTypeChange = onUserTypeChange,
+                    onGuardianNameChange = onGuardianNameChange,
+                    onGuardianPhoneChange = onGuardianPhoneChange,
                     onBack = onBack,
                     onNext = onContinueToPermissions,
                 )
@@ -340,32 +346,46 @@ private fun AgreementRow(
 private fun UserTypePage(
     state: LoginUiState,
     onUserTypeChange: (UserType) -> Unit,
+    onGuardianNameChange: (String) -> Unit,
+    onGuardianPhoneChange: (String) -> Unit,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
     OnboardingLayout(title = "사용자 유형 선택", step = 3, onBack = onBack) {
-        Text("어떻게 이용하시나요?", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-        Spacer(Modifier.height(6.dp))
-        Text("알맞은 유형을 선택하면 꼭 필요한 기능을 먼저 보여드려요.", fontSize = 13.sp, color = Muted)
-        Spacer(Modifier.height(24.dp))
-        UserTypeCard(
-            icon = "♙", title = "아이", description = "안전한 길을 안내받고 보호자와 위치를 공유해요.",
-            selected = state.userType == UserType.CHILD,
-            onClick = { onUserTypeChange(UserType.CHILD) },
-        )
-        Spacer(Modifier.height(12.dp))
-        UserTypeCard(
-            icon = "♡", title = "보호자", description = "아이의 이동 경로와 현재 안전 상태를 확인해요.",
-            selected = state.userType == UserType.GUARDIAN,
-            onClick = { onUserTypeChange(UserType.GUARDIAN) },
-        )
-        Spacer(Modifier.height(12.dp))
-        UserTypeCard(
-            icon = "♧", title = "보행자 · 동행자", description = "더 안전한 길을 찾고 필요한 사람과 동행해요.",
-            selected = state.userType == UserType.COMPANION,
-            onClick = { onUserTypeChange(UserType.COMPANION) },
-        )
-        Spacer(Modifier.weight(1f))
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Text("어떻게 이용하시나요?", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Spacer(Modifier.height(6.dp))
+            Text("알맞은 유형을 선택하면 꼭 필요한 기능을 먼저 보여드려요.", fontSize = 13.sp, color = Muted)
+            Spacer(Modifier.height(24.dp))
+            UserTypeCard(
+                icon = "♙", title = "아이", description = "안전한 길을 안내받고 보호자와 위치를 공유해요.",
+                selected = state.userType == UserType.CHILD,
+                onClick = { onUserTypeChange(UserType.CHILD) },
+            )
+            Spacer(Modifier.height(12.dp))
+            UserTypeCard(
+                icon = "♡", title = "보호자", description = "아이의 이동 경로와 현재 안전 상태를 확인해요.",
+                selected = state.userType == UserType.GUARDIAN,
+                onClick = { onUserTypeChange(UserType.GUARDIAN) },
+            )
+            Spacer(Modifier.height(12.dp))
+            UserTypeCard(
+                icon = "♧", title = "보행자 · 동행자", description = "더 안전한 길을 찾고 필요한 사람과 동행해요.",
+                selected = state.userType == UserType.COMPANION,
+                onClick = { onUserTypeChange(UserType.COMPANION) },
+            )
+            if (state.userType == UserType.CHILD) {
+                Spacer(Modifier.height(18.dp))
+                Text("대표 보호자", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                AppTextField(state.guardianName, onGuardianNameChange, "보호자 이름", "예: 김보호")
+                Spacer(Modifier.height(10.dp))
+                AppTextField(state.guardianPhone, onGuardianPhoneChange, "보호자 전화번호", "010-0000-0000", KeyboardType.Phone)
+                Spacer(Modifier.height(6.dp))
+                Text("보호자 계정의 같은 전화번호로 초대를 보내며, 상대방이 수락해야 연결됩니다.", color = Muted, fontSize = 10.sp)
+            }
+            Spacer(Modifier.height(18.dp))
+        }
         PrimaryButton("다음", state.canContinueUserType, onNext)
     }
 }
@@ -433,6 +453,14 @@ private fun PermissionPage(
         }
         Spacer(Modifier.weight(1f))
         PrimaryButton("선택한 권한으로 시작", true, onStart)
+        if (state.isLoading) {
+            Spacer(Modifier.height(8.dp))
+            CircularProgressIndicator(color = Accent, strokeWidth = 2.dp, modifier = Modifier.size(22.dp).align(Alignment.CenterHorizontally))
+        }
+        state.errorMessage?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = ErrorRed, fontSize = 11.sp)
+        }
         TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
             Text("나중에 설정", color = Muted, fontSize = 12.sp)
         }
@@ -575,6 +603,8 @@ private fun LoginPreview() {
         onSignUpEmailChange = {},
         onSignUpPasswordChange = {},
         onPhoneNumberChange = {},
+        onGuardianNameChange = {},
+        onGuardianPhoneChange = {},
         onTermsAgreementChange = {},
         onPrivacyAgreementChange = {},
         onLocationAgreementChange = {},

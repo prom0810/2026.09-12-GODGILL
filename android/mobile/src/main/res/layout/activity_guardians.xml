@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FAFBFA">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:id="@+id/guardian_back"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:text="‹  MY"
+                android:textColor="#343A37"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="보호자 연결"
+                android:textColor="#171A19"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="등록한 보호자에게 초대를 보내고, 받은 요청과 보호 중인 사용자를 관리하세요. 연결은 상대방이 수락한 뒤 완료됩니다."
+                android:textColor="#737A77"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/guardian_add"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="20dp"
+                android:backgroundTint="#252A28"
+                android:text="보호자 또는 지인 추가"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/guardian_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:textColor="#737A77"
+                android:textSize="12sp" />
+
+            <TextView style="@style/GuardianSectionTitle" android:text="내 보호자" />
+            <LinearLayout android:id="@+id/guardian_list" style="@style/GuardianSectionContainer" />
+
+            <TextView style="@style/GuardianSectionTitle" android:text="받은 연결 요청" />
+            <LinearLayout android:id="@+id/invitation_list" style="@style/GuardianSectionContainer" />
+
+            <TextView style="@style/GuardianSectionTitle" android:text="내가 보호 중인 사용자" />
+            <LinearLayout android:id="@+id/ward_list" style="@style/GuardianSectionContainer" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>
