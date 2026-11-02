@@ -94,8 +94,9 @@ public class NotificationService {
         return pushDelivery.mode();
     }
 
+    /** 문자 발송. 진행 중인 트랜잭션이 있으면 커밋된 뒤에 보낸다 (실패한 작업의 문자가 나가지 않게) */
     public void sendSms(String phone, String text) {
-        smsSender.send(phone, text);
+        afterCommit(() -> smsSender.send(phone, text));
     }
 
     public void notifyRouteDeviation(Long userId) {

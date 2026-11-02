@@ -64,3 +64,14 @@ firebase:
 #  - POST /api/dev/push-test : 내 기기로 테스트 푸시 보내기
 dev:
   push-test-enabled: ${DEV_PUSH_TEST_ENABLED:false}
+
+# SOS 위치 공유 시간 설정 (초). 테스트할 때 .env에서 짧게 줄일 수 있다.
+#  - stale  : 위치가 이 시간 안 오면 보호자 화면에 "마지막 위치" 표시 (SSE location_stale)
+#  - lost   : 이 시간 안 오면 보호자에게 "위치 수신 끊김" 푸시 1회
+#  - auto-close : 발생 후 이 시간이 지나면 자동 종료
+emergency:
+  stale-seconds: ${EMERGENCY_STALE_SECONDS:30}
+  lost-seconds: ${EMERGENCY_LOST_SECONDS:180}
+  auto-close-seconds: ${EMERGENCY_AUTO_CLOSE_SECONDS:7200}
+  watchdog-interval-ms: ${EMERGENCY_WATCHDOG_INTERVAL_MS:5000}
+  sse-timeout-minutes: ${EMERGENCY_SSE_TIMEOUT_MINUTES:30}
