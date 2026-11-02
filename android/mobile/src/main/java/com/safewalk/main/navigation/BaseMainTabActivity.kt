@@ -6,6 +6,13 @@ import android.view.WindowInsets
 import androidx.activity.ComponentActivity
 import androidx.annotation.LayoutRes
 import com.safewalk.R
+import com.safewalk.notification.NotificationBadge
+import com.safewalk.notification.NotificationEvents
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 
 abstract class BaseMainTabActivity : ComponentActivity() {
     @get:LayoutRes
@@ -35,5 +42,15 @@ abstract class BaseMainTabActivity : ComponentActivity() {
         }
         container.requestApplyInsets()
         bindBottomNavigation(selectedTab)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                NotificationEvents.incoming.collect { NotificationBadge.refresh(this@BaseMainTabActivity) }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        NotificationBadge.refresh(this)
     }
 }

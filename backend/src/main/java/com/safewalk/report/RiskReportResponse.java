@@ -15,13 +15,19 @@ public record RiskReportResponse(
         String address,
         String description,
         boolean anonymous,
+        String authorName,
+        boolean mine,
         String status,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         List<RiskReportImageResponse> images
 ) {
 
-    public static RiskReportResponse of(RiskReport report, List<RiskReportImageResponse> images) {
+    public static RiskReportResponse of(
+            RiskReport report,
+            Long viewerId,
+            List<RiskReportImageResponse> images
+    ) {
         return new RiskReportResponse(
                 report.getReportId(),
                 report.getRiskType().name(),
@@ -31,6 +37,8 @@ public record RiskReportResponse(
                 report.getAddress(),
                 report.getDescription(),
                 report.isAnonymous(),
+                report.isAnonymous() ? "익명" : report.getUser().getName(),
+                report.getUser().getUserId().equals(viewerId),
                 report.getStatus().name(),
                 report.getCreatedAt(),
                 report.getUpdatedAt(),

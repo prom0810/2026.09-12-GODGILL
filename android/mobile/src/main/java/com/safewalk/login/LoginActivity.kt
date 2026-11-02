@@ -8,7 +8,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
+import com.safewalk.auth.TokenStore
+import com.safewalk.common.network.AuthenticatedApiClient
 import com.safewalk.map.view.MapActivity
+import com.safewalk.guardian.GuardianActivity
+import com.safewalk.notification.view.NotificationActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LoginActivity : ComponentActivity() {
     private val viewModel: LoginViewModel by viewModels()
@@ -28,6 +36,8 @@ class LoginActivity : ComponentActivity() {
                 onSignUpEmailChange = viewModel::updateSignUpEmail,
                 onSignUpPasswordChange = viewModel::updateSignUpPassword,
                 onPhoneNumberChange = viewModel::updatePhoneNumber,
+                onGuardianNameChange = viewModel::updateGuardianName,
+                onGuardianPhoneChange = viewModel::updateGuardianPhone,
                 onTermsAgreementChange = viewModel::setTermsAgreement,
                 onPrivacyAgreementChange = viewModel::setPrivacyAgreement,
                 onLocationAgreementChange = viewModel::setLocationAgreement,
@@ -41,12 +51,35 @@ class LoginActivity : ComponentActivity() {
                 onContinueToUserType = viewModel::continueToUserType,
                 onContinueToPermissions = viewModel::continueToPermissions,
                 onBack = viewModel::goBack,
-                onLogin = { viewModel.login(onSuccess = ::openMap) },
+                onLogin = { viewModel.login(onSuccess = ::openAfterAuth) },
                 onContinueAsGuest = ::openMap,
-                onStart = ::requestSelectedPermissions,
-                onSkipPermissions = ::openMap,
+                onStart = { viewModel.signup(onSuccess = ::requestSelectedPermissions) },
+                onSkipPermissions = { viewModel.signup(onSuccess = ::openMap) },
             )
         }
+        restoreSession()
+    }
+
+    private fun restoreSession() {
+        if (!TokenStore(this).isLoggedIn()) return
+        lifecycleScope.launch {
+            val active = runCatching {
+                withContext(Dispatchers.IO) { AuthenticatedApiClient(this@LoginActivity).getObject("/api/users/me") }
+            }.isSuccess
+            if (active) openAfterAuth()
+        }
+    }
+
+    private fun openAfterAuth() {
+        val eventType = intent.getStringExtra("type").orEmpty()
+        val category = intent.getStringExtra("category").orEmpty()
+        val target = when {
+            category == "GUARDIAN" || eventType.startsWith("GUARDIAN_") -> GuardianActivity::class.java
+            eventType.isNotBlank() -> NotificationActivity::class.java
+            else -> MapActivity::class.java
+        }
+        startActivity(Intent(this, target).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        finish()
     }
 
     private fun requestSelectedPermissions() {

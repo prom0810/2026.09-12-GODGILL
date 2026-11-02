@@ -11,11 +11,24 @@ class AuthRepository(
     private val api: AuthApi = AuthApi(),
     private val tokenStore: TokenStore = TokenStore(context),
 ) {
-    fun signup(email: String, password: String, userType: String): AuthApiResult {
-        val result = api.signup(SignupApiRequest(email = email, password = password, userType = userType))
+    fun signup(
+        email: String,
+        password: String,
+        name: String,
+        phone: String,
+        userType: String,
+        guardians: List<GuardianSignupApiRequest> = emptyList(),
+    ): AuthApiResult {
+        val result = api.signup(
+            SignupApiRequest(email, password, name, phone, userType, guardians),
+        )
         tokenStore.save(result)
         return result
     }
+
+    /** 이전 별도 회원가입 화면용. 화면이 정리되기 전까지 컴파일 호환만 유지한다. */
+    fun signup(email: String, password: String, userType: String): AuthApiResult =
+        signup(email, password, email.substringBefore('@'), "", userType)
 
     fun login(email: String, password: String): AuthApiResult {
         val result = api.login(LoginApiRequest(email = email, password = password))

@@ -48,9 +48,18 @@ public class RiskReportController {
         return ApiResponse.ok(riskReportService.create(userId, command, images));
     }
 
+    @GetMapping
+    public ApiResponse<RiskReportPageResponse> list(
+            @LoginUser Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(riskReportService.getReports(userId, page, size));
+    }
+
     @GetMapping("/{reportId}")
-    public ApiResponse<RiskReportResponse> getMyReport(@LoginUser Long userId, @PathVariable Long reportId) {
-        return ApiResponse.ok(riskReportService.getMyReport(userId, reportId));
+    public ApiResponse<RiskReportResponse> getReport(@LoginUser Long userId, @PathVariable Long reportId) {
+        return ApiResponse.ok(riskReportService.getReport(userId, reportId));
     }
 
     @PostMapping(value = "/{reportId}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

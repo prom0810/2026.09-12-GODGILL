@@ -13,12 +13,22 @@ val localProperties = Properties().apply {
 val kakaoNativeAppKey = localProperties.getProperty("KAKAO_NATIVE_APP_KEY", "").trim()
 val kakaoRestApiKey = localProperties.getProperty("KAKAO_REST_API_KEY", "").trim()
 val safeMapServiceKey = localProperties.getProperty("SAFEMAP_SERVICE_KEY", "").trim()
+val backendBaseUrl = localProperties.getProperty("BACKEND_BASE_URL", "http://192.168.56.1:8080").trim().trimEnd('/')
 fun String.asBuildConfigString() = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 require(kakaoRestApiKey.isEmpty() || kakaoRestApiKey.matches(Regex("[a-fA-F0-9]{32}"))) {
     "KAKAO_REST_API_KEY in android/local.properties must be a 32-character REST API Key (without quotes)."
 }
 require(kakaoNativeAppKey.isEmpty() || kakaoNativeAppKey.matches(Regex("[a-fA-F0-9]{32}"))) {
     "KAKAO_NATIVE_APP_KEY in android/local.properties must be a 32-character Native App Key (without quotes)."
+}
+require(backendBaseUrl.startsWith("http://") || backendBaseUrl.startsWith("https://")) {
+    "BACKEND_BASE_URL in android/local.properties must start with http:// or https://."
+}
+
+// google-services.json contains per-developer Firebase project settings and is intentionally
+// not committed. Applying the plugin only when the file exists keeps local/CI builds usable.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 android {
@@ -34,6 +44,7 @@ android {
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", kakaoNativeAppKey.asBuildConfigString())
         buildConfigField("String", "KAKAO_REST_API_KEY", kakaoRestApiKey.asBuildConfigString())
         buildConfigField("String", "SAFEMAP_SERVICE_KEY", safeMapServiceKey.asBuildConfigString())
+        buildConfigField("String", "BACKEND_BASE_URL", backendBaseUrl.asBuildConfigString())
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
     buildFeatures {
@@ -58,6 +69,8 @@ android {
 dependencies {
     implementation("com.kakao.maps.open:android:2.15.2")
     implementation("com.google.android.gms:play-services-wearable:18.2.0")   // 워치 연동
+    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
     implementation("androidx.activity:activity-compose:1.8.2")
     // Wearable pulls Fragment 1.1.0 transitively, which is too old for Activity Result APIs.
     implementation("androidx.fragment:fragment:1.9.1")

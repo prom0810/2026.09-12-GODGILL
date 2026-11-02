@@ -42,6 +42,8 @@ import com.safewalk.BuildConfig
 import com.safewalk.R
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.main.navigation.bindBottomNavigation
+import com.safewalk.notification.NotificationBadge
+import com.safewalk.notification.NotificationEvents
 import com.safewalk.map.model.CctvSite
 import com.safewalk.map.model.Facility
 import com.safewalk.map.model.FacilityType
@@ -58,6 +60,7 @@ import com.safewalk.map.viewmodel.MapViewport
 import com.safewalk.map.viewmodel.RouteUiState
 import com.safewalk.map.viewmodel.UiText
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 import kotlin.math.ceil
 
 class MapActivity : ComponentActivity() {
@@ -100,6 +103,11 @@ class MapActivity : ComponentActivity() {
         configureSystemBars()
         configureInteractions()
         collectViewModel()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                NotificationEvents.incoming.collect { NotificationBadge.refresh(this@MapActivity) }
+            }
+        }
         startMap()
     }
 
@@ -643,6 +651,7 @@ class MapActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        NotificationBadge.refresh(this)
         mapView?.resume()
     }
 

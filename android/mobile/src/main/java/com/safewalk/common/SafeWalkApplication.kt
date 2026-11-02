@@ -3,6 +3,7 @@ package com.safewalk.common
 import android.app.Application
 import com.kakao.vectormap.KakaoMapSdk
 import com.safewalk.BuildConfig
+import com.safewalk.notification.FcmTokenManager
 
 class SafeWalkApplication : Application() {
     override fun onCreate() {
@@ -10,5 +11,6 @@ class SafeWalkApplication : Application() {
         if (BuildConfig.KAKAO_NATIVE_APP_KEY.isNotBlank()) {
             KakaoMapSdk.init(this, BuildConfig.KAKAO_NATIVE_APP_KEY)
         }
+        FcmTokenManager.sync(this)
     }
 }

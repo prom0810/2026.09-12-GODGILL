@@ -24,6 +24,10 @@ class TokenStore(context: Context) {
 
     fun isLoggedIn(): Boolean = !accessToken().isNullOrBlank()
 
+    fun email(): String? = prefs.getString(KEY_EMAIL, null)
+
+    fun userType(): String? = prefs.getString(KEY_USER_TYPE, null)
+
     fun clear() {
         prefs.edit().clear().apply()
     }

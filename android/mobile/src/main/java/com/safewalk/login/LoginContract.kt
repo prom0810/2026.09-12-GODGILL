@@ -12,6 +12,8 @@ data class LoginUiState(
     val signUpEmail: String = "",
     val signUpPassword: String = "",
     val phoneNumber: String = "",
+    val guardianName: String = "",
+    val guardianPhone: String = "",
     val agreedToTerms: Boolean = false,
     val agreedToPrivacy: Boolean = false,
     val agreedToLocation: Boolean = false,
@@ -38,16 +40,18 @@ data class LoginUiState(
         get() = agreedToTerms && agreedToPrivacy && agreedToLocation
 
     val canContinueUserType: Boolean
-        get() = userType != null
+        get() = userType != null &&
+            (userType != UserType.CHILD || (guardianName.isNotBlank() && guardianPhone.isNotBlank()))
 
     fun toLoginRequest() = LoginRequest(loginEmail.trim(), loginPassword)
 
     fun toSignUpRequest() = SignUpRequest(
         name.trim(), signUpEmail.trim(), signUpPassword, phoneNumber.trim(), requireNotNull(userType),
+        guardianName.trim(), guardianPhone.trim(),
     )
 }
 
-/** 백엔드 연결 전까지 화면 입력값을 담아 두는 요청 모델입니다. */
+/** 백엔드 인증 요청으로 변환하기 전의 화면 입력 모델. */
 data class LoginRequest(val email: String, val password: String)
 
 data class SignUpRequest(
@@ -56,4 +60,6 @@ data class SignUpRequest(
     val password: String,
     val phoneNumber: String,
     val userType: UserType,
+    val guardianName: String,
+    val guardianPhone: String,
 )
