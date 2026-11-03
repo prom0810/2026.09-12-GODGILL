@@ -54,4 +54,22 @@ class ApiClientTest {
         assertTrue(body.contains("filename=\"road.jpg\""))
         assertTrue(body.contains("jpeg-data"))
     }
+
+    @Test
+    fun `error response keeps structured data for duplicate request recovery`() {
+        server.enqueue(
+            MockResponse().setResponseCode(409)
+                .setHeader("Content-Type", "application/json")
+                .setBody(
+                    """{"success":false,"data":{"emergencyId":42},"message":"이미 진행 중인 SOS입니다."}""",
+                ),
+        )
+
+        val error = runCatching {
+            ApiClient.post("/api/emergencies", JSONObject().put("source", "MOBILE"), "jwt-token")
+        }.exceptionOrNull() as ApiClient.ApiException
+
+        assertEquals(409, error.statusCode)
+        assertEquals(42L, (error.responseData as JSONObject).getLong("emergencyId"))
+    }
 }

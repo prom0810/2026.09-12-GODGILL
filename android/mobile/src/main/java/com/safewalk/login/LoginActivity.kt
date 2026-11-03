@@ -14,6 +14,7 @@ import com.safewalk.common.network.AuthenticatedApiClient
 import com.safewalk.map.view.MapActivity
 import com.safewalk.guardian.GuardianActivity
 import com.safewalk.notification.view.NotificationActivity
+import com.safewalk.emergency.EmergencyMapActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,7 +55,12 @@ class LoginActivity : ComponentActivity() {
                 onLogin = { viewModel.login(onSuccess = ::openAfterAuth) },
                 onContinueAsGuest = ::openMap,
                 onStart = { viewModel.signup(onSuccess = ::requestSelectedPermissions) },
-                onSkipPermissions = { viewModel.signup(onSuccess = ::openMap) },
+                onSkipPermissions = {
+                    viewModel.signup(onSuccess = {
+                        markNotificationPermissionHandled()
+                        openMap()
+                    })
+                },
             )
         }
         restoreSession()
@@ -73,7 +79,17 @@ class LoginActivity : ComponentActivity() {
     private fun openAfterAuth() {
         val eventType = intent.getStringExtra("type").orEmpty()
         val category = intent.getStringExtra("category").orEmpty()
+        val emergencyId = intent.getStringExtra("emergencyId")?.toLongOrNull()?.takeIf { it > 0L }
         val target = when {
+            eventType.startsWith("EMERGENCY_") && emergencyId != null -> {
+                startActivity(
+                    Intent(this, EmergencyMapActivity::class.java)
+                        .putExtra(EmergencyMapActivity.EXTRA_EMERGENCY_ID, emergencyId)
+                        .putExtra(EmergencyMapActivity.EXTRA_WARD_NAME, intent.getStringExtra("wardName")),
+                )
+                finish()
+                return
+            }
             category == "GUARDIAN" || eventType.startsWith("GUARDIAN_") -> GuardianActivity::class.java
             eventType.isNotBlank() -> NotificationActivity::class.java
             else -> MapActivity::class.java
@@ -84,6 +100,7 @@ class LoginActivity : ComponentActivity() {
 
     private fun requestSelectedPermissions() {
         val state = viewModel.uiState
+        markNotificationPermissionHandled()
         val permissions = buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
             add(Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -96,6 +113,13 @@ class LoginActivity : ComponentActivity() {
             if (state.contactsPermission) add(Manifest.permission.READ_CONTACTS)
         }
         permissionLauncher.launch(permissions.toTypedArray())
+    }
+
+    private fun markNotificationPermissionHandled() {
+        getSharedPreferences("safewalk_push", MODE_PRIVATE)
+            .edit()
+            .putBoolean("notification_permission_requested", true)
+            .apply()
     }
 
     private fun openMap() {

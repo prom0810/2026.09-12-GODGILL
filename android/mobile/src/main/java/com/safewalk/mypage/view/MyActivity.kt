@@ -13,6 +13,7 @@ import com.safewalk.login.LoginActivity
 import com.safewalk.main.navigation.BaseMainTabActivity
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.notification.FcmTokenManager
+import com.safewalk.emergency.EmergencyLocationService
 import kotlinx.coroutines.launch
 
 class MyActivity : BaseMainTabActivity() {
@@ -30,6 +31,7 @@ class MyActivity : BaseMainTabActivity() {
         findViewById<Button>(R.id.my_logout_button).setOnClickListener {
             lifecycleScope.launch {
                 FcmTokenManager.unregisterCurrent(this@MyActivity)
+                EmergencyLocationService.stop(this@MyActivity)
                 TokenStore(this@MyActivity).clear()
                 renderSession()
                 startActivity(Intent(this@MyActivity, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))

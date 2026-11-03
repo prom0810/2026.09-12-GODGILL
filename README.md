@@ -492,7 +492,7 @@ SOS API 자체는 아직 없다 (명세: Claude 프로젝트 문서 `emergency-s
 ### 설정 (`backend/.env`)
 | 키 | 값 | 설명 |
 |---|---|---|
-| `FIREBASE_CREDENTIALS_PATH` | `firebase-service-account.json` | Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키. 상대 경로는 backend 폴더 기준. **생략하면 푸시를 보내지 않고 서버 로그에만 출력**(키 없는 팀원용) |
+| `FIREBASE_CREDENTIALS_PATH` | 빈 값(기본) 또는 `firebase-service-account.json` | 실제 푸시를 사용하려면 Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키에서 발급한 JSON 파일을 `backend/`에 두고 파일명을 지정한다. 상대 경로는 backend 폴더 기준. 빈 값이면 푸시 내용을 서버 로그에만 출력한다. |
 | `DEV_PUSH_TEST_ENABLED` | `true` | `/api/dev/push-test` 켜기. 운영 배포에서는 넣지 않는다 (없으면 404) |
 
 - 서비스 계정 키는 Firebase 프로젝트 관리자 권한이다. `backend/firebase-service-account.json`, `*firebase-adminsdk*.json`은 `.gitignore`에 등록되어 있다. 메신저로 공유하지 말고, 필요한 팀원은 콘솔에서 따로 발급한다.

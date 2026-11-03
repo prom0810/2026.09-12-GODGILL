@@ -20,6 +20,7 @@ import com.safewalk.notification.NotificationItem
 import com.safewalk.notification.NotificationRepository
 import com.safewalk.notification.NotificationEvents
 import com.safewalk.notification.NotificationBadge
+import com.safewalk.emergency.EmergencyMapActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collect
@@ -114,6 +115,12 @@ class NotificationActivity : BaseMainTabActivity() {
                 if (!item.read) withContext(Dispatchers.IO) { repository.markRead(item.id) }
                 when (item.referenceType) {
                     "GUARDIAN" -> startActivity(Intent(this@NotificationActivity, GuardianActivity::class.java))
+                    "EMERGENCY_EVENT" -> item.referenceId?.let { emergencyId ->
+                        startActivity(
+                            Intent(this@NotificationActivity, EmergencyMapActivity::class.java)
+                                .putExtra(EmergencyMapActivity.EXTRA_EMERGENCY_ID, emergencyId),
+                        )
+                    }
                     else -> loadPage(reset = true)
                 }
             } catch (error: Exception) {
