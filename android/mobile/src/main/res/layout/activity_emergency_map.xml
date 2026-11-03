@@ -41,6 +41,15 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/emergency_map_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="보호자에게 공유되는 최신 위치를 표시합니다."
+            android:textColor="#5F6663"
+            android:textSize="13sp" />
+
+        <TextView
             android:id="@+id/emergency_map_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -70,4 +79,3 @@
         android:text="돌아가기"
         android:textColor="#252A28" />
 </FrameLayout>
-

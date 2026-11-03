@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.kakao.vectormap.KakaoMap
 import com.kakao.vectormap.KakaoMapReadyCallback
@@ -35,8 +36,12 @@ class EmergencyMapActivity : ComponentActivity(), EmergencySseClient.Listener {
     private var pendingLocation: EmergencyLocation? = null
     private var cameraCentered = false
     private var sseClient: EmergencySseClient? = null
+    private var detailLoadGeneration = 0
+    private var viewerRole: String? = null
+    private var ended = false
     private val repository by lazy { EmergencyRepository(this) }
     private lateinit var title: TextView
+    private lateinit var subtitle: TextView
     private lateinit var status: TextView
     private lateinit var resolveButton: Button
     private val emergencyId: Long by lazy {
@@ -52,26 +57,28 @@ class EmergencyMapActivity : ComponentActivity(), EmergencySseClient.Listener {
         setContentView(R.layout.activity_emergency_map)
         configureInsets()
         title = findViewById(R.id.emergency_map_title)
+        subtitle = findViewById(R.id.emergency_map_subtitle)
         status = findViewById(R.id.emergency_map_status)
         resolveButton = findViewById(R.id.emergency_resolve_button)
+        resolveButton.isEnabled = false
         intent.getStringExtra(EXTRA_WARD_NAME)?.takeIf { it.isNotBlank() }?.let {
             title.text = "$it 님의 SOS 위치"
         }
-        resolveButton.setOnClickListener { confirmResolve() }
+        resolveButton.setOnClickListener {
+            if (viewerRole == "SELF") chooseOwnEndStatus() else confirmGuardianResolve()
+        }
         findViewById<Button>(R.id.emergency_map_back).setOnClickListener { finish() }
         startMap()
-        loadDetail()
     }
 
     override fun onStart() {
         super.onStart()
         if (!::resolveButton.isInitialized) return
-        if (emergencyId > 0L && resolveButton.isEnabled) {
-            sseClient = EmergencySseClient(this, emergencyId, this).also { it.start() }
-        }
+        if (emergencyId > 0L && !ended) loadDetail(++detailLoadGeneration)
     }
 
     override fun onStop() {
+        detailLoadGeneration++
         sseClient?.stop()
         sseClient = null
         super.onStop()
@@ -97,7 +104,7 @@ class EmergencyMapActivity : ComponentActivity(), EmergencySseClient.Listener {
         root.requestApplyInsets()
     }
 
-    private fun loadDetail() {
+    private fun loadDetail(generation: Int) {
         lifecycleScope.launch {
             try {
                 val (detail, latest) = withContext(Dispatchers.IO) {
@@ -109,12 +116,38 @@ class EmergencyMapActivity : ComponentActivity(), EmergencySseClient.Listener {
                     }
                     detail to latest
                 }
-                title.text = "${detail.userName} 님의 SOS 위치"
+                if (generation != detailLoadGeneration) return@launch
+                viewerRole = detail.viewer
+                if (detail.viewer == "SELF") {
+                    title.text = "내 SOS 위치 공유"
+                    subtitle.text = "보호자에게 공유되는 내 최신 위치입니다."
+                    resolveButton.text = "SOS 종료"
+                } else {
+                    title.text = "${detail.userName} 님의 SOS 위치"
+                    subtitle.text = "보호 대상자의 최신 위치입니다."
+                    resolveButton.text = "상황 종료 처리"
+                }
+                if (!ended && detail.status == "OCCURRED") {
+                    resolveButton.isEnabled = true
+                    if (!detail.canViewLocation) {
+                        status.text = "위치 공유 동의가 없어 위치를 표시할 수 없습니다."
+                    } else if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                        sseClient = EmergencySseClient(this@EmergencyMapActivity, emergencyId, this@EmergencyMapActivity)
+                            .also { it.start() }
+                    }
+                }
                 if (detail.status != "OCCURRED") renderEnded(detail.status)
                 if (pendingLocation == null) (latest ?: detail.initialLocation)?.let(::renderLocation)
             } catch (error: ApiClient.ApiException) {
-                if (error.statusCode == 401) openLogin() else status.text = error.message
+                if (generation != detailLoadGeneration) return@launch
+                if (error.statusCode == 401) openLogin() else {
+                    resolveButton.isEnabled = false
+                    status.text = error.message
+                    sseClient?.stop()
+                }
             } catch (error: Exception) {
+                if (generation != detailLoadGeneration) return@launch
+                resolveButton.isEnabled = false
                 status.text = error.message ?: "SOS 정보를 불러오지 못했습니다."
             }
         }
@@ -175,58 +208,77 @@ class EmergencyMapActivity : ComponentActivity(), EmergencySseClient.Listener {
             cameraCentered = true
         }
         val accuracy = location.accuracyMeters?.let { " · 오차 약 ${it.toInt()}m" }.orEmpty()
-        status.text = "실시간 위치 수신 중$accuracy${formatRecordedAt(location.recordedAt)}"
+        if (!ended) {
+            val prefix = if (viewerRole == "SELF") "보호자에게 공유된 위치" else "실시간 위치 수신 중"
+            status.text = "$prefix$accuracy${formatRecordedAt(location.recordedAt)}"
+        }
         pendingLocation = location
     }
 
-    private fun confirmResolve() {
+    private fun chooseOwnEndStatus() {
+        val labels = arrayOf("상황 해결", "오작동", "SOS 취소")
+        val statuses = arrayOf("RESOLVED", "FALSE_ALARM", "CANCELLED")
+        AlertDialog.Builder(this)
+            .setTitle("SOS 종료 사유를 선택해 주세요")
+            .setItems(labels) { _, index -> confirmResolve(statuses[index], labels[index]) }
+            .setNegativeButton("계속 공유", null)
+            .show()
+    }
+
+    private fun confirmGuardianResolve() = confirmResolve("RESOLVED", "상황 종료")
+
+    private fun confirmResolve(endedStatus: String, label: String) {
         AlertDialog.Builder(this)
             .setTitle("SOS 상황을 종료할까요?")
-            .setMessage("종료하면 사용자 위치 공유와 실시간 연결이 중단됩니다.")
-            .setPositiveButton("상황 종료") { _, _ -> resolve() }
+            .setMessage("$label 처리하면 위치 공유와 실시간 연결이 중단됩니다.")
+            .setPositiveButton("종료 확인") { _, _ -> resolve(endedStatus) }
             .setNegativeButton("취소", null)
             .show()
     }
 
-    private fun resolve() {
+    private fun resolve(endedStatus: String) {
         resolveButton.isEnabled = false
         status.text = "SOS를 종료하는 중…"
         lifecycleScope.launch {
             try {
-                withContext(Dispatchers.IO) { repository.resolve(emergencyId) }
+                withContext(Dispatchers.IO) { repository.resolve(emergencyId, endedStatus) }
                 sseClient?.stop()
-                renderEnded("RESOLVED")
+                renderEnded(endedStatus)
             } catch (error: ApiClient.ApiException) {
-                resolveButton.isEnabled = true
+                if (!ended) resolveButton.isEnabled = true
                 if (error.statusCode == 401) openLogin() else status.text = error.message
             } catch (error: Exception) {
-                resolveButton.isEnabled = true
+                if (!ended) resolveButton.isEnabled = true
                 status.text = error.message ?: "SOS를 종료하지 못했습니다."
             }
         }
     }
 
     private fun renderEnded(endedStatus: String) {
+        ended = true
         resolveButton.isEnabled = false
         resolveButton.text = "종료된 SOS"
         status.text = "SOS가 종료되었습니다. (${statusLabel(endedStatus)})"
         sseClient?.stop()
+        if (EmergencySessionStore(this).activeEmergencyId() == emergencyId) {
+            EmergencyLocationService.stop(this, emergencyId)
+        }
     }
 
     override fun onConnected() = runOnUiThread {
-        if (resolveButton.isEnabled) status.text = "실시간 위치 연결됨 · 위치를 기다리는 중…"
+        if (!ended) status.text = "실시간 위치 연결됨 · 새 위치를 기다리는 중…"
     }
 
     override fun onLocation(location: EmergencyLocation) = runOnUiThread { renderLocation(location) }
 
     override fun onLocationStale(lastRecordedAt: String) = runOnUiThread {
-        status.text = "위치 수신이 지연되고 있습니다. 마지막 위치${formatRecordedAt(lastRecordedAt)}"
+        if (!ended) status.text = "위치 수신이 지연되고 있습니다. 마지막 위치${formatRecordedAt(lastRecordedAt)}"
     }
 
     override fun onStatus(status: String, resolvedAt: String) = runOnUiThread { renderEnded(status) }
 
     override fun onConnectionError(message: String, retrying: Boolean) = runOnUiThread {
-        status.text = if (retrying) "$message 자동으로 다시 연결합니다." else message
+        if (!ended) status.text = if (retrying) "$message 자동으로 다시 연결합니다." else message
     }
 
     override fun onAuthenticationExpired() = runOnUiThread { openLogin() }

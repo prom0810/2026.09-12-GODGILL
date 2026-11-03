@@ -55,6 +55,7 @@ import com.safewalk.R
 import com.safewalk.auth.TokenStore
 import com.safewalk.common.network.ApiClient
 import com.safewalk.emergency.EmergencyLocationService
+import com.safewalk.emergency.EmergencyMapActivity
 import com.safewalk.emergency.EmergencyRepository
 import com.safewalk.emergency.EmergencySessionStore
 import com.safewalk.main.navigation.MainTab
@@ -724,7 +725,7 @@ class MapActivity : ComponentActivity() {
         if (sosBusy) return
         val activeId = activeEmergencyId
         if (activeId != null) {
-            showEndSosDialog(activeId)
+            openEmergencyMap(activeId)
             return
         }
         if (!TokenStore(this).isLoggedIn()) {
@@ -825,6 +826,7 @@ class MapActivity : ComponentActivity() {
                     "보호자 ${started.pushGuardians}명에게 SOS 알림을 보냈습니다."
                 }
                 Toast.makeText(this@MapActivity, notice, Toast.LENGTH_LONG).show()
+                openEmergencyMap(started.emergencyId)
             } catch (error: ApiClient.ApiException) {
                 Toast.makeText(
                     this@MapActivity,
@@ -844,44 +846,11 @@ class MapActivity : ComponentActivity() {
         }
     }
 
-    private fun showEndSosDialog(emergencyId: Long) {
-        val labels = arrayOf("상황 해결", "오작동", "SOS 취소")
-        val statuses = arrayOf("RESOLVED", "FALSE_ALARM", "CANCELLED")
-        AlertDialog.Builder(this)
-            .setTitle("SOS 종료 사유를 선택해 주세요")
-            .setItems(labels) { _, index -> endSos(emergencyId, statuses[index]) }
-            .setNegativeButton("계속 유지", null)
-            .show()
-    }
-
-    private fun endSos(emergencyId: Long, status: String) {
-        sosBusy = true
-        renderSosState("SOS 종료 중…")
-        lifecycleScope.launch {
-            try {
-                withContext(Dispatchers.IO) { emergencyRepository.resolve(emergencyId, status) }
-                EmergencyLocationService.stop(this@MapActivity, emergencyId)
-                emergencySessionStore.clear(emergencyId)
-                activeEmergencyId = null
-                Toast.makeText(this@MapActivity, "SOS가 종료되었습니다.", Toast.LENGTH_SHORT).show()
-            } catch (error: ApiClient.ApiException) {
-                if (error.statusCode == 409 || error.statusCode == 404) {
-                    EmergencyLocationService.stop(this@MapActivity, emergencyId)
-                    emergencySessionStore.clear(emergencyId)
-                    activeEmergencyId = null
-                }
-                Toast.makeText(
-                    this@MapActivity,
-                    error.message ?: "SOS를 종료하지 못했습니다.",
-                    Toast.LENGTH_LONG,
-                ).show()
-            } catch (error: Exception) {
-                Toast.makeText(this@MapActivity, "서버 연결을 확인해 주세요.", Toast.LENGTH_LONG).show()
-            } finally {
-                sosBusy = false
-                renderSosState()
-            }
-        }
+    private fun openEmergencyMap(emergencyId: Long) {
+        startActivity(
+            Intent(this, EmergencyMapActivity::class.java)
+                .putExtra(EmergencyMapActivity.EXTRA_EMERGENCY_ID, emergencyId),
+        )
     }
 
     private fun restoreActiveEmergency() {
@@ -962,7 +931,7 @@ class MapActivity : ComponentActivity() {
     private fun renderSosState(overrideText: String? = null) {
         if (!::sosButton.isInitialized) return
         sosButton.isEnabled = !sosBusy
-        sosButton.text = if (activeEmergencyId == null) "SOS" else "SOS 종료"
+        sosButton.text = if (activeEmergencyId == null) "SOS" else "공유 화면"
         sosState.text = overrideText ?: if (activeEmergencyId == null) {
             "긴급 시 누르세요"
         } else {
