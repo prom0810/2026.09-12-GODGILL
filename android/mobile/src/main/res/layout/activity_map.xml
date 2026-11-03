@@ -99,6 +99,39 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/map_panel_background"
+        android:elevation="12dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <Button
+            android:id="@+id/sos_button"
+            android:layout_width="96dp"
+            android:layout_height="56dp"
+            android:backgroundTint="#B3261E"
+            android:text="SOS"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/sos_state"
+            android:layout_width="112dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:maxLines="2"
+            android:text="긴급 시 누르세요"
+            android:textColor="#5F6663"
+            android:textSize="11sp" />
+    </LinearLayout>
+
     <!-- 하단: 최단경로/안전경로/초기화 버튼 + 결과 텍스트 -->
     <LinearLayout
         android:layout_width="match_parent"

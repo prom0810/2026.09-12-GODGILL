@@ -24,7 +24,11 @@ object ApiClient {
     @Volatile
     var baseUrl: String = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
 
-    class ApiException(val statusCode: Int, message: String) : IOException(message)
+    class ApiException(
+        val statusCode: Int,
+        message: String,
+        val responseData: Any? = null,
+    ) : IOException(message)
 
     fun get(path: String, accessToken: String? = null): Any? =
         request("GET", path, accessToken = accessToken)
@@ -63,6 +67,7 @@ object ApiClient {
             connection.readTimeout = 20_000
             connection.doOutput = true
             connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("ngrok-skip-browser-warning", "true")
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
             if (!accessToken.isNullOrBlank()) {
                 connection.setRequestProperty("Authorization", "Bearer $accessToken")
@@ -111,6 +116,7 @@ object ApiClient {
             connection.connectTimeout = 10_000
             connection.readTimeout = 15_000
             connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("ngrok-skip-browser-warning", "true")
             if (!accessToken.isNullOrBlank()) {
                 connection.setRequestProperty("Authorization", "Bearer $accessToken")
             }
@@ -130,11 +136,19 @@ object ApiClient {
         val status = connection.responseCode
         val stream = if (status in 200..299) connection.inputStream else connection.errorStream
         val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-        val envelope = if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
+        val envelope = if (responseText.isBlank()) JSONObject() else runCatching {
+            JSONObject(responseText)
+        }.getOrElse {
+            if (status !in 200..299) {
+                throw ApiException(status, "서버에 연결할 수 없습니다. (HTTP $status)")
+            }
+            throw ApiException(status, "서버 응답 형식을 읽을 수 없습니다.")
+        }
         if (status !in 200..299 || (envelope.has("success") && !envelope.optBoolean("success"))) {
             val message = envelope.optString("message")
                 .ifBlank { "서버 요청에 실패했습니다. (HTTP $status)" }
-            throw ApiException(status, message)
+            val data = if (envelope.has("data") && !envelope.isNull("data")) envelope.get("data") else null
+            throw ApiException(status, message, data)
         }
         if (!envelope.has("data") || envelope.isNull("data")) return null
         return envelope.get("data")

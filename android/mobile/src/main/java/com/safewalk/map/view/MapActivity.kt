@@ -1,6 +1,12 @@
 package com.safewalk.map.view
 
+import android.Manifest
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.drawable.BitmapDrawable
@@ -26,8 +32,11 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -38,8 +47,16 @@ import com.kakao.vectormap.LatLng
 import com.kakao.vectormap.MapLifeCycleCallback
 import com.kakao.vectormap.MapView
 import com.kakao.vectormap.camera.CameraUpdateFactory
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.safewalk.BuildConfig
 import com.safewalk.R
+import com.safewalk.auth.TokenStore
+import com.safewalk.common.network.ApiClient
+import com.safewalk.emergency.EmergencyLocationService
+import com.safewalk.emergency.EmergencyRepository
+import com.safewalk.emergency.EmergencySessionStore
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.main.navigation.bindBottomNavigation
 import com.safewalk.notification.NotificationBadge
@@ -61,6 +78,9 @@ import com.safewalk.map.viewmodel.RouteUiState
 import com.safewalk.map.viewmodel.UiText
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.math.ceil
 
 class MapActivity : ComponentActivity() {
@@ -91,6 +111,50 @@ class MapActivity : ComponentActivity() {
     private lateinit var resetRouteButton: Button
     private lateinit var historyList: ListView
     private lateinit var routeResultText: TextView
+    private lateinit var sosButton: Button
+    private lateinit var sosState: TextView
+    private val emergencyRepository by lazy { EmergencyRepository(this) }
+    private val emergencySessionStore by lazy { EmergencySessionStore(this) }
+    private val locationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
+    private var sosBusy = false
+    private var activeEmergencyId: Long? = null
+    private var restoredEmergency = false
+    private var checkedSharedEmergencies = false
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ) {
+            showSosConfirmation()
+        } else {
+            Toast.makeText(this, "SOS 위치 공유를 위해 위치 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val emergencyStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val id = intent?.getLongExtra(EmergencyLocationService.EXTRA_EMERGENCY_ID, 0L) ?: return
+            if (id != activeEmergencyId) return
+            when (intent.action) {
+                EmergencyLocationService.ACTION_TRACKING_STARTED -> sosState.text = "보호자에게 위치 공유 중"
+                EmergencyLocationService.ACTION_LOCATION_SENT -> sosState.text = "SOS 진행 중 · 위치 전송됨"
+                EmergencyLocationService.ACTION_LOCATION_FAILED -> sosState.text = "SOS 진행 중 · 위치 재전송 대기"
+                EmergencyLocationService.ACTION_TRACKING_STOPPED -> {
+                    activeEmergencyId = null
+                    renderSosState()
+                    intent.getStringExtra(EmergencyLocationService.EXTRA_MESSAGE)?.let {
+                        Toast.makeText(this@MapActivity, it, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
 
     private val shortestRouteColor = Color.rgb(198, 40, 40)
     private val safeRouteColor = Color.rgb(46, 125, 50)
@@ -105,7 +169,11 @@ class MapActivity : ComponentActivity() {
         collectViewModel()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                NotificationEvents.incoming.collect { NotificationBadge.refresh(this@MapActivity) }
+                NotificationEvents.incoming.collect {
+                    NotificationBadge.refresh(this@MapActivity)
+                    activeEmergencyId = emergencySessionStore.activeEmergencyId()
+                    renderSosState()
+                }
             }
         }
         startMap()
@@ -135,6 +203,8 @@ class MapActivity : ComponentActivity() {
         resetRouteButton = findViewById(R.id.route_reset_button)
         historyList = findViewById(R.id.route_history_list)
         routeResultText = findViewById(R.id.route_result_text)
+        sosButton = findViewById(R.id.sos_button)
+        sosState = findViewById(R.id.sos_state)
     }
 
     private fun configureSystemBars() {
@@ -220,6 +290,7 @@ class MapActivity : ComponentActivity() {
             routeResultText.text = ""
             routeOverlay.clear()
         }
+        sosButton.setOnClickListener { onSosClicked() }
     }
 
     private fun collectViewModel() {
@@ -649,10 +720,285 @@ class MapActivity : ComponentActivity() {
     private fun estimateWalkingMinutes(distanceMeters: Double): Int =
         ceil(distanceMeters / 67.0).toInt().coerceAtLeast(1)
 
+    private fun onSosClicked() {
+        if (sosBusy) return
+        val activeId = activeEmergencyId
+        if (activeId != null) {
+            showEndSosDialog(activeId)
+            return
+        }
+        if (!TokenStore(this).isLoggedIn()) {
+            Toast.makeText(this, "SOS 보호자 알림을 사용하려면 로그인해 주세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!hasFine && !hasCoarse) {
+            locationPermissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+            )
+        } else {
+            showSosConfirmation()
+        }
+    }
+
+    private fun showSosConfirmation() {
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("SOS를 시작할까요?")
+            .setMessage("10초 동안 취소할 수 있습니다. 시작하면 연결된 보호자에게 알림과 현재 위치가 공유됩니다.")
+            .setPositiveButton("10초 후 전송", null)
+            .setNegativeButton("취소", null)
+            .create()
+        dialog.setOnShowListener {
+            val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positive.isEnabled = false
+            lifecycleScope.launch {
+                for (remaining in 10 downTo 1) {
+                    if (!dialog.isShowing) return@launch
+                    positive.text = "${remaining}초 후 전송"
+                    delay(1_000L)
+                }
+                if (dialog.isShowing) {
+                    positive.text = "SOS 전송"
+                    positive.isEnabled = true
+                    positive.setOnClickListener {
+                        dialog.dismiss()
+                        collectInitialLocationAndStart()
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun collectInitialLocationAndStart() {
+        sosBusy = true
+        renderSosState("현재 위치 확인 중…")
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) {
+            sosBusy = false
+            renderSosState()
+            Toast.makeText(this, "위치 권한을 확인해 주세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val cancellation = CancellationTokenSource()
+        var completed = false
+        val timeout = Runnable {
+            if (!completed) {
+                completed = true
+                cancellation.cancel()
+                createSos(null)
+            }
+        }
+        sosButton.postDelayed(timeout, 10_000L)
+        locationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellation.token)
+            .addOnCompleteListener { task ->
+                if (completed) return@addOnCompleteListener
+                completed = true
+                sosButton.removeCallbacks(timeout)
+                createSos(if (task.isSuccessful) task.result else null)
+            }
+    }
+
+    private fun createSos(location: android.location.Location?) {
+        lifecycleScope.launch {
+            try {
+                val started = withContext(Dispatchers.IO) { emergencyRepository.start(location) }
+                activeEmergencyId = started.emergencyId
+                emergencySessionStore.setActive(started.emergencyId)
+                runCatching { EmergencyLocationService.start(this@MapActivity, started.emergencyId) }
+                    .onFailure {
+                        Toast.makeText(
+                            this@MapActivity,
+                            "SOS는 시작됐지만 위치 서비스를 실행하지 못했습니다. 앱을 다시 열어 주세요.",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                val notice = if (started.recoveredExisting) {
+                    "이미 진행 중인 SOS를 복구해 위치 전송을 다시 시작했습니다."
+                } else if (started.pushGuardians == 0) {
+                    "SOS가 시작됐습니다. 앱으로 연결된 보호자가 없어 보호자 설정을 확인해 주세요."
+                } else {
+                    "보호자 ${started.pushGuardians}명에게 SOS 알림을 보냈습니다."
+                }
+                Toast.makeText(this@MapActivity, notice, Toast.LENGTH_LONG).show()
+            } catch (error: ApiClient.ApiException) {
+                Toast.makeText(
+                    this@MapActivity,
+                    error.message ?: "SOS를 시작하지 못했습니다.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            } catch (error: Exception) {
+                Toast.makeText(
+                    this@MapActivity,
+                    "서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            } finally {
+                sosBusy = false
+                renderSosState()
+            }
+        }
+    }
+
+    private fun showEndSosDialog(emergencyId: Long) {
+        val labels = arrayOf("상황 해결", "오작동", "SOS 취소")
+        val statuses = arrayOf("RESOLVED", "FALSE_ALARM", "CANCELLED")
+        AlertDialog.Builder(this)
+            .setTitle("SOS 종료 사유를 선택해 주세요")
+            .setItems(labels) { _, index -> endSos(emergencyId, statuses[index]) }
+            .setNegativeButton("계속 유지", null)
+            .show()
+    }
+
+    private fun endSos(emergencyId: Long, status: String) {
+        sosBusy = true
+        renderSosState("SOS 종료 중…")
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { emergencyRepository.resolve(emergencyId, status) }
+                EmergencyLocationService.stop(this@MapActivity, emergencyId)
+                emergencySessionStore.clear(emergencyId)
+                activeEmergencyId = null
+                Toast.makeText(this@MapActivity, "SOS가 종료되었습니다.", Toast.LENGTH_SHORT).show()
+            } catch (error: ApiClient.ApiException) {
+                if (error.statusCode == 409 || error.statusCode == 404) {
+                    EmergencyLocationService.stop(this@MapActivity, emergencyId)
+                    emergencySessionStore.clear(emergencyId)
+                    activeEmergencyId = null
+                }
+                Toast.makeText(
+                    this@MapActivity,
+                    error.message ?: "SOS를 종료하지 못했습니다.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            } catch (error: Exception) {
+                Toast.makeText(this@MapActivity, "서버 연결을 확인해 주세요.", Toast.LENGTH_LONG).show()
+            } finally {
+                sosBusy = false
+                renderSosState()
+            }
+        }
+    }
+
+    private fun restoreActiveEmergency() {
+        if (restoredEmergency || !TokenStore(this).isLoggedIn()) return
+        restoredEmergency = true
+        lifecycleScope.launch {
+            try {
+                val active = withContext(Dispatchers.IO) { emergencyRepository.active() }
+                if (active == null) {
+                    EmergencyLocationService.stop(this@MapActivity)
+                    emergencySessionStore.clear()
+                    activeEmergencyId = null
+                } else {
+                    activeEmergencyId = active.emergencyId
+                    emergencySessionStore.setActive(active.emergencyId)
+                    val hasLocation = ContextCompat.checkSelfPermission(
+                        this@MapActivity,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasLocation) EmergencyLocationService.start(this@MapActivity, active.emergencyId)
+                }
+            } catch (_: Exception) {
+                activeEmergencyId = emergencySessionStore.activeEmergencyId()
+                activeEmergencyId?.let { id ->
+                    val hasLocation = ContextCompat.checkSelfPermission(
+                        this@MapActivity,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasLocation) runCatching { EmergencyLocationService.start(this@MapActivity, id) }
+                }
+            } finally {
+                renderSosState()
+            }
+        }
+    }
+
+    private fun checkSharedEmergencies() {
+        if (checkedSharedEmergencies || !TokenStore(this).isLoggedIn()) return
+        checkedSharedEmergencies = true
+        lifecycleScope.launch {
+            val shared = runCatching {
+                withContext(Dispatchers.IO) { emergencyRepository.shared() }
+            }.getOrDefault(emptyList())
+            val emergency = shared.firstOrNull { it.canViewLocation } ?: return@launch
+            if (isFinishing || isDestroyed) return@launch
+            AlertDialog.Builder(this@MapActivity)
+                .setTitle("진행 중인 보호 대상자 SOS")
+                .setMessage("${emergency.userName}님의 SOS가 진행 중입니다. 실시간 위치를 확인할까요?")
+                .setPositiveButton("위치 확인") { _, _ ->
+                    startActivity(
+                        Intent(this@MapActivity, com.safewalk.emergency.EmergencyMapActivity::class.java)
+                            .putExtra(
+                                com.safewalk.emergency.EmergencyMapActivity.EXTRA_EMERGENCY_ID,
+                                emergency.emergencyId,
+                            )
+                            .putExtra(
+                                com.safewalk.emergency.EmergencyMapActivity.EXTRA_WARD_NAME,
+                                emergency.userName,
+                            ),
+                    )
+                }
+                .setNegativeButton("나중에", null)
+                .show()
+        }
+    }
+
+    private fun requestNotificationPermissionOnce() {
+        if (android.os.Build.VERSION.SDK_INT < 33 || !TokenStore(this).isLoggedIn()) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        val prefs = getSharedPreferences("safewalk_push", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("notification_permission_requested", false)) return
+        prefs.edit().putBoolean("notification_permission_requested", true).apply()
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun renderSosState(overrideText: String? = null) {
+        if (!::sosButton.isInitialized) return
+        sosButton.isEnabled = !sosBusy
+        sosButton.text = if (activeEmergencyId == null) "SOS" else "SOS 종료"
+        sosState.text = overrideText ?: if (activeEmergencyId == null) {
+            "긴급 시 누르세요"
+        } else {
+            "SOS 진행 중 · 위치 공유 중"
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ContextCompat.registerReceiver(
+            this,
+            emergencyStateReceiver,
+            IntentFilter().apply {
+                addAction(EmergencyLocationService.ACTION_TRACKING_STARTED)
+                addAction(EmergencyLocationService.ACTION_LOCATION_SENT)
+                addAction(EmergencyLocationService.ACTION_LOCATION_FAILED)
+                addAction(EmergencyLocationService.ACTION_TRACKING_STOPPED)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+    }
+
+    override fun onStop() {
+        unregisterReceiver(emergencyStateReceiver)
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         NotificationBadge.refresh(this)
         mapView?.resume()
+        activeEmergencyId = emergencySessionStore.activeEmergencyId()
+        renderSosState()
+        restoreActiveEmergency()
+        checkSharedEmergencies()
+        requestNotificationPermissionOnce()
     }
 
     override fun onPause() {
