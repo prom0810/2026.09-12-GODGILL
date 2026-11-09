@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "770173195202",
+    "project_id": "godgill-prj-fcm",
+    "storage_bucket": "godgill-prj-fcm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:770173195202:android:f9b3e8b1a92b9e80c9bc5b",
+        "android_client_info": {
+          "package_name": "com.safewalk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCu6_3MLFVl14RxXNn2IDVBve0S0V4K-44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
