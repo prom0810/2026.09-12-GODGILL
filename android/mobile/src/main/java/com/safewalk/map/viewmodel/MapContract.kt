@@ -18,6 +18,16 @@ data class MapViewport(
 
 data class GeoPoint(val latitude: Double, val longitude: Double)
 
+/**
+ * 서버에 저장된 진행 중 경로 안내 (POST /api/routes 성공 후 ~ 도착/취소 전).
+ * 앱을 다시 켜면 GET /api/routes/active로 복원된다 (이때는 경로 선을 다시 그리지 않는다).
+ */
+data class GuidanceState(
+    val routeId: Long,
+    val startName: String,
+    val endName: String,
+)
+
 data class RouteUiState(
     val startPoint: GeoPoint? = null,
     val endPoint: GeoPoint? = null,
@@ -27,6 +37,9 @@ data class RouteUiState(
     val safeResult: RouteAStar.RouteResult? = null,
     val displayedIsSafe: Boolean = false,
     val isLoading: Boolean = false,
+    val guidance: GuidanceState? = null,
+    /** 안내 시작·종료 요청이 서버로 가는 중 (버튼 중복 클릭 방지) */
+    val guidanceBusy: Boolean = false,
 ) {
     val displayedResult: RouteAStar.RouteResult?
         get() = if (displayedIsSafe) safeResult else shortestResult

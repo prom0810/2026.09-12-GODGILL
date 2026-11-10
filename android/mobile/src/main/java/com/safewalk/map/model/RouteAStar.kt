@@ -14,7 +14,17 @@ object RouteAStar {
 
     private const val PENALTY_FACTOR = 6.0
 
-    data class RouteSegment(val from: RouteNode, val to: RouteNode)
+    /**
+     * 경로의 한 구간 (그래프 간선 1개).
+     * safetyScore·riskPenalty·facilities는 안내 시작 시 서버에 저장된다 (POST /api/routes).
+     */
+    data class RouteSegment(
+        val from: RouteNode,
+        val to: RouteNode,
+        val safetyScore: Double = 0.5,
+        val riskPenalty: Double = 0.0,
+        val facilities: List<AppliedFacility> = emptyList(),
+    )
 
     data class RouteResult(
         val segments: List<RouteSegment>,
@@ -32,7 +42,7 @@ object RouteAStar {
         val open = PriorityQueue<Entry>(16, compareBy { it.f })
         val bestG = HashMap<String, Double>()
         val cameFrom = HashMap<String, String>()
-        val edgeSafetyIntoNode = HashMap<String, Double>()
+        val edgeIntoNode = HashMap<String, RouteEdge>()
         val visited = HashSet<String>()
 
         bestG[startId] = 0.0
@@ -50,7 +60,7 @@ object RouteAStar {
                 if (tentativeG < (bestG[edge.toNodeId] ?: Double.MAX_VALUE)) {
                     bestG[edge.toNodeId] = tentativeG
                     cameFrom[edge.toNodeId] = current.nodeId
-                    edgeSafetyIntoNode[edge.toNodeId] = edge.safetyScore
+                    edgeIntoNode[edge.toNodeId] = edge
                     val toNode = graph.nodes[edge.toNodeId] ?: continue
                     open += Entry(edge.toNodeId, tentativeG, tentativeG + heuristic(toNode, endNode))
                 }
@@ -73,9 +83,17 @@ object RouteAStar {
         for (i in 0 until pathIds.size - 1) {
             val from = graph.nodes[pathIds[i]] ?: continue
             val to = graph.nodes[pathIds[i + 1]] ?: continue
-            segments += RouteSegment(from, to)
+            val edge = edgeIntoNode[pathIds[i + 1]]
+            val safety = edge?.safetyScore ?: 0.5
+            segments += RouteSegment(
+                from = from,
+                to = to,
+                safetyScore = safety,
+                riskPenalty = edge?.riskPenalty ?: 0.0,
+                facilities = edge?.facilities.orEmpty(),
+            )
             totalDistance += RouteSafetyScorer.haversineMeters(from.lat, from.lon, to.lat, to.lon)
-            safetySum += edgeSafetyIntoNode[pathIds[i + 1]] ?: 0.5
+            safetySum += safety
         }
 
         return RouteResult(

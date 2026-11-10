@@ -7,6 +7,10 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      data-source-properties:
+        # JDBC batch INSERT를 여러 행 INSERT 한 문장으로 합쳐 보낸다 (경로 저장 RouteWriter가 사용).
+        reWriteBatchedInserts: true
 
   # 제보 사진 업로드 크기 제한. 사진 1장 10MB(Supabase 버킷 제한과 동일), 요청 전체는 사진 3장 + 여유분.
   servlet:
@@ -75,3 +79,16 @@ emergency:
   auto-close-seconds: ${EMERGENCY_AUTO_CLOSE_SECONDS:7200}
   watchdog-interval-ms: ${EMERGENCY_WATCHDOG_INTERVAL_MS:5000}
   sse-timeout-minutes: ${EMERGENCY_SSE_TIMEOUT_MINUTES:30}
+
+# 경로 안내 기록 보관·정리 (RouteCleanupJob). .env에서 바꿀 수 있다.
+#  - stale-in-progress-hours : 안내 중으로 이 시간이 지나면 자동 취소
+#  - detail-retention-days    : 이 기간이 지나면 경유 지점·구간·시설을 지우고 요약(경로, 출발·도착)만 남김
+#  - delete-after-days        : 이 기간이 지나면 경로를 완전히 삭제 (detail-retention-days보다 커야 함)
+#  - cleanup-cron             : 보관 기간 정리 실행 시각 (한국 시각, 기본 매일 04:10)
+route:
+  stale-in-progress-hours: ${ROUTE_STALE_IN_PROGRESS_HOURS:6}
+  stale-check-interval-ms: ${ROUTE_STALE_CHECK_INTERVAL_MS:600000}
+  detail-retention-days: ${ROUTE_DETAIL_RETENTION_DAYS:65}
+  delete-after-days: ${ROUTE_DELETE_AFTER_DAYS:365}
+  cleanup-cron: ${ROUTE_CLEANUP_CRON:0 10 4 * * *}
+  cleanup-batch-size: ${ROUTE_CLEANUP_BATCH_SIZE:500}

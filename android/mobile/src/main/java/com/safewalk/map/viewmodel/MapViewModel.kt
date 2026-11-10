@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.safewalk.BuildConfig
 import com.safewalk.R
+import com.safewalk.auth.TokenStore
+import com.safewalk.common.network.ApiClient
 import com.safewalk.map.model.DefaultMapRepository
 import com.safewalk.map.model.MapRepository
 import com.safewalk.map.model.Place
@@ -12,6 +14,8 @@ import com.safewalk.map.model.PlaceSearchException
 import com.safewalk.map.model.RouteAStar
 import com.safewalk.map.model.HistoryKind
 import com.safewalk.map.model.RouteGraph
+import com.safewalk.map.model.RouteGuidanceRepository
+import com.safewalk.map.model.MAX_ROUTE_POINTS
 import com.safewalk.map.model.SearchHistoryItem
 import com.safewalk.map.model.SearchHistoryStore
 import kotlinx.coroutines.CancellationException
@@ -34,6 +38,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     private val historyStore = SearchHistoryStore(application)
+    private val guidanceRepository = RouteGuidanceRepository(application)
+    private val tokenStore = TokenStore(application)
 
     private val _uiState = MutableStateFlow(MapUiState(history = historyStore.load()))
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
@@ -49,6 +55,11 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private var securityLightJob: Job? = null
     private var searchJob: Job? = null
     private var routeJob: Job? = null
+    private var guidanceJob: Job? = null
+
+    init {
+        restoreActiveGuidance()
+    }
 
     fun onMapReady() {
         _uiState.update { it.copy(isMapReady = true) }
@@ -258,6 +269,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                     it.copy(route = RouteUiState(
                         startPoint = start, endPoint = end,
                         startName = item.name, endName = item.endName,
+                        guidance = it.route.guidance,
+                        guidanceBusy = it.route.guidanceBusy,
                     ))
                 }
                 saveHistory(item.copy(savedAt = System.currentTimeMillis()))
@@ -279,7 +292,114 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetRoute() {
         routeJob?.cancel()
-        _uiState.update { it.copy(route = RouteUiState()) }
+        // 안내 중에 초기화하면 서버 기록도 '안내 취소'로 닫는다
+        _uiState.value.route.guidance?.let { finishGuidance(completed = false) }
+        _uiState.update { it.copy(route = RouteUiState(guidance = it.route.guidance, guidanceBusy = it.route.guidanceBusy)) }
+    }
+
+    // ---- 경로 안내 기록 (서버 /api/routes) ----
+
+    /** 화면에 보이는 경로(최단/안전)로 안내를 시작하고 서버에 저장한다. 로그인한 경우만. */
+    fun startGuidance() {
+        val route = _uiState.value.route
+        val result = route.displayedResult
+        if (route.guidanceBusy || route.guidance != null) return
+        if (result == null || result.segments.isEmpty()) {
+            showMessage(R.string.route_guidance_need_route)
+            return
+        }
+        if (!tokenStore.isLoggedIn()) {
+            showMessage(R.string.route_guidance_need_login)
+            return
+        }
+        if (result.segments.size >= MAX_ROUTE_POINTS) {
+            showMessage(R.string.route_guidance_too_long)
+            return
+        }
+        val startName = route.startName.ifBlank { "출발지" }
+        val endName = route.endName.ifBlank { "도착지" }
+        guidanceJob?.cancel()
+        guidanceJob = viewModelScope.launch {
+            setGuidanceBusy(true)
+            runCatchingIo { guidanceRepository.start(result, startName, endName) }
+                .onSuccess { started ->
+                    _uiState.update {
+                        it.copy(route = it.route.copy(
+                            guidance = GuidanceState(started.routeId, startName, endName),
+                            guidanceBusy = false,
+                        ))
+                    }
+                    showMessage(R.string.route_guidance_started, startName, endName)
+                    if (started.cancelledRouteId != null) showMessage(R.string.route_guidance_replaced)
+                }
+                .onFailure { error ->
+                    setGuidanceBusy(false)
+                    showMessage(if ((error as? ApiClient.ApiException)?.statusCode == 401) {
+                        R.string.route_guidance_need_login
+                    } else {
+                        R.string.route_guidance_failed
+                    })
+                }
+        }
+    }
+
+    /** completed=true면 도착 완료, false면 안내 종료(취소) */
+    fun finishGuidance(completed: Boolean) {
+        val guidance = _uiState.value.route.guidance ?: return
+        guidanceJob?.cancel()
+        guidanceJob = viewModelScope.launch {
+            setGuidanceBusy(true)
+            runCatchingIo { guidanceRepository.finish(guidance.routeId, completed) }
+                .onSuccess {
+                    clearGuidance(guidance.routeId)
+                    showMessage(if (completed) R.string.route_guidance_completed else R.string.route_guidance_cancelled)
+                }
+                .onFailure { error ->
+                    when ((error as? ApiClient.ApiException)?.statusCode) {
+                        // 이미 끝났거나(409, 예: 6시간 방치로 서버가 자동 취소) 없는 경로(404) → 화면에서도 정리
+                        404, 409 -> {
+                            clearGuidance(guidance.routeId)
+                            showMessage(R.string.route_guidance_cancelled)
+                        }
+                        else -> {
+                            setGuidanceBusy(false)
+                            showMessage(R.string.route_guidance_failed)
+                        }
+                    }
+                }
+        }
+    }
+
+    /** 앱을 다시 켰을 때 서버에 진행 중 경로가 있으면 이어서 도착/종료할 수 있게 복원한다. */
+    private fun restoreActiveGuidance() {
+        if (!tokenStore.isLoggedIn()) return
+        guidanceJob = viewModelScope.launch {
+            runCatchingIo { guidanceRepository.active() }
+                .onSuccess { active ->
+                    if (active == null || _uiState.value.route.guidance != null) return@onSuccess
+                    val startName = active.startName ?: "출발지"
+                    val endName = active.endName ?: "도착지"
+                    _uiState.update {
+                        it.copy(route = it.route.copy(guidance = GuidanceState(active.routeId, startName, endName)))
+                    }
+                    showMessage(R.string.route_guidance_restored, startName, endName)
+                }
+            // 복원 실패(오프라인 등)는 조용히 넘어간다. 서버가 6시간 뒤 자동 취소한다.
+        }
+    }
+
+    private fun setGuidanceBusy(busy: Boolean) {
+        _uiState.update { it.copy(route = it.route.copy(guidanceBusy = busy)) }
+    }
+
+    private fun clearGuidance(routeId: Long) {
+        _uiState.update {
+            if (it.route.guidance?.routeId == routeId) {
+                it.copy(route = it.route.copy(guidance = null, guidanceBusy = false))
+            } else {
+                it.copy(route = it.route.copy(guidanceBusy = false))
+            }
+        }
     }
 
     private fun loadSafeMap(viewport: MapViewport) {
