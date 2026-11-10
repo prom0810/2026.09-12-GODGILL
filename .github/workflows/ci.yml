@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      backend_base_url:
+        description: HTTPS backend URL to embed in downloadable debug APKs
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -76,7 +81,19 @@ jobs:
             android/gradle.properties
             android/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Validate APK backend URL
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BACKEND_BASE_URL: ${{ inputs.backend_base_url }}
+        run: |
+          if [[ ! "$BACKEND_BASE_URL" =~ ^https://[^[:space:]]+$ ]]; then
+            echo '::error::Enter an HTTPS backend URL without spaces.'
+            exit 1
+          fi
+
       - name: Test, lint, and build Android apps
+        env:
+          BACKEND_BASE_URL: ${{ inputs.backend_base_url || '' }}
         run: >
           bash ./gradlew
           :mobile:testDebugUnitTest
@@ -87,6 +104,17 @@ jobs:
           :wear:assembleDebug
           --no-daemon
           --stacktrace
+
+      - name: Upload debug APKs
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: safewalk-debug-apks
+          path: |
+            android/mobile/build/outputs/apk/debug/*.apk
+            android/wear/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload Android reports on failure
         if: failure()
