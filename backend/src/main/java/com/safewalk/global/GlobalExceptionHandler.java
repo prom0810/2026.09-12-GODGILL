@@ -12,6 +12,8 @@ import com.safewalk.guardian.GuardianNotFoundException;
 import com.safewalk.guardian.GuardianStateException;
 import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
+import com.safewalk.route.RouteNotFoundException;
+import com.safewalk.route.RouteStateException;
 import com.safewalk.storage.ImageStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -168,6 +170,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmergencyStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleEmergencyState(EmergencyStateException e) {
         return fail(HttpStatus.CONFLICT, e, "현재 SOS 상태에서는 처리할 수 없습니다.");
+    }
+
+    @ExceptionHandler(RouteNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRouteNotFound(RouteNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "경로를 찾을 수 없습니다.");
+    }
+
+    /** 경로 상태가 맞지 않음. 예: 이미 도착 처리된 경로를 다시 종료 */
+    @ExceptionHandler(RouteStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRouteState(RouteStateException e) {
+        return fail(HttpStatus.CONFLICT, e, "현재 경로 상태에서는 처리할 수 없습니다.");
     }
 
     /** 코드 검사를 통과했지만 DB 제약(UNIQUE 등)에 걸린 경우. 예: 같은 전화번호로 동시에 가입 */

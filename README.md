@@ -655,6 +655,94 @@ powershell -ExecutionPolicy Bypass -File .\http\sos-test.ps1
 - 보호자: `EMERGENCY_STARTED` 푸시 탭 → 지도 화면에서 SSE 연결(OkHttp `okhttp-sse`), `location`마다 카카오맵 마커 이동, `location_stale`이면 "마지막 위치" 표시, `status`면 종료 화면. 앱 시작 시 `GET /shared` 확인
 - 권한: 위치(백그라운드 포함), 알림(Android 13+)
 
+## 경로 안내 기록 저장 · 보관 정책 — 2026-11-10 (backend + android)
+
+경로 계산(최단·안전 A*)은 지금처럼 앱이 하고, 사용자가 **"안내 시작"을 누른 경로만** 서버에 저장한다.
+구간별 점수 내역(위험구역 감점, 점수에 반영된 안전시설)도 함께 저장해서, 나중에 낙상 감지·경로 이탈 알림이
+"어느 구간에서" 일어났는지 연결할 수 있게 했다. DB 스키마 변경은 없다 (v3 `route`, `route_point`,
+`route_segment`, `segment_facility` 사용).
+
+### API
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/routes` | 안내 시작. 경로 + 지점 + 구간 + 시설을 한 번에 저장, 상태 `IN_PROGRESS` |
+| GET | `/api/routes/active` | 진행 중 경로 (없으면 `data: null`) |
+| GET | `/api/routes?page=0&size=20` | 내 경로 기록 (최신순, 출발·도착 이름 포함) |
+| GET | `/api/routes/{routeId}` | 상세 (지점·구간·시설) |
+| PATCH | `/api/routes/{routeId}` | `{"status":"COMPLETED"}` 도착 / `{"status":"CANCELLED"}` 안내 취소 |
+
+- 진행 중 경로는 사용자당 1개. 새 안내를 시작하면 기존 것은 자동 `CANCELLED` (응답 `cancelledRouteId`)
+- 이미 끝난 경로를 다시 종료하면 409, 남의 경로는 404
+- 지점 2~500개, 구간 = 지점 − 1. 거리(구간·총거리)는 서버가 좌표로 계산
+- 스텁 `GET /api/routes/safe`, `POST /api/emergency/arrival` 삭제 (도착은 PATCH로 대체)
+
+```json
+POST /api/routes
+{
+  "estimatedTime": 1140,
+  "safetyScore": 0.74,
+  "points": [ { "lat": 36.8100, "lng": 127.1467, "name": "천안역" }, { "lat": 36.8104, "lng": 127.1471 }, ... ],
+  "segments": [
+    { "safetyScore": 0.82, "riskScore": 0.0,
+      "facilities": [ { "type": "CCTV", "lat": 36.8102, "lng": 127.1468, "quantity": 2, "distance": 35.2, "appliedScore": 0.115 } ] },
+    ...
+  ]
+}
+```
+
+### 저장 값의 의미
+
+| DB 컬럼 | 값 |
+|---|---|
+| `route.estimated_time` | 예상 소요 시간 **(초)**, 보행 분당 67m 기준 |
+| `route.safety_score` | 화면에 보여 준 경로 평균 안전점수 (0~1) |
+| `route_point` | A* 경로의 도로 노드 전부. 첫 지점 `START`, 마지막 `END`, 나머지 `WAYPOINT` (이름은 출발·도착만) |
+| `route_segment.safety_score` | A*가 실제로 쓴 정규화 안전점수 (0~1, 불러온 지도 범위 기준 상대값) |
+| `route_segment.risk_score` | 위험구역 감점의 합 (절대값, 위험구역 밖이면 0) — `위험도 × (1 − 중심까지 거리/반경)` |
+| `segment_facility` | 그 구간 점수에 보너스를 준 시설 (CCTV·보안등·주변시설 중 가장 가까운 각 1개, 반경 안일 때만) |
+| `segment_facility.facility_type` | `CCTV`, `STREET_LIGHT`(보안등), `POLICE`, `CONVENIENCE_STORE`, `FIRE_STATION` |
+
+### 저장 방식 (DB 부담)
+
+경로 1건은 1~2km 기준 지점 약 55개, 전체 약 200~250행이다. JPA의 IDENTITY 방식은 행마다 INSERT를 따로 보내서
+원격 DB(Supabase)에서 수 초가 걸리므로, `RouteWriter`가 **각 테이블의 IDENTITY 시퀀스에서 ID를 한 번에 미리 받고**
+(`SELECT nextval(...) FROM generate_series(1, n)`) 테이블별 batch INSERT로 저장한다.
+드라이버 옵션 `reWriteBatchedInserts=true`(application.yml)로 batch가 여러 행 INSERT 한 문장으로 합쳐진다.
+→ 경로 1건 저장 = ID 조회 1번 + INSERT 4종.
+
+### 보관 정책 (`RouteCleanupJob`)
+
+| 대상 | 처리 | 설정 (.env) |
+|---|---|---|
+| 안내 중으로 6시간 지난 경로 | `CANCELLED` (10분마다 검사) | `ROUTE_STALE_IN_PROGRESS_HOURS` |
+| 65일 지난 경로 | 구간·시설·경유 지점 삭제. **경로 요약과 출발·도착 지점은 남김** (기록 목록 유지) | `ROUTE_DETAIL_RETENTION_DAYS` |
+| 365일 지난 경로 | 완전 삭제 | `ROUTE_DELETE_AFTER_DAYS` |
+
+- 매일 04:10(한국 시각) 실행, 500건씩 나눠 처리
+- **긴급 사건(SOS·낙상)이나 웨어러블 측정 기록이 참조하는 경로는 지우지 않는다** (사건 근거 자료, FK도 RESTRICT)
+- 상세가 정리된 경로는 상세 조회 시 `detailAvailable: false`, 지점은 출발·도착 2개만
+
+### Android 변경
+
+| 파일 | 내용 |
+|---|---|
+| `RouteSafetyScorer.kt` | `score()`가 원점수와 함께 **점수 내역**(위험구역 감점 합, 보너스를 준 시설)을 반환. 기존 `rawSafetyScore()` 결과는 동일 |
+| `RouteModels.kt`, `OverpassGraphParser.kt`, `RouteAStar.kt` | 간선·경로 구간이 점수 내역을 들고 다니도록 확장 (기본값이 있어 기존 코드·테스트 호환) |
+| `RouteGuidanceRepository.kt` (신규) | `/api/routes` 호출, A* 결과 → 요청 본문 변환 |
+| `MapViewModel.kt`, `MapContract.kt` | 안내 시작·도착 완료·안내 종료, 앱 재시작 시 진행 중 안내 복원 |
+| `MapActivity.kt`, `activity_map.xml`, `strings.xml` | 경로를 계산하면 **안내 시작** 버튼, 안내 중에는 **도착 완료 / 안내 종료** 버튼 |
+
+- 로그인하지 않은 상태에서는 안내 시작 시 "로그인하면 기록을 저장할 수 있어요" 안내만 표시
+- 초기화 버튼을 누르면 진행 중 안내도 취소 처리
+- 도착은 지금은 버튼으로만 처리한다 (위치 기반 자동 도착 판정은 이후 작업)
+
+### 테스트
+
+- 백엔드 단위 테스트: `RouteDraftTest`(요청 검증·거리 계산), `RouteTest`(상태 전이)
+- Android 단위 테스트: `RouteGuidanceRequestTest`(요청 본문, 점수 내역, A* 구간)
+- API 테스트: `powershell -ExecutionPolicy Bypass -File .\http\route-test.ps1` (26개, 지점 300개 저장 시간 출력)
+
 ## 다운받아 실행할 때 확인/수정할 것
 
 - **android** — `local.properties`의 `BACKEND_BASE_URL`을 실행할 PC의 로컬 네트워크 IP로

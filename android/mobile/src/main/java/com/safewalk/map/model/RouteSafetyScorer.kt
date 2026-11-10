@@ -11,6 +11,9 @@ import kotlin.math.sqrt
  * 그대로 재사용하기 때문에 이 계산 자체는 추가 네트워크 요청이 필요 없다.
  *
  * S(e) = 0.85 - 위험구역 감점 + CCTV 근접보너스 + 보안등 근접보너스 + 안전시설 근접보너스
+ *
+ * 점수 내역([ScoreBreakdown]: 위험구역 감점 합, 보너스를 준 시설)은 안내 시작 시 서버에 함께 저장된다
+ * (route_segment.risk_score, segment_facility).
  * (브이월드 개방감·조도 항은 이 프로젝트에 해당 데이터가 없어 제외 — 향후 과제)
  */
 object RouteSafetyScorer {
@@ -42,6 +45,19 @@ object RouteSafetyScorer {
     private const val FACILITY_BOOST_AMOUNT = 0.15
 
     /**
+     * 구간 점수 계산 결과와 그 내역.
+     *
+     * @param raw 정규화 전 원점수 (0.85 − riskPenalty + 시설 보너스 합)
+     * @param riskPenalty 위험구역 감점의 합 (서버 route_segment.risk_score로 저장)
+     * @param facilities 보너스를 준 시설 (서버 segment_facility로 저장)
+     */
+    data class ScoreBreakdown(
+        val raw: Double,
+        val riskPenalty: Double,
+        val facilities: List<AppliedFacility>,
+    )
+
+    /**
      * 정규화 없이 원시 안전도 점수를 계산한다.
      * 그래프 전체 min~max 기준 정규화는 [OverpassGraphParser]가 담당한다
      * (이론적 상/하한으로 정규화하면 실제 점수 차이가 눌려버리는 문제가 있어,
@@ -53,39 +69,78 @@ object RouteSafetyScorer {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
-    ): Double {
-        var raw = 0.85
+    ): Double = score(midLat, midLon, cctvSites, securityLightSites, facilities).raw
 
+    /** [rawSafetyScore]와 같은 계산을 하면서, 감점·시설별 보너스 내역도 함께 돌려준다. */
+    fun score(
+        midLat: Double,
+        midLon: Double,
+        cctvSites: List<CctvSite>,
+        securityLightSites: List<SecurityLightSite>,
+        facilities: List<Facility>,
+    ): ScoreBreakdown {
+        var riskPenalty = 0.0
         for (zone in dangerZones) {
             val (zoneLat, zoneLon) = offsetToLatLon(zone.latOffsetM, zone.lonOffsetM)
             val dist = haversineMeters(midLat, midLon, zoneLat, zoneLon)
             if (dist < zone.radiusM) {
-                raw -= zone.severity * (1.0 - dist / zone.radiusM)
+                riskPenalty += zone.severity * (1.0 - dist / zone.radiusM)
             }
         }
 
-        if (cctvSites.isNotEmpty()) {
-            val nearest = cctvSites.minOf { haversineMeters(midLat, midLon, it.latitude, it.longitude) }
+        val applied = mutableListOf<AppliedFacility>()
+
+        cctvSites.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { site ->
+            val nearest = haversineMeters(midLat, midLon, site.latitude, site.longitude)
             if (nearest < CCTV_BOOST_RADIUS_M) {
-                raw += CCTV_BOOST_AMOUNT * (1.0 - nearest / CCTV_BOOST_RADIUS_M)
+                applied += AppliedFacility(
+                    type = "CCTV",
+                    lat = site.latitude,
+                    lon = site.longitude,
+                    quantity = site.cameraCount.coerceAtLeast(1),
+                    distanceMeters = nearest,
+                    appliedScore = CCTV_BOOST_AMOUNT * (1.0 - nearest / CCTV_BOOST_RADIUS_M),
+                )
             }
         }
 
-        if (securityLightSites.isNotEmpty()) {
-            val nearest = securityLightSites.minOf { haversineMeters(midLat, midLon, it.latitude, it.longitude) }
+        securityLightSites.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { site ->
+            val nearest = haversineMeters(midLat, midLon, site.latitude, site.longitude)
             if (nearest < SECURITY_LIGHT_BOOST_RADIUS_M) {
-                raw += SECURITY_LIGHT_BOOST_AMOUNT * (1.0 - nearest / SECURITY_LIGHT_BOOST_RADIUS_M)
+                applied += AppliedFacility(
+                    type = "STREET_LIGHT",
+                    lat = site.latitude,
+                    lon = site.longitude,
+                    quantity = site.lightCount.coerceAtLeast(1),
+                    distanceMeters = nearest,
+                    appliedScore = SECURITY_LIGHT_BOOST_AMOUNT * (1.0 - nearest / SECURITY_LIGHT_BOOST_RADIUS_M),
+                )
             }
         }
 
-        if (facilities.isNotEmpty()) {
-            val nearest = facilities.minOf { haversineMeters(midLat, midLon, it.latitude, it.longitude) }
+        facilities.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { facility ->
+            val nearest = haversineMeters(midLat, midLon, facility.latitude, facility.longitude)
             if (nearest < FACILITY_BOOST_RADIUS_M) {
-                raw += FACILITY_BOOST_AMOUNT * (1.0 - nearest / FACILITY_BOOST_RADIUS_M)
+                applied += AppliedFacility(
+                    type = facility.type.serverCode(),
+                    lat = facility.latitude,
+                    lon = facility.longitude,
+                    quantity = 1,
+                    distanceMeters = nearest,
+                    appliedScore = FACILITY_BOOST_AMOUNT * (1.0 - nearest / FACILITY_BOOST_RADIUS_M),
+                )
             }
         }
 
-        return raw
+        val raw = 0.85 - riskPenalty + applied.sumOf { it.appliedScore }
+        return ScoreBreakdown(raw = raw, riskPenalty = riskPenalty, facilities = applied)
+    }
+
+    /** 앱 시설 종류 → 서버 segment_facility.facility_type 코드 */
+    private fun FacilityType.serverCode(): String = when (this) {
+        FacilityType.SECURITY -> "POLICE"
+        FacilityType.CONVENIENCE_STORE -> "CONVENIENCE_STORE"
+        FacilityType.FIRE -> "FIRE_STATION"
     }
 
     /** 그래프 전체에서 실제로 관찰된 min~max 범위를 기준으로 raw 점수를 0~1로 정규화한다. */

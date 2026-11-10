@@ -252,6 +252,31 @@
                 android:textColor="#343A37"
                 android:text="초기화" />
         </LinearLayout>
+        <!-- 경로 안내 기록: 경로를 계산하면 '안내 시작', 안내 중에는 '도착 완료' / '안내 종료' -->
+        <LinearLayout
+            android:id="@+id/route_guidance_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <Button
+                android:id="@+id/route_guidance_button"
+                android:layout_width="0dp"
+                android:layout_weight="2"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#2E7D32"
+                android:textColor="#FFFFFF"
+                android:text="@string/route_guidance_start" />
+            <Button
+                android:id="@+id/route_guidance_stop_button"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#EEF0EF"
+                android:textColor="#343A37"
+                android:text="@string/route_guidance_stop"
+                android:visibility="gone" />
+        </LinearLayout>
         <TextView
             android:id="@+id/route_result_text"
             android:layout_width="match_parent"
