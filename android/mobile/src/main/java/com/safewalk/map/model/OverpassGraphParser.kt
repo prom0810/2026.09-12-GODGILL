@@ -40,8 +40,10 @@ internal class OverpassGraphParser {
             val fromId: String,
             val toId: String,
             val distance: Double,
-            val rawSafetyScore: Double,
-        )
+            val breakdown: RouteSafetyScorer.ScoreBreakdown,
+        ) {
+            val rawSafetyScore: Double get() = breakdown.raw
+        }
 
         val rawEdges = mutableListOf<RawEdge>()
 
@@ -51,14 +53,14 @@ internal class OverpassGraphParser {
             val distance = RouteSafetyScorer.haversineMeters(from.lat, from.lon, to.lat, to.lon)
             if (distance <= 0.5) return
 
-            val rawSafetyScore = RouteSafetyScorer.rawSafetyScore(
+            val breakdown = RouteSafetyScorer.score(
                 midLat = (from.lat + to.lat) / 2,
                 midLon = (from.lon + to.lon) / 2,
                 cctvSites = safetyData.cctvSites,
                 securityLightSites = safetyData.securityLightSites,
                 facilities = safetyData.facilities,
             )
-            rawEdges += RawEdge(fromId, toId, distance, rawSafetyScore)
+            rawEdges += RawEdge(fromId, toId, distance, breakdown)
         }
 
         for (way in ways) {
@@ -82,6 +84,8 @@ internal class OverpassGraphParser {
                 toNodeId = edge.toId,
                 distanceMeters = edge.distance,
                 safetyScore = normalizedSafety,
+                riskPenalty = edge.breakdown.riskPenalty,
+                facilities = edge.breakdown.facilities,
             )
         }
 

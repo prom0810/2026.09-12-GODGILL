@@ -110,6 +110,9 @@ class MapActivity : ComponentActivity() {
     private lateinit var shortestRouteButton: Button
     private lateinit var safeRouteButton: Button
     private lateinit var resetRouteButton: Button
+    private lateinit var guidanceRow: View
+    private lateinit var guidanceButton: Button
+    private lateinit var guidanceStopButton: Button
     private lateinit var historyList: ListView
     private lateinit var routeResultText: TextView
     private lateinit var sosButton: Button
@@ -202,6 +205,9 @@ class MapActivity : ComponentActivity() {
         shortestRouteButton = findViewById(R.id.route_shortest_button)
         safeRouteButton = findViewById(R.id.route_safe_button)
         resetRouteButton = findViewById(R.id.route_reset_button)
+        guidanceRow = findViewById(R.id.route_guidance_row)
+        guidanceButton = findViewById(R.id.route_guidance_button)
+        guidanceStopButton = findViewById(R.id.route_guidance_stop_button)
         historyList = findViewById(R.id.route_history_list)
         routeResultText = findViewById(R.id.route_result_text)
         sosButton = findViewById(R.id.sos_button)
@@ -291,6 +297,14 @@ class MapActivity : ComponentActivity() {
             routeResultText.text = ""
             routeOverlay.clear()
         }
+        guidanceButton.setOnClickListener {
+            if (viewModel.uiState.value.route.guidance == null) {
+                viewModel.startGuidance()
+            } else {
+                viewModel.finishGuidance(completed = true)
+            }
+        }
+        guidanceStopButton.setOnClickListener { viewModel.finishGuidance(completed = false) }
         sosButton.setOnClickListener { onSosClicked() }
     }
 
@@ -390,6 +404,17 @@ class MapActivity : ComponentActivity() {
         kakaoMap?.let { renderMapLayers(state, it) }
         refreshHistoryDropdown()
         renderRouteSummary(state.route)
+        renderGuidance(state.route)
+    }
+
+    /** 안내 버튼: 경로가 있으면 '안내 시작', 안내 중이면 '도착 완료' + '안내 종료' */
+    private fun renderGuidance(route: RouteUiState) {
+        val guiding = route.guidance != null
+        guidanceRow.visibility = if (guiding || route.displayedResult != null) View.VISIBLE else View.GONE
+        guidanceButton.setText(if (guiding) R.string.route_guidance_arrive else R.string.route_guidance_start)
+        guidanceStopButton.visibility = if (guiding) View.VISIBLE else View.GONE
+        guidanceButton.isEnabled = !route.guidanceBusy
+        guidanceStopButton.isEnabled = !route.guidanceBusy
     }
 
     private fun renderSearchResults(places: List<Place>) {

@@ -34,4 +34,16 @@
     <string name="route_not_found">경로를 찾을 수 없습니다.</string>
     <string name="route_summary_shortest">최단 %1$dm·%2$d분·%3$d점</string>
     <string name="route_summary_safe">안전 %1$dm·%2$d분·%3$d점</string>
+    <string name="route_guidance_start">안내 시작</string>
+    <string name="route_guidance_arrive">도착 완료</string>
+    <string name="route_guidance_stop">안내 종료</string>
+    <string name="route_guidance_need_route">경로를 먼저 계산해주세요.</string>
+    <string name="route_guidance_need_login">로그인하면 경로 안내 기록을 저장할 수 있어요.</string>
+    <string name="route_guidance_started">경로 안내를 시작했어요: %1$s → %2$s</string>
+    <string name="route_guidance_replaced">이전에 진행 중이던 안내는 종료하고 새 안내를 시작했어요.</string>
+    <string name="route_guidance_restored">진행 중인 경로 안내가 있어요: %1$s → %2$s</string>
+    <string name="route_guidance_completed">도착 처리했어요. 안전하게 도착했네요!</string>
+    <string name="route_guidance_cancelled">경로 안내를 종료했어요.</string>
+    <string name="route_guidance_failed">경로 안내 기록을 저장하지 못했어요. 잠시 후 다시 시도해주세요.</string>
+    <string name="route_guidance_too_long">경로가 너무 길어 기록할 수 없어요.</string>
 </resources>
