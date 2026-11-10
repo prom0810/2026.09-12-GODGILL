@@ -13,10 +13,11 @@ val localProperties = Properties().apply {
 val kakaoNativeAppKey = localProperties.getProperty("KAKAO_NATIVE_APP_KEY", "").trim()
 val kakaoRestApiKey = localProperties.getProperty("KAKAO_REST_API_KEY", "").trim()
 val safeMapServiceKey = localProperties.getProperty("SAFEMAP_SERVICE_KEY", "").trim()
-val backendBaseUrl = localProperties.getProperty(
-    "BACKEND_BASE_URL",
-    "https://sympathy-cried-kinetic.ngrok-free.dev",
-).trim().trimEnd('/')
+val backendBaseUrl = (
+    System.getenv("BACKEND_BASE_URL")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: localProperties.getProperty("BACKEND_BASE_URL")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: "https://sympathy-cried-kinetic.ngrok-free.dev"
+).trimEnd('/')
 fun String.asBuildConfigString() = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 require(kakaoRestApiKey.isEmpty() || kakaoRestApiKey.matches(Regex("[a-fA-F0-9]{32}"))) {
     "KAKAO_REST_API_KEY in android/local.properties must be a 32-character REST API Key (without quotes)."

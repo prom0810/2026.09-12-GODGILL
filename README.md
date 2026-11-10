@@ -56,6 +56,12 @@ safewalk/
 
 > `android/mobile`의 `companion`과 `android/wear`의 `sync`는 짝을 이루는 모듈로, 워치에서 수집된 데이터가 모바일 앱을 거쳐 백엔드의 `datalog`로 전달되는 흐름을 담당합니다.
 
+## CI와 테스트용 APK
+
+`main` 대상 PR과 `main` 푸시에서는 백엔드 빌드 및 테스트, Android Mobile·Wear 단위 테스트·Lint·Debug 빌드를 실행합니다. 이 변경이 `main`에 반영된 뒤 테스트용 APK를 공유하려면 GitHub Actions의 `CI` 워크플로에서 **Run workflow**를 선택하고 `backend_base_url`에 현재 백엔드의 HTTPS 주소를 입력합니다. 성공한 실행의 `safewalk-debug-apks` 산출물에서 Mobile·Wear APK를 받을 수 있습니다.
+
+수동 CI 빌드에서는 입력한 주소가 앱의 `BACKEND_BASE_URL`에 들어갑니다. 각 개발자의 `android/local.properties`는 Git에 포함되지 않으므로 CI APK의 주소를 바꾸지 않습니다. CI 산출물에는 로컬 Kakao·안전지도 API 키가 포함되지 않아 관련 지도 기능을 테스트할 수 없습니다. 이 기능까지 확인하려면 키가 설정된 개발 PC에서 앱을 빌드해야 합니다. 받은 APK를 사용하려면 백엔드와 해당 주소의 ngrok 터널이 계속 연결돼 있어야 합니다. CI 실행마다 Debug 서명 키가 달라질 수 있으므로 기존 Debug 앱 위에 설치되지 않으면 기존 앱을 제거한 뒤 설치합니다.
+
 ## 로그인/회원가입 기능 — 2026-09-23 추가
 
 회원가입/로그인 화면(Android)이 실제 백엔드 API(`/api/auth/signup`, `/api/auth/login`)를 호출해
