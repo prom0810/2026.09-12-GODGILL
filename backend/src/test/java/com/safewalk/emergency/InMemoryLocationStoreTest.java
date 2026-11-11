@@ -46,4 +46,13 @@ class InMemoryLocationStoreTest {
         assertThat(store.latest(1L)).isEmpty();
         assertThat(store.lastReceivedAt(1L)).isEmpty();
     }
+
+    @Test
+    void ignoresDuplicateMeasurementTime() {
+        InMemoryLocationStore store = new InMemoryLocationStore();
+        LocationPoint first = new LocationPoint(36.81, 127.14, 5.0, T0);
+        assertThat(store.update(1L, first, Instant.now())).isTrue();
+        assertThat(store.update(1L, new LocationPoint(36.82, 127.15, 5.0, T0), Instant.now())).isFalse();
+        assertThat(store.latest(1L)).contains(first);
+    }
 }

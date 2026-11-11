@@ -19,7 +19,7 @@ public class InMemoryLocationStore implements LocationStore {
     public boolean update(Long emergencyId, LocationPoint point, Instant receivedAt) {
         boolean[] accepted = {false};
         entries.compute(emergencyId, (id, old) -> {
-            if (old != null && point.recordedAt().isBefore(old.point().recordedAt())) {
+            if (old != null && !point.recordedAt().isAfter(old.point().recordedAt())) {
                 return old;
             }
             accepted[0] = true;

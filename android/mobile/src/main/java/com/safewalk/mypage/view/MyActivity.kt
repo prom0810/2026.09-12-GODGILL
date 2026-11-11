@@ -14,7 +14,11 @@ import com.safewalk.main.navigation.BaseMainTabActivity
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.notification.FcmTokenManager
 import com.safewalk.emergency.EmergencyLocationService
+import com.safewalk.location.GpsSharingRepository
+import com.safewalk.location.GpsSharingService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MyActivity : BaseMainTabActivity() {
     override val layoutResource: Int = R.layout.activity_my
@@ -32,6 +36,13 @@ class MyActivity : BaseMainTabActivity() {
             lifecycleScope.launch {
                 FcmTokenManager.unregisterCurrent(this@MyActivity)
                 EmergencyLocationService.stop(this@MyActivity)
+                GpsSharingService.stop(this@MyActivity)
+                val sessionId = getSharedPreferences("gps_sharing", MODE_PRIVATE).getString("sessionId", null)
+                if (sessionId != null) {
+                    withContext(Dispatchers.IO) {
+                        runCatching { GpsSharingRepository(this@MyActivity).close(sessionId) }
+                    }
+                }
                 TokenStore(this@MyActivity).clear()
                 renderSession()
                 startActivity(Intent(this@MyActivity, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
