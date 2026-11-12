@@ -7,11 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.os.LocaleList
+import android.location.Location
+import android.os.Looper
 import android.text.Editable
 import android.text.SpannableString
 import android.text.Spanned
@@ -47,6 +51,12 @@ import com.kakao.vectormap.LatLng
 import com.kakao.vectormap.MapLifeCycleCallback
 import com.kakao.vectormap.MapView
 import com.kakao.vectormap.camera.CameraUpdateFactory
+import com.kakao.vectormap.label.Label
+import com.kakao.vectormap.label.LabelOptions
+import com.kakao.vectormap.label.LabelStyle
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -59,6 +69,7 @@ import com.safewalk.emergency.EmergencyMapActivity
 import com.safewalk.emergency.EmergencyRepository
 import com.safewalk.emergency.EmergencySessionStore
 import com.safewalk.main.navigation.MainTab
+import com.safewalk.location.GpsSharingService
 import com.safewalk.main.navigation.bindBottomNavigation
 import com.safewalk.notification.NotificationBadge
 import com.safewalk.notification.NotificationEvents
@@ -118,9 +129,22 @@ class MapActivity : ComponentActivity() {
     private lateinit var routeResultText: TextView
     private lateinit var sosButton: Button
     private lateinit var sosState: TextView
+    private lateinit var myLocationButton: Button
+    private lateinit var gpsShareButton: Button
+    private lateinit var myLocationStatus: TextView
     private val emergencyRepository by lazy { EmergencyRepository(this) }
     private val emergencySessionStore by lazy { EmergencySessionStore(this) }
     private val locationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
+    private var myLocationMarker: Label? = null
+    private var lastMyLocation: Location? = null
+    private var myLocationRequested = false
+    private var myLocationCentered = false
+    private var startSharingAfterPermission = false
+    private val myLocationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            result.lastLocation?.let { renderMyLocation(it, center = !myLocationCentered) }
+        }
+    }
     private var sosBusy = false
     private var activeEmergencyId: Long? = null
     private var restoredEmergency = false
@@ -139,6 +163,35 @@ class MapActivity : ComponentActivity() {
             showSosConfirmation()
         } else {
             Toast.makeText(this, "SOS 위치 공유를 위해 위치 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val mapLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ) {
+            startMyLocationUpdates()
+            refreshMyLocation()
+            if (startSharingAfterPermission) startGpsSharing()
+        } else {
+            myLocationStatus.text = "위치 권한이 필요합니다"
+        }
+        startSharingAfterPermission = false
+    }
+
+    private val gpsStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                GpsSharingService.STATE_STARTED -> myLocationStatus.text = "위치 공유 중"
+                GpsSharingService.STATE_SENT -> myLocationStatus.text = "최신 위치 전송됨"
+                GpsSharingService.STATE_RETRY -> myLocationStatus.text = "전송 실패 · 재시도 대기"
+                GpsSharingService.STATE_STOPPED -> {
+                    myLocationStatus.text = intent.getStringExtra(GpsSharingService.EXTRA_MESSAGE) ?: "위치 공유 종료"
+                }
+            }
+            renderGpsShareButton()
         }
     }
 
@@ -215,6 +268,9 @@ class MapActivity : ComponentActivity() {
         routeResultText = findViewById(R.id.route_result_text)
         sosButton = findViewById(R.id.sos_button)
         sosState = findViewById(R.id.sos_state)
+        myLocationButton = findViewById(R.id.my_location_button)
+        gpsShareButton = findViewById(R.id.gps_share_button)
+        myLocationStatus = findViewById(R.id.my_location_status)
     }
 
     private fun configureSystemBars() {
@@ -309,6 +365,19 @@ class MapActivity : ComponentActivity() {
         }
         guidanceStopButton.setOnClickListener { viewModel.finishGuidance(completed = false) }
         sosButton.setOnClickListener { onSosClicked() }
+        myLocationButton.setOnClickListener { refreshMyLocation() }
+        gpsShareButton.setOnClickListener {
+            if (GpsSharingService.isSharing(this)) {
+                GpsSharingService.stop(this)
+                gpsShareButton.isEnabled = false
+                myLocationStatus.text = "위치 공유 종료 중…"
+            } else if (hasLocationPermission()) {
+                startGpsSharing()
+            } else {
+                startSharingAfterPermission = true
+                requestMapLocationPermission()
+            }
+        }
     }
 
     private fun collectViewModel() {
@@ -350,6 +419,7 @@ class MapActivity : ComponentActivity() {
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     this@MapActivity.kakaoMap = kakaoMap
+                    lastMyLocation?.let { renderMyLocation(it, center = !myLocationCentered) }
                     configureMapGestures(kakaoMap)
                     viewModel.onMapReady()
                     status.visibility = View.GONE
@@ -967,6 +1037,94 @@ class MapActivity : ComponentActivity() {
         }
     }
 
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    private fun requestMapLocationPermission() {
+        getSharedPreferences("map_location", MODE_PRIVATE).edit().putBoolean("asked", true).apply()
+        mapLocationPermissionLauncher.launch(arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ))
+    }
+
+    private fun startMyLocationUpdates() {
+        if (myLocationRequested || !hasLocationPermission()) return
+        try {
+            locationClient.requestLocationUpdates(
+                LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000L)
+                    .setMinUpdateIntervalMillis(9_000L)
+                    .build(), myLocationCallback, Looper.getMainLooper(),
+            )
+            myLocationRequested = true
+        } catch (_: SecurityException) {
+            myLocationStatus.text = "위치 권한을 확인해 주세요"
+        }
+    }
+
+    private fun refreshMyLocation() {
+        if (!hasLocationPermission()) {
+            requestMapLocationPermission()
+            return
+        }
+        myLocationStatus.text = "현재 위치 확인 중…"
+        val cancellation = CancellationTokenSource()
+        myLocationButton.postDelayed({ cancellation.cancel() }, 10_000L)
+        try {
+            locationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellation.token)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful && task.result != null) {
+                        renderMyLocation(task.result, center = true)
+                    } else {
+                        myLocationStatus.text = "현재 위치를 확인하지 못했습니다"
+                    }
+                }
+        } catch (_: SecurityException) {
+            myLocationStatus.text = "위치 권한을 확인해 주세요"
+        }
+    }
+
+    private fun renderMyLocation(location: Location, center: Boolean) {
+        lastMyLocation = location
+        val map = kakaoMap ?: return
+        val position = LatLng.from(location.latitude, location.longitude)
+        val existing = myLocationMarker
+        if (existing == null) {
+            val drawable = requireNotNull(ContextCompat.getDrawable(this, R.drawable.marker_my_location))
+            val bitmap = Bitmap.createBitmap(drawable.intrinsicWidth.coerceAtLeast(1),
+                drawable.intrinsicHeight.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+            drawable.setBounds(0, 0, bitmap.width, bitmap.height)
+            drawable.draw(Canvas(bitmap))
+            val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, 0.5f)
+            myLocationMarker = map.labelManager?.layer?.addLabel(
+                LabelOptions.from("my-location", position).setStyles(style),
+            )
+        } else {
+            existing.moveTo(position, 800)
+        }
+        if (center) {
+            map.moveCamera(CameraUpdateFactory.newCenterPosition(position, 17))
+            myLocationCentered = true
+        }
+        myLocationStatus.text = if (GpsSharingService.isSharing(this)) "위치 공유 중" else "내 위치 표시 중"
+    }
+
+    private fun startGpsSharing() {
+        try {
+            GpsSharingService.start(this)
+            gpsShareButton.text = "위치 공유 종료"
+            myLocationStatus.text = "위치 공유 시작 중…"
+        } catch (error: Exception) {
+            myLocationStatus.text = "위치 공유를 시작하지 못했습니다"
+        }
+    }
+
+    private fun renderGpsShareButton() {
+        gpsShareButton.isEnabled = true
+        gpsShareButton.text = if (GpsSharingService.isSharing(this)) "위치 공유 종료" else "위치 공유 시작"
+    }
+
     override fun onStart() {
         super.onStart()
         ContextCompat.registerReceiver(
@@ -980,10 +1138,20 @@ class MapActivity : ComponentActivity() {
             },
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+        ContextCompat.registerReceiver(this, gpsStateReceiver, IntentFilter().apply {
+            addAction(GpsSharingService.STATE_STARTED)
+            addAction(GpsSharingService.STATE_SENT)
+            addAction(GpsSharingService.STATE_RETRY)
+            addAction(GpsSharingService.STATE_STOPPED)
+        }, ContextCompat.RECEIVER_NOT_EXPORTED)
+        if (hasLocationPermission()) startMyLocationUpdates()
     }
 
     override fun onStop() {
         unregisterReceiver(emergencyStateReceiver)
+        unregisterReceiver(gpsStateReceiver)
+        if (myLocationRequested) locationClient.removeLocationUpdates(myLocationCallback)
+        myLocationRequested = false
         super.onStop()
     }
 
@@ -996,6 +1164,11 @@ class MapActivity : ComponentActivity() {
         restoreActiveEmergency()
         checkSharedEmergencies()
         requestNotificationPermissionOnce()
+        renderGpsShareButton()
+        if (!hasLocationPermission()) {
+            val prefs = getSharedPreferences("map_location", MODE_PRIVATE)
+            if (!prefs.getBoolean("asked", false)) requestMapLocationPermission()
+        }
     }
 
     override fun onPause() {
@@ -1008,6 +1181,7 @@ class MapActivity : ComponentActivity() {
             ?.takeIf { !it.isRecycled }
             ?.recycle()
         kakaoMap = null
+        myLocationMarker = null
         mapView?.finish()
         mapView = null
         super.onDestroy()

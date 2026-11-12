@@ -10,6 +10,7 @@ import com.safewalk.emergency.EmergencyStateException;
 import com.safewalk.guardian.DuplicateGuardianException;
 import com.safewalk.guardian.GuardianNotFoundException;
 import com.safewalk.guardian.GuardianStateException;
+import com.safewalk.location.LocationNotFoundException;
 import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
 import com.safewalk.route.RouteNotFoundException;
@@ -21,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import java.util.LinkedHashMap;
+import org.springframework.dao.DataAccessException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -69,6 +71,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GuardianNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleGuardianNotFound(GuardianNotFoundException e) {
         return fail(HttpStatus.NOT_FOUND, e, "보호자를 찾을 수 없습니다.");
+    }
+
+    @ExceptionHandler(LocationNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLocationNotFound(LocationNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "위치 공유 세션을 찾을 수 없습니다.");
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRedisUnavailable(DataAccessException e) {
+        log.error("데이터 저장소 접근 실패", e);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).contentType(MediaType.APPLICATION_JSON)
+                .body(ApiResponse.fail("위치 저장소에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."));
     }
 
     @ExceptionHandler(NotificationNotFoundException.class)

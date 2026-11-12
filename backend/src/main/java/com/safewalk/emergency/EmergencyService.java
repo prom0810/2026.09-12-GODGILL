@@ -5,6 +5,7 @@ import com.safewalk.global.AfterCommit;
 import com.safewalk.guardian.Guardian;
 import com.safewalk.guardian.GuardianRepository;
 import com.safewalk.guardian.RegistrationStatus;
+import com.safewalk.location.GpsLogService;
 import com.safewalk.notification.NotificationService;
 import com.safewalk.notification.NotificationType;
 import com.safewalk.notification.ReferenceType;
@@ -20,6 +21,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -31,7 +34,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  *  1. 사용자 폰이 SOS 시작 (10초 확인 팝업은 앱에서만, 취소하면 서버 호출 없음)
  *  2. 앱 연결된(CONNECTED) 보호자 전원에게 알림 기록 + FCM 푸시
  *     대표 보호자가 앱에 연결돼 있지 않으면 그 1명에게만 문자(MVP: 서버 로그)
- *  3. 사용자 폰이 5초마다 위치 전송 → 서버 메모리에 최신 1개 → SSE로 보호자 앱에 즉시 전달
+ *  3. 사용자 폰이 5초마다 위치 전송 → 서버 메모리에 최신 1개 + Redis에 최근 이력 → SSE로 보호자 앱에 즉시 전달
  *  4. 사용자(RESOLVED/FALSE_ALARM/CANCELLED) 또는 보호자(RESOLVED)가 종료 → SSE 종료, 종료 알림
  *  5. 위치 끊김·자동 종료는 {@link EmergencyWatchdog}
  *
@@ -45,6 +48,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class EmergencyService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmergencyService.class);
+
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
     /** 폰 시계가 앞서 있어도 이 정도까지는 그대로 받고, 더 미래면 서버 시각으로 바꾼다 */
@@ -57,11 +62,12 @@ public class EmergencyService {
     private final NotificationService notificationService;
     private final LocationStore locationStore;
     private final EmergencySseHub sseHub;
+    private final GpsLogService gpsLogService;
 
     public EmergencyService(EmergencyEventRepository eventRepository, EmergencyEventLogRepository logRepository,
                             GuardianRepository guardianRepository, UserService userService,
                             NotificationService notificationService, LocationStore locationStore,
-                            EmergencySseHub sseHub) {
+                            EmergencySseHub sseHub, GpsLogService gpsLogService) {
         this.eventRepository = eventRepository;
         this.logRepository = logRepository;
         this.guardianRepository = guardianRepository;
@@ -69,6 +75,7 @@ public class EmergencyService {
         this.notificationService = notificationService;
         this.locationStore = locationStore;
         this.sseHub = sseHub;
+        this.gpsLogService = gpsLogService;
     }
 
     // ── 1. 시작 ──────────────────────────────────────────────────────────
@@ -112,7 +119,14 @@ public class EmergencyService {
         if (request.lat() != null) {
             LocationPoint first = new LocationPoint(request.lat(), request.lng(), request.accuracy(),
                     event.getOccurredAt());
-            AfterCommit.run(() -> locationStore.update(emergencyId, first, Instant.now()));
+            AfterCommit.run(() -> {
+                locationStore.update(emergencyId, first, Instant.now());
+                try {
+                    gpsLogService.recordEmergency(userId, emergencyId, first);
+                } catch (RuntimeException e) {
+                    LOGGER.warn("SOS 첫 GPS Redis 적재 실패 (emergencyId={})", emergencyId, e);
+                }
+            });
         }
 
         // 앱 연결된 보호자 전원에게 알림
@@ -169,6 +183,12 @@ public class EmergencyService {
         LocationPoint point = new LocationPoint(request.lat(), request.lng(), request.accuracy(), recordedAt);
         if (locationStore.update(emergencyId, point, Instant.now())) {
             sseHub.publishLocation(emergencyId, point);
+        }
+        // Redis 장애가 기존 SOS 전송/SSE를 중단시키지 않도록 독립적으로 적재한다.
+        try {
+            gpsLogService.recordEmergency(userId, emergencyId, point);
+        } catch (RuntimeException e) {
+            LOGGER.warn("SOS GPS Redis 적재 실패 (emergencyId={})", emergencyId, e);
         }
     }
 
@@ -261,6 +281,11 @@ public class EmergencyService {
         AfterCommit.run(() -> {
             sseHub.publishStatusAndClose(emergencyId, status);
             locationStore.remove(emergencyId);
+            try {
+                gpsLogService.closeEmergency(ward.getUserId(), emergencyId);
+            } catch (RuntimeException e) {
+                LOGGER.warn("종료된 SOS 최신 위치 정리 실패 (emergencyId={})", emergencyId, e);
+            }
         });
 
         String content = switch (event.getStatus()) {

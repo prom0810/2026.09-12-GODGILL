@@ -2,6 +2,8 @@ package com.safewalk.emergency
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
@@ -9,6 +11,7 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.kakao.vectormap.KakaoMap
@@ -196,7 +199,15 @@ class EmergencyMapActivity : ComponentActivity(), EmergencySseClient.Listener {
         val position = LatLng.from(location.latitude, location.longitude)
         val existing = marker
         if (existing == null) {
-            val style = LabelStyle.from(this, R.drawable.marker_sos).setAnchorPoint(0.5f, 1f)
+            val icon = requireNotNull(ContextCompat.getDrawable(this, R.drawable.marker_sos))
+            val bitmap = Bitmap.createBitmap(
+                icon.intrinsicWidth.coerceAtLeast(1),
+                icon.intrinsicHeight.coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888,
+            )
+            icon.setBounds(0, 0, bitmap.width, bitmap.height)
+            icon.draw(Canvas(bitmap))
+            val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, 1f)
             marker = map.labelManager?.layer?.addLabel(
                 LabelOptions.from("emergency-$emergencyId", position).setStyles(style),
             )

@@ -1,5 +1,27 @@
 # 2026.09-12-GODGILL
 
+## 휴대폰 GPS 로그 · Redis 위치 공유
+
+지도에서 **내 위치 새로고침**을 누르면 휴대폰 GPS를 다시 측정해 본인 지도 마커를 옮긴다. 지도 화면이 열려 있는 동안 마커는 위치 변화에 맞춰 갱신된다. **위치 공유 시작**을 누르면 별도 포그라운드 서비스가 약 10초마다 서버에 위치를 보내고, **위치 공유 종료**로 전송을 멈춘다. Android 위치 권한과 로그인이 필요하다. 네트워크 오류는 다음 측정에서 재시도하며, 서버에 저장된 최신 위치는 마지막 수신 후 60초에 만료된다.
+
+Redis는 Docker Compose 없이 독립 프로세스로 실행한다. Redis가 설치된 환경에서 저장소 루트 기준 `redis-server backend/redis-local.conf`를 실행한다. Windows에서는 WSL Ubuntu에 Redis를 설치한 후 `redis-server /mnt/c/2026.09-12-GODGILL/backend/redis-local.conf`로 실행할 수 있다. 서버 연결 설정은 `REDIS_HOST`(기본 `localhost`), `REDIS_PORT`(기본 `6379`), `REDIS_PASSWORD`(기본 빈 값)이다. Android의 `BACKEND_BASE_URL`은 휴대폰에서 접속할 수 있는 백엔드 주소여야 한다. `android/local.properties`는 각 개발자의 로컬 설정으로 유지한다.
+
+JWT를 `Authorization: Bearer <token>` 헤더로 전달한다. 응답은 기존 `{success,data,message}` 형식이며, 204 응답은 본문이 없다.
+
+| API | 용도 |
+|---|---|
+| `POST /api/locations/sessions` | 본인 공유 세션 생성, `data.sessionId` 반환 |
+| `POST /api/locations/sessions/{sessionId}/logs` | 본인 GPS 로그 전송. 본문 `{lat,lng,recordedAt,accuracy}`; 중복 측정 시각은 저장하지 않음 |
+| `DELETE /api/locations/sessions/{sessionId}` | 본인 위치 공유 종료 및 최신 위치 삭제 |
+| `GET /api/locations/me/latest` | 본인 최신 위치 |
+| `GET /api/locations/users/{userId}/latest` | 본인 또는 위치 열람이 허용된 연결 보호자의 최신 위치 |
+| `GET /api/locations/users/{userId}/stream` | 실시간 SSE `location`, 공유 종료 시 `sharing_stopped` |
+| `GET /api/locations/users/{userId}/sessions/{sessionId}/logs?from=...&to=...` | 최대 60분 시간 범위의 이동 이력. `from`·`to`는 ISO 8601 UTC 시각 |
+
+서버는 JWT 사용자 ID를 로그에 넣는다. Redis `gps:latest:{userId}`는 60초 TTL, `gps:track:{sessionId}`는 최근 60분의 GPS 점이며 마지막 기록 뒤 60분에 만료된다. 이력에는 사용자 ID·세션 ID·좌표·측정 시각·정확도가 들어간다. 세션 소유권은 Redis에 별도 보관하며, 조회 때마다 연결된 보호자와 `canViewLocation`을 확인한다. SOS의 기존 5초 전송과 SSE는 유지되고, SOS GPS도 `sos-{emergencyId}` 세션으로 Redis에 기록된다. 시간 범위 API로 나중에 PostgreSQL 이관 대상 점을 가져올 수 있지만 이관 작업 자체는 포함하지 않는다.
+
+확인 순서: Redis를 실행하고 백엔드를 Java 17 이상으로 `cd backend; .\gradlew.bat bootRun`으로 시작한다. 앱에서 로그인 후 지도에서 위치 권한을 허용하고 공유를 시작한다. `GET /api/locations/me/latest`의 `recordedAt`이 바뀌는지 보고, 연결 보호자의 토큰으로 `GET /api/locations/users/{userId}/stream`을 열어 `location` 이벤트를 확인한다. 공유를 끝내면 `sharing_stopped`가 오고 최신 위치 조회는 `data:null`이 된다. 이력 API는 공유 종료 후에도 최근 60분 점을 반환한다. 백엔드 단위 테스트는 `cd backend; .\gradlew.bat test`, Android 빌드 확인은 `cd android; .\gradlew.bat :mobile:assembleDebug`로 실행한다.
+
 ## 프로젝트 구조
 
 본 저장소는 모바일(안드로이드) 앱, 웨어러블(Wear OS) 앱, 백엔드 서버를 하나의 모노레포로 관리합니다.
@@ -55,6 +77,12 @@ safewalk/
 | `common` (android) | 여러 화면에서 재사용되는 클라이언트 공통 코드(네트워크, DI, UI 등) |
 
 > `android/mobile`의 `companion`과 `android/wear`의 `sync`는 짝을 이루는 모듈로, 워치에서 수집된 데이터가 모바일 앱을 거쳐 백엔드의 `datalog`로 전달되는 흐름을 담당합니다.
+
+## CI와 테스트용 APK
+
+`main` 대상 PR과 `main` 푸시에서는 백엔드 빌드 및 테스트, Android Mobile·Wear 단위 테스트·Lint·Debug 빌드를 실행합니다. 이 변경이 `main`에 반영된 뒤 테스트용 APK를 공유하려면 GitHub Actions의 `CI` 워크플로에서 **Run workflow**를 선택하고 `backend_base_url`에 현재 백엔드의 HTTPS 주소를 입력합니다. 성공한 실행의 `safewalk-debug-apks` 산출물에서 Mobile·Wear APK를 받을 수 있습니다.
+
+수동 CI 빌드에서는 입력한 주소가 앱의 `BACKEND_BASE_URL`에 들어갑니다. 각 개발자의 `android/local.properties`는 Git에 포함되지 않으므로 CI APK의 주소를 바꾸지 않습니다. CI 산출물에는 로컬 Kakao·안전지도 API 키가 포함되지 않아 관련 지도 기능을 테스트할 수 없습니다. 이 기능까지 확인하려면 키가 설정된 개발 PC에서 앱을 빌드해야 합니다. 받은 APK를 사용하려면 백엔드와 해당 주소의 ngrok 터널이 계속 연결돼 있어야 합니다. CI 실행마다 Debug 서명 키가 달라질 수 있으므로 기존 Debug 앱 위에 설치되지 않으면 기존 앱을 제거한 뒤 설치합니다.
 
 ## 로그인/회원가입 기능 — 2026-09-23 추가
 
@@ -581,7 +609,7 @@ powershell -ExecutionPolicy Bypass -File .\http\notification-test.ps1
 ## SOS · 보호자 실시간 위치 공유 — 2026-10-30 (backend)
 
 SOS를 누르면 보호자에게 FCM 푸시가 가고, 보호자가 알림을 눌러 지도 화면을 열면 **SSE**로 사용자의 위치를 실시간으로 받는다.
-위치 이력은 DB에 저장하지 않는다 (최신 1개만 서버 메모리, 발생 위치만 `emergency_event.lat/lng`). DB 변경 없음.
+SOS의 SSE는 기존 서버 메모리 최신 위치를 사용한다. GPS 점은 Redis의 `sos-{emergencyId}` 이력에도 최근 60분간 저장한다. PostgreSQL에는 발생 위치만 `emergency_event.lat/lng`로 저장하며 DB 변경은 없다.
 
 ### 흐름
 ```
@@ -631,7 +659,7 @@ SOS를 누르면 보호자에게 FCM 푸시가 가고, 보호자가 알림을 �
 `EMERGENCY_STARTED`(보호자) · `EMERGENCY_ENDED`(보호자, 보호자가 종료했거나 자동 종료면 당사자에게도) · `EMERGENCY_LOCATION_LOST`(위치 열람 보호자). 모두 `emergencyId` 포함, 알림함 `type=EMERGENCY`.
 
 ### 추가/수정된 파일 — backend/
-- `emergency/`: `EmergencyEvent`·`EmergencyEventLog`(엔티티), enum 4개, 리포지토리 2개, `EmergencyService`, `EmergencyEventController`, `EmergencySseHub`(SSE 연결 관리), `LocationStore`·`InMemoryLocationStore`(최신 위치, MSA 때 Redis로 교체), `EmergencyWatchdog`(자동 처리), `EmergencyProperties`, 요청·응답·예외
+- `emergency/`: `EmergencyEvent`·`EmergencyEventLog`(엔티티), enum 4개, 리포지토리 2개, `EmergencyService`, `EmergencyEventController`, `EmergencySseHub`(SSE 연결 관리), `LocationStore`·`InMemoryLocationStore`(SOS SSE용 최신 위치), `EmergencyWatchdog`(자동 처리), `EmergencyProperties`, 요청·응답·예외. Redis GPS 이력은 `location/`이 별도 관리한다.
 - `global/`: `AfterCommit`(커밋 후 실행), `SchedulingConfig`(@EnableScheduling), `GlobalExceptionHandler`(SOS 404·409, 오류 응답을 항상 JSON으로 — SSE 요청의 오류도 읽을 수 있게)
 - `guardian/GuardianRepository`, `notification/NotificationService`(문자도 커밋 후 발송), `application.yml`, `.env.example`
 - `emergency/EmergencyController`: `/sos` 스텁 삭제 (`/arrival`은 경로 기능용으로 유지)

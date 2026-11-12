@@ -14,8 +14,12 @@ import com.safewalk.main.navigation.BaseMainTabActivity
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.notification.FcmTokenManager
 import com.safewalk.emergency.EmergencyLocationService
+import com.safewalk.location.GpsSharingRepository
+import com.safewalk.location.GpsSharingService
+import kotlinx.coroutines.Dispatchers
 import com.safewalk.watch.WatchConnectionManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MyActivity : BaseMainTabActivity() {
     override val layoutResource: Int = R.layout.activity_my
@@ -35,6 +39,13 @@ class MyActivity : BaseMainTabActivity() {
                 EmergencyLocationService.stop(this@MyActivity)
                 // 워치 연결을 해제해 두어야 다른 계정이 같은 워치를 바로 연결할 수 있다
                 WatchConnectionManager.onLogout(this@MyActivity)
+                GpsSharingService.stop(this@MyActivity)
+                val sessionId = getSharedPreferences("gps_sharing", MODE_PRIVATE).getString("sessionId", null)
+                if (sessionId != null) {
+                    withContext(Dispatchers.IO) {
+                        runCatching { GpsSharingRepository(this@MyActivity).close(sessionId) }
+                    }
+                }
                 TokenStore(this@MyActivity).clear()
                 renderSession()
                 startActivity(Intent(this@MyActivity, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
