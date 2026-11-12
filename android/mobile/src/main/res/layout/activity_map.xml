@@ -120,6 +120,32 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
+        <Button
+            android:id="@+id/my_location_button"
+            android:layout_width="112dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="내 위치 새로고침"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/gps_share_button"
+            android:layout_width="112dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="위치 공유 시작"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/my_location_status"
+            android:layout_width="112dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="2"
+            android:text="현재 위치 확인 전"
+            android:textColor="#5F6663"
+            android:textSize="11sp" />
+
         <TextView
             android:id="@+id/sos_state"
             android:layout_width="112dp"

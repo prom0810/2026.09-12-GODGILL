@@ -56,5 +56,9 @@
             android:name=".emergency.EmergencyLocationService"
             android:exported="false"
             android:foregroundServiceType="location" />
+        <service
+            android:name=".location.GpsSharingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 </manifest>
