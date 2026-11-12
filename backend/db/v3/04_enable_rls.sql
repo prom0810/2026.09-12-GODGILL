@@ -30,6 +30,11 @@ ALTER TABLE risk_report          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE risk_report_image    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE emergency_event      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE emergency_event_log  ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF to_regclass('sos_log') IS NOT NULL THEN
+        ALTER TABLE sos_log ENABLE ROW LEVEL SECURITY;
+    END IF;
+END $$;
 ALTER TABLE heart_rate_record    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE motion_record        ENABLE ROW LEVEL SECURITY;
 

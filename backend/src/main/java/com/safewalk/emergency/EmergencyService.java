@@ -116,16 +116,22 @@ public class EmergencyService {
         Long emergencyId = event.getEmergencyId();
         log(event, EmergencyLogType.CREATED, request.source().name());
 
+        gpsLogService.backfillRecent(userId, emergencyId);
+        // A concurrent upload can finish while the SOS transaction is committing.
+        AfterCommit.run(() -> {
+            try {
+                gpsLogService.backfillRecentCommitted(userId, emergencyId);
+            } catch (RuntimeException e) {
+                LOGGER.warn("SOS Redis history backfill failed (emergencyId={})", emergencyId, e);
+            }
+        });
+
         if (request.lat() != null) {
             LocationPoint first = new LocationPoint(request.lat(), request.lng(), request.accuracy(),
                     event.getOccurredAt());
+            gpsLogService.recordEmergency(userId, emergencyId, first);
             AfterCommit.run(() -> {
                 locationStore.update(emergencyId, first, Instant.now());
-                try {
-                    gpsLogService.recordEmergency(userId, emergencyId, first);
-                } catch (RuntimeException e) {
-                    LOGGER.warn("SOS 첫 GPS Redis 적재 실패 (emergencyId={})", emergencyId, e);
-                }
             });
         }
 
@@ -161,7 +167,7 @@ public class EmergencyService {
     // ── 2. 위치 ──────────────────────────────────────────────────────────
 
     /** POST /api/emergencies/{id}/locations — 당사자만. 종료된 사건이면 409 (앱은 전송을 멈춘다) */
-    @Transactional(readOnly = true)
+    @Transactional
     public void postLocation(Long userId, Long emergencyId, EmergencyRequests.Location request) {
         if (request == null || request.lat() == null || request.lng() == null) {
             throw new IllegalArgumentException("lat과 lng를 입력해 주세요.");
@@ -181,15 +187,12 @@ public class EmergencyService {
             recordedAt = now;
         }
         LocationPoint point = new LocationPoint(request.lat(), request.lng(), request.accuracy(), recordedAt);
-        if (locationStore.update(emergencyId, point, Instant.now())) {
-            sseHub.publishLocation(emergencyId, point);
-        }
-        // Redis 장애가 기존 SOS 전송/SSE를 중단시키지 않도록 독립적으로 적재한다.
-        try {
-            gpsLogService.recordEmergency(userId, emergencyId, point);
-        } catch (RuntimeException e) {
-            LOGGER.warn("SOS GPS Redis 적재 실패 (emergencyId={})", emergencyId, e);
-        }
+        gpsLogService.recordEmergency(userId, emergencyId, point);
+        AfterCommit.run(() -> {
+            if (locationStore.update(emergencyId, point, Instant.now())) {
+                sseHub.publishLocation(emergencyId, point);
+            }
+        });
     }
 
     /** GET /api/emergencies/{id}/locations/latest — 당사자 또는 위치 열람이 허용된 보호자. 없으면 null */
@@ -392,15 +395,17 @@ public class EmergencyService {
         return event;
     }
 
-    /** 메모리의 최신 위치. 서버 재시작 등으로 비어 있으면 발생 당시 위치 */
+    /** Fall back to the durable SOS log after a server restart. */
     private Optional<LocationPoint> currentLocation(EmergencyEvent event) {
         if (!event.isOpen()) {
             return Optional.empty();
         }
         Optional<LocationPoint> latest = locationStore.latest(event.getEmergencyId());
-        if (latest.isPresent() || event.getLat() == null) {
+        if (latest.isPresent()) {
             return latest;
         }
+        latest = gpsLogService.latestEmergency(event.getEmergencyId());
+        if (latest.isPresent() || event.getLat() == null) return latest;
         return Optional.of(new LocationPoint(event.getLat(), event.getLng(), null, event.getOccurredAt()));
     }
 
