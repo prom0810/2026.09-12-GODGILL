@@ -14,6 +14,7 @@ import com.safewalk.main.navigation.BaseMainTabActivity
 import com.safewalk.main.navigation.MainTab
 import com.safewalk.notification.FcmTokenManager
 import com.safewalk.emergency.EmergencyLocationService
+import com.safewalk.watch.WatchConnectionManager
 import kotlinx.coroutines.launch
 
 class MyActivity : BaseMainTabActivity() {
@@ -32,6 +33,8 @@ class MyActivity : BaseMainTabActivity() {
             lifecycleScope.launch {
                 FcmTokenManager.unregisterCurrent(this@MyActivity)
                 EmergencyLocationService.stop(this@MyActivity)
+                // 워치 연결을 해제해 두어야 다른 계정이 같은 워치를 바로 연결할 수 있다
+                WatchConnectionManager.onLogout(this@MyActivity)
                 TokenStore(this@MyActivity).clear()
                 renderSession()
                 startActivity(Intent(this@MyActivity, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))

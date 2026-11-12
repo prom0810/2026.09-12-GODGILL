@@ -737,6 +737,81 @@ POST /api/routes
 - Android 단위 테스트: `RouteGuidanceRequestTest`(요청 본문, 점수 내역, A* 구간)
 - API 테스트: `powershell -ExecutionPolicy Bypass -File .\http\route-test.ps1` (26개, 지점 300개 저장 시간 출력)
 
+## 웨어러블 기기 등록·연결 — 2026-11-11 (backend + android)
+
+Galaxy Watch를 계정에 등록하고, 앱과 연결 중인 워치를 관리한다. 워치는 서버와 직접 통신하지 않고 **워치 → 폰 → 서버** 순서로 전달된다.
+M5StickC(CUSTOM)는 기기 도착 후 연결 방식을 정한다 — 테이블·등록 API는 그대로 쓴다.
+워치 낙상·심박 데이터를 서버로 보내는 기능은 아직 없다 (워치 경보와 폰 알림만 동작).
+
+**DB 변경:** `backend/db/v3/08_wearable_connection_20261111.sql`을 Supabase SQL Editor에서 실행해야 한다
+(워치 1대는 한 계정에서만 연결 중이라는 인덱스 `uq_wearable_identifier_connected` + 컬럼 설명).
+
+### 용어
+
+| 값 | 의미 |
+|---|---|
+| 등록 | 계정에 워치를 기록 (`PUT /api/wearables`). 같은 워치를 여러 계정에 등록할 수 있다. 등록만으로는 연결되지 않는다 |
+| 연결 (`isActive`) | 지금 앱과 연결 중인 워치. **사용자당 1대, 워치 1대당 1계정**. 실제 블루투스 연결을 따른다 ("연결 안 함" 선택지 없음) |
+| `deviceIdentifier` | 워치의 **ANDROID_ID** (재설치해도 같고 공장 초기화하면 바뀜). 앱 서명 키마다 값이 달라서, 팀원별 debug 키로 빌드하면 같은 워치라도 ID가 다르다 → 테스트는 같은 키로 빌드한 앱으로 |
+| `lastConnectedAt` | 마지막 연결 상태 변경 시각 (연결·해제·앱 재시작/안내 시작 때 연결 확인) |
+
+### 흐름
+
+```
+[등록] 회원가입 후(선택)·마이페이지 → 폰이 워치에 정보 요청(/safewalk/info-request, 5초)
+       → 워치가 {deviceId(ANDROID_ID), model, appVersion} 응답 → PUT /api/wearables → 바로 연결
+[연결] 앱 실행·경로 안내 시작·등록된 워치가 다시 붙을 때 → PATCH /api/wearables/{id}/connection {connected:true}
+[해제] 블루투스 끊김 감지 → "워치 연결이 해제되었어요" 알림 + {connected:false}
+       앱이 강제 종료돼 못 보냈으면 → 다음 실행 때 실제 연결과 비교해 정리
+[데이터] 미등록 워치 → 데이터 버림 + "워치를 등록해 주세요" 알림 / 등록된 워치 → 받음 (폰 안에서만 사용)
+```
+
+### API
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| PUT | `/api/wearables` | 기기 등록·갱신 `{ deviceType: WEAR_OS/CUSTOM, deviceIdentifier, deviceName? }`. 같은 계정의 같은 식별자는 이름만 갱신. 연결 상태는 바뀌지 않음 |
+| GET | `/api/wearables` | 내 기기 목록 (`isActive` = 연결 중, 최근 연결 상태 변경 순) |
+| PATCH | `/api/wearables/{wearableId}/connection` | 연결·해제 `{ connected: true/false, replaceCurrent? }` → `{ wearable, disconnectedWearableId }` |
+| DELETE | `/api/wearables/{wearableId}` | 기기 삭제 (soft delete, 연결도 해제) |
+
+연결 규칙에 걸리면 **409 + `data: { reason, currentWearable }`**:
+
+| reason | 언제 | 앱 처리 |
+|---|---|---|
+| `SWITCH_REQUIRED` | 내 다른 워치가 연결 중 (안내 중 아님). `currentWearable` = 지금 연결 중인 내 워치 | 사용자에게 바꿀지 묻고, 바꾸면 `replaceCurrent: true`로 다시 요청 |
+| `GUIDANCE_IN_PROGRESS` | 내 다른 워치가 연결 중 + 경로 안내 중 | 전환 불가 안내 (`replaceCurrent`여도 거부) |
+| `IN_USE_BY_OTHER_ACCOUNT` | 이 워치를 다른 계정에서 연결 중. 상대 계정 정보는 주지 않음 | "다른 계정에서 연결 중인 워치예요." |
+
+- **다른 계정 연결 만료:** 다른 계정에서 연결 중이어도, 그 연결 상태가 `wearable.connection-stale-hours`(기본 24시간, `.env` `WEARABLE_CONNECTION_STALE_HOURS`) 넘게 바뀌지 않았고 그 계정이 경로 안내 중이 아니면, 갱신이 멈춘 연결로 보고 해제한 뒤 새 계정에 연결한다. 상대가 안내 중이면 항상 거부.
+- 해제는 언제든 가능 (경로 안내 중이어도, 워치가 꺼져 있어도 — 서버 상태만 바꾼다). 로그아웃할 때도 앱이 해제한다.
+- 동시에 같은 워치를 연결하면 DB 인덱스가 하나만 통과시키고 나머지는 409 `IN_USE_BY_OTHER_ACCOUNT`.
+- 남의 기기·삭제된 기기는 404.
+
+### Android 변경
+
+| 파일 | 내용 |
+|---|---|
+| `mobile/watch/WatchConnectionManager.kt` (신규) | 등록·연결·해제·앱 실행 시 정리·끊김 감지·미등록 워치 데이터 차단. 프론트용 `state`(StateFlow)·`events` 제공 (UI는 프론트) |
+| `mobile/watch/WatchConnectionNotifier.kt` (신규) | "워치를 등록해 주세요"(누르면 마이페이지, `EXTRA_REGISTER_WATCH`), "워치 연결이 해제되었어요" 알림 |
+| `mobile/watch/WatchMessageService.kt` | 등록된 워치 데이터만 처리, 워치 정보 응답·연결 변화(`CAPABILITY_CHANGED`) 전달 |
+| `MapActivity` / `MapViewModel.startGuidance` / `MyActivity` 로그아웃 | 앱 실행 시 연결 정리, 안내 시작 전 연결 확인, 로그아웃 전 해제 |
+| `wear/settings/Settings.kt` | `deviceId` = ANDROID_ID (못 읽을 때만 설치 UUID) |
+| `wear/sync/WearMessageService.kt`, `Protocol.kt`, `res/values/wear.xml` (신규) | 정보 요청 응답(`/safewalk/info`), capability `safewalk_watch` 선언 |
+
+프론트가 쓰는 함수 (모두 `suspend`, 결과는 `WatchConnectionState`):
+`register(context)` 등록+연결 · `connect(context, replaceCurrent)` · `disconnect(context)` (앱에서 해제 — 블루투스가 한 번 끊겼다 붙거나 `connect`할 때까지 자동 재연결 안 함).
+상태: `Unknown` / `NoWatch` / `Unregistered(watch)` / `Connected` / `Disconnected` / `SwitchRequired(current)` / `Blocked(reason)`.
+
+- **등록 UI는 아직 없다.** 프론트에서 `register()`를 부르는 버튼과 전환 확인 팝업을 만들어야 실기기 연동을 테스트할 수 있다
+- 로그인하지 않았으면 워치 데이터를 받지 않고 로그인·등록 안내 알림만 띄운다
+
+### 테스트
+
+- Android 단위 테스트: `WatchConnectionParseTest`
+- API 테스트: `powershell -ExecutionPolicy Bypass -File .\http\wearable-test.ps1` (26개)
+- DB 제약 테스트: `backend/db/v3/05_constraint_tests.sql` (34개)
+
 ## 다운받아 실행할 때 확인/수정할 것
 
 - **android** — `local.properties`의 `BACKEND_BASE_URL`을 실행할 PC의 로컬 네트워크 IP로

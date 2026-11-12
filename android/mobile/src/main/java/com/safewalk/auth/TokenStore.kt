@@ -26,6 +26,9 @@ class TokenStore(context: Context) {
 
     fun email(): String? = prefs.getString(KEY_EMAIL, null)
 
+    /** 로그인한 사용자 ID (없으면 null). 계정별로 저장하는 값(워치 연결 등)의 키로 쓴다 */
+    fun userId(): Long? = prefs.getLong(KEY_USER_ID, 0L).takeIf { it > 0L }
+
     fun userType(): String? = prefs.getString(KEY_USER_TYPE, null)
 
     fun clear() {
