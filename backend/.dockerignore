@@ -1,0 +1,17 @@
+.gradle/
+build/
+out/
+.idea/
+*.iml
+.env
+.env.*
+!.env.example
+local-storage/
+http/
+db/
+sql/
+*.md
+# 서비스 계정 키 등 비밀 파일이 이미지에 들어가지 않게 한다
+*firebase*.json
+*serviceAccount*.json
+*credentials*.json
