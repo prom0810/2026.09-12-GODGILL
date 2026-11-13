@@ -88,6 +88,7 @@ import com.safewalk.map.viewmodel.MapViewModel
 import com.safewalk.map.viewmodel.MapViewport
 import com.safewalk.map.viewmodel.RouteUiState
 import com.safewalk.map.viewmodel.UiText
+import com.safewalk.watch.WatchConnectionManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
@@ -234,6 +235,8 @@ class MapActivity : ComponentActivity() {
             }
         }
         startMap()
+        // 앱 실행 시 워치 연결 상태를 실제 블루투스 연결과 맞춘다 (강제 종료로 남은 연결 정리 포함)
+        WatchConnectionManager.syncOnLaunch(this)
     }
 
     private fun bindViews() {
