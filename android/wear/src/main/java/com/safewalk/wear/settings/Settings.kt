@@ -2,7 +2,9 @@ package com.safewalk.wear.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.annotation.SuppressLint
 import android.os.Build
+import android.provider.Settings.Secure
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,7 +28,12 @@ object Settings {
     var streaming by mutableStateOf(false)
         private set
 
-    /** 기기 식별자(앱 설치 시 1회 생성). 서버가 기기별 기준선/모델 보정에 사용. */
+    /**
+     * 기기 식별자 = 워치의 ANDROID_ID. 서버 wearable_device.device_identifier로 저장된다.
+     * 앱을 재설치해도 같고(같은 서명 키일 때), 공장 초기화하면 바뀐다.
+     * 주의: ANDROID_ID는 앱 서명 키마다 값이 다르다 → 팀원별 debug 키로 빌드하면 같은 워치라도 ID가 달라진다.
+     * ANDROID_ID를 못 읽는 경우에만 예전처럼 설치 시 UUID를 쓴다.
+     */
     var deviceId: String = ""
         private set
     /** 기기 종류. 웨어러블이 바뀌어도 서버가 구분할 수 있게 같이 보낸다. */
@@ -41,10 +48,16 @@ object Settings {
         sound = p.getBoolean("sound", true)
         autoSeconds = p.getInt("autoSeconds", 10)
         streaming = p.getBoolean("streaming", false)
-        deviceId = p.getString("deviceId", null) ?: UUID.randomUUID().toString().also {
+        deviceId = androidId(context) ?: p.getString("deviceId", null) ?: UUID.randomUUID().toString().also {
             p.edit().putString("deviceId", it).apply()
         }
     }
+
+    @SuppressLint("HardwareIds")
+    private fun androidId(context: Context): String? =
+        runCatching { Secure.getString(context.applicationContext.contentResolver, Secure.ANDROID_ID) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
 
     fun updateSensitivity(v: Int) { sensitivity = v; prefs?.edit()?.putInt("sensitivity", v)?.apply() }
     fun updateVitalsAlert(v: Boolean) { vitalsAlert = v; prefs?.edit()?.putBoolean("vitalsAlert", v)?.apply() }

@@ -18,6 +18,7 @@ import com.safewalk.map.model.RouteGuidanceRepository
 import com.safewalk.map.model.MAX_ROUTE_POINTS
 import com.safewalk.map.model.SearchHistoryItem
 import com.safewalk.map.model.SearchHistoryStore
+import com.safewalk.watch.WatchConnectionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -321,6 +322,9 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         guidanceJob?.cancel()
         guidanceJob = viewModelScope.launch {
             setGuidanceBusy(true)
+            // 안내가 시작되면 워치를 바꿀 수 없으므로, 붙어 있는 등록 워치를 먼저 연결(이미 연결 중이면 시각 갱신)한다.
+            // 다른 워치로 바꿀지 묻는 화면은 프론트가 WatchConnectionManager.state를 보고 띄운다. 실패해도 안내는 시작한다
+            WatchConnectionManager.refreshForGuidance(getApplication<Application>())
             runCatchingIo { guidanceRepository.start(result, startName, endName) }
                 .onSuccess { started ->
                     _uiState.update {

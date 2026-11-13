@@ -44,6 +44,11 @@
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/safewalk" />
             </intent-filter>
+            <!-- 워치(capability safewalk_watch) 블루투스 연결·끊김 감지 → WatchConnectionManager -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.CAPABILITY_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:path="/safewalk_watch" />
+            </intent-filter>
         </service>
         <service
             android:name=".notification.SafeWalkMessagingService"

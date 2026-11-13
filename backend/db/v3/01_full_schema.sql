@@ -142,11 +142,22 @@ CREATE TABLE wearable_device (
     CONSTRAINT ck_wearable_deleted_inactive
         CHECK (deleted_at IS NULL OR is_active = FALSE)
 );
-COMMENT ON TABLE wearable_device IS '등록 웨어러블. device_identifier = ANDROID_ID(WEAR_OS) 또는 ESP32 MAC(CUSTOM). soft delete';
+COMMENT ON TABLE wearable_device IS
+    '등록 웨어러블. device_identifier = 워치 ANDROID_ID(WEAR_OS) 또는 ESP32 MAC(CUSTOM). 같은 워치를 여러 계정에 등록 가능, 연결은 한 계정만. soft delete';
+COMMENT ON COLUMN wearable_device.is_active IS
+    '현재 앱과 연결 중인 기기 (사용자당 1대, 워치 1대당 1계정)';
+COMMENT ON COLUMN wearable_device.connected_at IS '처음 등록한 시각';
+COMMENT ON COLUMN wearable_device.last_connected_at IS
+    '마지막 연결 상태 변경 시각 (연결·해제·앱 재시작 확인). 다른 계정의 연결 만료 판단에 사용';
+-- 같은 계정 안에서 같은 워치 중복 등록 금지 (다른 계정에는 등록 가능)
 CREATE UNIQUE INDEX uq_wearable_identifier_active
     ON wearable_device (user_id, device_identifier) WHERE deleted_at IS NULL;
+-- 사용자당 연결 중인 기기 1대
 CREATE UNIQUE INDEX uq_wearable_one_active
     ON wearable_device (user_id) WHERE is_active;
+-- 워치 1대는 한 계정에서만 연결 중 (2026-11-11, 08)
+CREATE UNIQUE INDEX uq_wearable_identifier_connected
+    ON wearable_device (device_identifier) WHERE is_active;
 
 -- ---------------------------------------------------------------------
 -- 3. 안전시설

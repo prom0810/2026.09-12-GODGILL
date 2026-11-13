@@ -15,10 +15,13 @@ import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
 import com.safewalk.route.RouteNotFoundException;
 import com.safewalk.route.RouteStateException;
+import com.safewalk.wearable.WearableConnectionException;
+import com.safewalk.wearable.WearableNotFoundException;
 import com.safewalk.storage.ImageStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import java.util.LinkedHashMap;
 import org.springframework.dao.DataAccessException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -184,6 +187,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmergencyStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleEmergencyState(EmergencyStateException e) {
         return fail(HttpStatus.CONFLICT, e, "현재 SOS 상태에서는 처리할 수 없습니다.");
+    }
+
+    @ExceptionHandler(WearableNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleWearableNotFound(WearableNotFoundException e) {
+        return fail(HttpStatus.NOT_FOUND, e, "웨어러블 기기를 찾을 수 없습니다.");
+    }
+
+    /**
+     * 웨어러블 연결 규칙에 걸림 → 409 + data { reason, currentWearable }.
+     * reason: SWITCH_REQUIRED / GUIDANCE_IN_PROGRESS / IN_USE_BY_OTHER_ACCOUNT
+     */
+    @ExceptionHandler(WearableConnectionException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleWearableConnection(WearableConnectionException e) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("reason", e.getReason().name());
+        data.put("currentWearable", e.getCurrentWearable());
+        return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON)
+                .body(new ApiResponse<>(false, data, e.getMessage()));
     }
 
     @ExceptionHandler(RouteNotFoundException.class)

@@ -99,3 +99,9 @@ route:
   delete-after-days: ${ROUTE_DELETE_AFTER_DAYS:365}
   cleanup-cron: ${ROUTE_CLEANUP_CRON:0 10 4 * * *}
   cleanup-batch-size: ${ROUTE_CLEANUP_BATCH_SIZE:500}
+
+# 웨어러블 연결 (WearableService). .env에서 바꿀 수 있다.
+#  - connection-stale-hours : 다른 계정에서 연결 중인 워치라도 연결 상태가 이 시간 넘게 바뀌지 않았고
+#                             그 계정이 경로 안내 중이 아니면 해제하고 새 계정에 연결 (기본 24시간)
+wearable:
+  connection-stale-hours: ${WEARABLE_CONNECTION_STALE_HOURS:24}

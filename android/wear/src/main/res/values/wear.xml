@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities">
+    <!-- 폰 앱이 이 워치 앱이 설치된 워치를 찾고(CapabilityClient), 블루투스 연결 끊김을 감지하는 데 쓴다.
+         값은 폰 com.safewalk.watch.Protocol.CAPABILITY_WATCH와 같아야 한다 -->
+    <string-array name="android_wear_capabilities">
+        <item>safewalk_watch</item>
+    </string-array>
+</resources>

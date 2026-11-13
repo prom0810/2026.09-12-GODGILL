@@ -114,6 +114,8 @@ DO $do$ BEGIN
       $q$INSERT INTO wearable_device (user_id, device_type, device_identifier) VALUES (2, 'WEAR_OS', 'a1b2c3d4e5f67890')$q$);
     PERFORM pg_temp.expect_error('wearable: 사용 중 워치 2대', 'uq_wearable_one_active',
       $q$INSERT INTO wearable_device (user_id, device_type, device_identifier, is_active) VALUES (2, 'CUSTOM', '24:6F:28:AB:CD:EF', TRUE)$q$);
+    PERFORM pg_temp.expect_error('wearable: 다른 계정에서 연결 중인 워치를 연결', 'uq_wearable_identifier_connected',
+      $q$INSERT INTO wearable_device (user_id, device_type, device_identifier, is_active) VALUES (1, 'WEAR_OS', 'a1b2c3d4e5f67890', TRUE)$q$);
     PERFORM pg_temp.expect_error('wearable: 삭제된 워치가 사용 중', 'ck_wearable_deleted_inactive',
       $q$UPDATE wearable_device SET deleted_at = now() WHERE wearable_id = 1$q$);
     PERFORM pg_temp.expect_error('wearable: 기기 종류 코드 외 값', 'ck_wearable_device_type',
