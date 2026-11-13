@@ -28,14 +28,20 @@ public class RedisGpsStore {
     private static final DefaultRedisScript<Long> APPEND = script("""
             if redis.call('GET', KEYS[1]) ~= ARGV[1] then return -1 end
             if tonumber(ARGV[3]) < tonumber(ARGV[4]) - 3600000 then return 0 end
-            if #redis.call('ZRANGEBYSCORE', KEYS[3], ARGV[3], ARGV[3], 'LIMIT', 0, 1) > 0 then return 0 end
-            redis.call('ZADD', KEYS[3], ARGV[3], ARGV[2])
-            redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', '(' .. (tonumber(ARGV[4]) - 3600000))
-            redis.call('EXPIRE', KEYS[3], 3600)
+            if ARGV[6] == '1' and #redis.call('ZRANGEBYSCORE', KEYS[3], ARGV[3], ARGV[3], 'LIMIT', 0, 1) > 0 then return 0 end
+            local latestAt = redis.call('HGET', KEYS[2], 'at')
+            if latestAt and tonumber(ARGV[3]) == tonumber(latestAt)
+                and redis.call('HGET', KEYS[2], 'session') == ARGV[5] then
+              if ARGV[6] == '1' then return 0 else return 1 end
+            end
+            if ARGV[6] == '1' then
+              redis.call('ZADD', KEYS[3], ARGV[3], ARGV[2])
+              redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', '(' .. (tonumber(ARGV[4]) - 3600000))
+              redis.call('EXPIRE', KEYS[3], 3600)
+            end
             redis.call('EXPIRE', KEYS[1], 4200)
             redis.call('EXPIRE', KEYS[4], 4200)
             redis.call('EXPIRE', KEYS[5], 4200)
-            local latestAt = redis.call('HGET', KEYS[2], 'at')
             if not latestAt or tonumber(ARGV[3]) >= tonumber(latestAt) then
               redis.call('HSET', KEYS[2], 'at', ARGV[3], 'data', ARGV[2], 'session', ARGV[5])
               redis.call('EXPIRE', KEYS[2], 60)
@@ -50,17 +56,11 @@ public class RedisGpsStore {
             if redis.call('HGET', KEYS[3], 'session') == ARGV[2] then redis.call('DEL', KEYS[3]) end
             return 1
             """);
-    private static final DefaultRedisScript<Long> EMERGENCY = script("""
-            redis.call('SET', KEYS[1], ARGV[1], 'EX', 4200)
-            if tonumber(ARGV[3]) < tonumber(ARGV[4]) - 3600000 then return 0 end
-            if #redis.call('ZRANGEBYSCORE', KEYS[3], ARGV[3], ARGV[3], 'LIMIT', 0, 1) > 0 then return 0 end
-            redis.call('ZADD', KEYS[3], ARGV[3], ARGV[2])
-            redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', '(' .. (tonumber(ARGV[4]) - 3600000))
-            redis.call('EXPIRE', KEYS[3], 3600)
-            local latestAt = redis.call('HGET', KEYS[2], 'at')
-            if not latestAt or tonumber(ARGV[3]) >= tonumber(latestAt) then
-              redis.call('HSET', KEYS[2], 'at', ARGV[3], 'data', ARGV[2], 'session', ARGV[5])
-              redis.call('EXPIRE', KEYS[2], 60)
+    private static final DefaultRedisScript<Long> EMERGENCY_LATEST = script("""
+            local latestAt = redis.call('HGET', KEYS[1], 'at')
+            if not latestAt or tonumber(ARGV[2]) >= tonumber(latestAt) then
+              redis.call('HSET', KEYS[1], 'at', ARGV[2], 'data', ARGV[1], 'session', ARGV[3])
+              redis.call('EXPIRE', KEYS[1], 60)
               return 2
             end
             return 1
@@ -87,20 +87,27 @@ public class RedisGpsStore {
 
     /** 0=duplicate/expired, 1=history only, 2=history and newest fix. */
     public int append(GpsPoint point) {
+        return append(point, true);
+    }
+
+    /** Validate the session and update only the live fix; SOS history goes to PostgreSQL. */
+    public int appendLive(GpsPoint point) {
+        return append(point, false);
+    }
+
+    private int append(GpsPoint point, boolean keepHistory) {
         long now = Instant.now().toEpochMilli();
         Long result = redis.execute(APPEND, List.of(activeSession(point.sessionId()), latestKey(point.userId()),
                         track(point.sessionId()), activeUser(point.userId()), owner(point.sessionId())),
                 point.userId().toString(), json(point), String.valueOf(point.recordedAt().toEpochMilli()),
-                String.valueOf(now), point.sessionId());
+                String.valueOf(now), point.sessionId(), keepHistory ? "1" : "0");
         if (Objects.equals(result, -1L)) throw new LocationNotFoundException();
         return result == null ? 0 : result.intValue();
     }
 
-    public int appendEmergency(GpsPoint point) {
-        Long result = redis.execute(EMERGENCY, List.of(owner(point.sessionId()), latestKey(point.userId()),
-                        track(point.sessionId())), point.userId().toString(), json(point),
-                String.valueOf(point.recordedAt().toEpochMilli()), String.valueOf(Instant.now().toEpochMilli()),
-                point.sessionId());
+    public int updateEmergencyLatest(GpsPoint point) {
+        Long result = redis.execute(EMERGENCY_LATEST, List.of(latestKey(point.userId())),
+                json(point), String.valueOf(point.recordedAt().toEpochMilli()), point.sessionId());
         return result == null ? 0 : result.intValue();
     }
 
@@ -122,6 +129,22 @@ public class RedisGpsStore {
     public Optional<GpsPoint> latest(Long userId) {
         String value = (String) redis.opsForHash().get(latestKey(userId), "data");
         return Optional.ofNullable(value).map(this::parse);
+    }
+
+    /** A snapshot of the current sharing session's Redis track and newest fix. */
+    public List<GpsPoint> recent(Long userId) {
+        String sessionId = redis.opsForValue().get(activeUser(userId));
+        if (sessionId == null || !userId.toString().equals(redis.opsForValue().get(owner(sessionId)))) {
+            return latest(userId).stream().toList();
+        }
+        var values = redis.opsForZSet().rangeByScore(track(sessionId),
+                Instant.now().toEpochMilli() - TRACK_MS, Instant.now().toEpochMilli());
+        List<GpsPoint> points = values == null ? new java.util.ArrayList<>()
+                : new java.util.ArrayList<>(values.stream().map(this::parse).toList());
+        latest(userId).filter(p -> points.stream().noneMatch(existing ->
+                existing.sessionId().equals(p.sessionId()) && existing.recordedAt().equals(p.recordedAt())))
+                .ifPresent(points::add);
+        return points;
     }
 
     public List<GpsPoint> range(Long userId, String sessionId, Instant from, Instant to) {

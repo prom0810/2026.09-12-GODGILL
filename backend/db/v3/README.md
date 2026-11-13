@@ -1,5 +1,11 @@
 # GODGILL DB 스키마 v3 (2026-10-15, 2026-10-26·2026-11-11 갱신)
 
+## SOS 위치 로그 (2026-11-12)
+
+기존 PostgreSQL DB에는 백엔드 배포 전에 `08_sos_location_log.sql`을 실행한다. 빈 DB를 `01_full_schema.sql`로 새로 만들면 `sos_log`가 포함되어 있으므로 `08`은 필요하지 않다. 이미 `sos_log`가 있는 DB에도 `08`은 누락된 기록 시각, 세션 ID, 정확도 컬럼과 인덱스를 추가한다.
+
+평상시 위치 공유 이력은 Redis의 최근 60분 세션 트랙에 저장된다. SOS가 시작되면 해당 사용자의 Redis 최근 기록과 최신 위치를 `sos_log`에 복사하고, SOS 중 새 위치 기록은 PostgreSQL에 직접 저장한다. Redis에는 실시간 조회용 최신 위치만 유지한다. `sos_log`는 `emergency_id`, `session_id`, `recorded_at` 조합으로 중복 적재를 방지한다.
+
 ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 로컬 PostgreSQL 16에서 아래 두 경로를 모두 실행했고, 결과 스키마가 서로 같다는 것과 `05_constraint_tests.sql`의 34개 검사가 통과하는 것을 확인했습니다.
 
