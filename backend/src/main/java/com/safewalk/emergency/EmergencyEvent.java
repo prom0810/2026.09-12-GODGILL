@@ -19,8 +19,8 @@ import java.time.temporal.ChronoUnit;
 /**
  * 긴급 사건 한 건 (DB v3 emergency_event).
  *
- * - lat/lng: 발생 당시 위치 스냅샷. GPS를 못 잡았으면 둘 다 null. 이후 이동 위치는 DB에 저장하지 않는다 (서버 메모리)
- * - wearableId/routeId/segmentId: 아직 해당 엔티티가 없어 값(Long)으로만 매핑한다. 지금 만드는 SOS에서는 모두 null
+ * - 위치: emergency_event에는 없다 (2026-11-13 ERD 변경). 발생 위치·이동 기록은 sos_log (SosLocationLogRepository)
+ * - wearableId/routeId/segmentId: 값(Long)으로만 매핑한다. 직접 누른 SOS는 null, 워치 자동 감지(FALL 등)는 서버가 채움
  * - resolvedBy: 종료한 계정(사용자 본인 또는 보호자). 자동 종료면 null
  *
  * 상태 전이 (맞지 않으면 {@link EmergencyStateException}, 409)
@@ -61,12 +61,6 @@ public class EmergencyEvent {
     @Column(name = "status", nullable = false, length = 20)
     private EmergencyStatus status = EmergencyStatus.OCCURRED;
 
-    @Column(name = "lat")
-    private Double lat;
-
-    @Column(name = "lng")
-    private Double lng;
-
     @Column(name = "occurred_at", nullable = false)
     private OffsetDateTime occurredAt = now();
 
@@ -81,28 +75,39 @@ public class EmergencyEvent {
     protected EmergencyEvent() {
     }
 
-    private EmergencyEvent(User user, EmergencyType type, EmergencySource source, Double lat, Double lng) {
+    private EmergencyEvent(User user, EmergencyType type, EmergencySource source) {
         this.user = user;
         this.type = type;
         this.source = source;
         this.status = EmergencyStatus.OCCURRED;
-        this.lat = lat;
-        this.lng = lng;
         this.occurredAt = now();
     }
 
-    /**
-     * 사용자가 직접 누른 SOS. 좌표는 둘 다 있거나 둘 다 없어야 한다.
-     * 좌표 범위·쌍 검사는 서비스에서 400으로 먼저 걸러지고, 여기서는 마지막 방어선이다.
-     */
-    public static EmergencyEvent sos(User user, EmergencySource source, Double lat, Double lng) {
-        if ((lat == null) != (lng == null)) {
-            throw new IllegalArgumentException("lat과 lng는 함께 보내야 합니다.");
-        }
+    /** 사용자가 직접 누른 SOS. 발생 위치는 서비스가 sos_log에 따로 저장한다 */
+    public static EmergencyEvent sos(User user, EmergencySource source) {
         if (source == EmergencySource.SYSTEM) {
             throw new IllegalArgumentException("SOS의 source는 MOBILE 또는 WEARABLE이어야 합니다.");
         }
-        return new EmergencyEvent(user, EmergencyType.SOS, source, lat, lng);
+        return new EmergencyEvent(user, EmergencyType.SOS, source);
+    }
+
+    /**
+     * 워치 자동 감지(FALL / ABNORMAL_HEART_RATE). 경로 안내 중에만 만들 수 있고
+     * wearable·route·segment는 서버가 정한 값이다 (ck_emergency_auto_detect_context).
+     */
+    public static EmergencyEvent autoDetected(User user, EmergencyType type, Long wearableId, Long routeId,
+                                              Long segmentId) {
+        if (type == null || type == EmergencyType.SOS) {
+            throw new IllegalArgumentException("자동 감지 유형은 FALL 또는 ABNORMAL_HEART_RATE여야 합니다.");
+        }
+        if (wearableId == null || segmentId == null || routeId == null) {
+            throw new IllegalArgumentException("자동 감지 SOS에는 워치·경로·구간이 필요합니다.");
+        }
+        EmergencyEvent event = new EmergencyEvent(user, type, EmergencySource.WEARABLE);
+        event.wearableId = wearableId;
+        event.routeId = routeId;
+        event.segmentId = segmentId;
+        return event;
     }
 
     /** 사용자 또는 보호자가 종료. 누가 어떤 상태로 끝낼 수 있는지는 서비스가 검사한다. */
@@ -173,14 +178,6 @@ public class EmergencyEvent {
 
     public EmergencyStatus getStatus() {
         return status;
-    }
-
-    public Double getLat() {
-        return lat;
-    }
-
-    public Double getLng() {
-        return lng;
     }
 
     public OffsetDateTime getOccurredAt() {

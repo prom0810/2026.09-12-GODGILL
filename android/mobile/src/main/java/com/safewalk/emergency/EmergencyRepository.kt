@@ -32,6 +32,31 @@ class EmergencyRepository(context: Context) {
         }
     }
 
+    /**
+     * 워치 자동 감지 SOS (경로 안내 중에만). type = "FALL" 또는 "ABNORMAL_HEART_RATE".
+     * bpm = 워치가 감지할 때 잰 심박 (심박 이상이면 bpm_log 발생 당시 심박으로 저장됨).
+     * 워치·경로·구간은 서버가 정한다. 이미 열린 SOS가 있으면(409) 그 사건을 이어서 쓴다.
+     */
+    fun startAutoDetected(type: String, location: Location?, bpm: Int? = null): StartedEmergency {
+        val request = JSONObject().put("type", type).put("source", "WEARABLE")
+        bpm?.takeIf { it in 20..250 }?.let { request.put("bpm", it) }
+        location?.let {
+            request.put("lat", it.latitude)
+            request.put("lng", it.longitude)
+            if (it.hasAccuracy()) request.put("accuracy", it.accuracy.toDouble())
+        }
+        return try {
+            api.postObject("/api/emergencies", request).toStartedEmergency()
+        } catch (error: ApiClient.ApiException) {
+            val existingId = (error.responseData as? JSONObject)?.optLong("emergencyId")?.takeIf { it > 0L }
+            if (error.statusCode == 409 && existingId != null) {
+                StartedEmergency(existingId, "OCCURRED", 0, 0, recoveredExisting = true)
+            } else {
+                throw error
+            }
+        }
+    }
+
     fun active(): EmergencyDetail? = api.getObject("/api/emergencies/active")
         .takeIf { it.length() > 0 }
         ?.toEmergencyDetail()

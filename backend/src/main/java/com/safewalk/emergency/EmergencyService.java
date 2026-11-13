@@ -9,6 +9,9 @@ import com.safewalk.location.GpsLogService;
 import com.safewalk.notification.NotificationService;
 import com.safewalk.notification.NotificationType;
 import com.safewalk.notification.ReferenceType;
+import com.safewalk.sensor.SensorContextResolver;
+import com.safewalk.sensor.BpmLogWriter;
+import com.safewalk.sensor.SensorStreamService;
 import com.safewalk.user.User;
 import com.safewalk.user.UserService;
 import java.time.Duration;
@@ -38,6 +41,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  *  4. 사용자(RESOLVED/FALSE_ALARM/CANCELLED) 또는 보호자(RESOLVED)가 종료 → SSE 종료, 종료 알림
  *  5. 위치 끊김·자동 종료는 {@link EmergencyWatchdog}
  *
+ * 워치 감지 SOS (경로 안내 중)
+ *  - 워치가 낙상·심박 이상을 감지 → 폰 팝업 무응답 → type=FALL/ABNORMAL_HEART_RATE, source=WEARABLE로 시작.
+ *    wearable·route·segment는 서버가 정한다 ({@link SensorContextResolver})
+ *  - 심박 이상 SOS만: 시작 시 감지 당시 심박(bpm)을 Redis에 기록, SOS 동안 워치 심박을 받아 최신 값 갱신
+ *    ({@link SensorStreamService}), 종료 시 발생·종료 심박을 bpm_log에 저장 ({@link BpmLogWriter})
+ *  - 낙상은 사건 자체(emergency_event)만 기록하고 센서 값은 저장하지 않는다
+ *
  * 권한
  *  - 당사자(SELF): 자기 사건 전부
  *  - 보호자(GUARDIAN): 당사자의 보호자 행 중 내 계정과 CONNECTED인 것이 있을 때. 위치는 can_view_location=true일 때만
@@ -63,11 +73,16 @@ public class EmergencyService {
     private final LocationStore locationStore;
     private final EmergencySseHub sseHub;
     private final GpsLogService gpsLogService;
+    private final SensorContextResolver sensorContextResolver;
+    private final SensorStreamService sensorStreamService;
+    private final BpmLogWriter bpmLogWriter;
 
     public EmergencyService(EmergencyEventRepository eventRepository, EmergencyEventLogRepository logRepository,
                             GuardianRepository guardianRepository, UserService userService,
                             NotificationService notificationService, LocationStore locationStore,
-                            EmergencySseHub sseHub, GpsLogService gpsLogService) {
+                            EmergencySseHub sseHub, GpsLogService gpsLogService,
+                            SensorContextResolver sensorContextResolver, SensorStreamService sensorStreamService,
+                            BpmLogWriter bpmLogWriter) {
         this.eventRepository = eventRepository;
         this.logRepository = logRepository;
         this.guardianRepository = guardianRepository;
@@ -76,6 +91,9 @@ public class EmergencyService {
         this.locationStore = locationStore;
         this.sseHub = sseHub;
         this.gpsLogService = gpsLogService;
+        this.sensorContextResolver = sensorContextResolver;
+        this.sensorStreamService = sensorStreamService;
+        this.bpmLogWriter = bpmLogWriter;
     }
 
     // ── 1. 시작 ──────────────────────────────────────────────────────────
@@ -87,20 +105,23 @@ public class EmergencyService {
             throw new IllegalArgumentException("요청 본문이 없습니다.");
         }
         EmergencyType type = request.type() == null ? EmergencyType.SOS : request.type();
-        if (type != EmergencyType.SOS) {
-            throw new IllegalArgumentException("지금은 type=SOS만 지원합니다. (낙상·심박 감지는 웨어러블 기능 구현 후 지원)");
-        }
         if (request.source() == null || request.source() == EmergencySource.SYSTEM) {
             throw new IllegalArgumentException("source는 MOBILE 또는 WEARABLE이어야 합니다.");
         }
+        if (type != EmergencyType.SOS && request.source() != EmergencySource.WEARABLE) {
+            throw new IllegalArgumentException("낙상·심박 이상 SOS는 source=WEARABLE로 보내 주세요.");
+        }
         if (request.wearableId() != null || request.routeId() != null || request.segmentId() != null) {
-            throw new IllegalArgumentException("wearableId·routeId·segmentId는 아직 지원하지 않습니다. 빼고 보내 주세요.");
+            throw new IllegalArgumentException("wearableId·routeId·segmentId는 서버가 정합니다. 빼고 보내 주세요.");
         }
         if ((request.lat() == null) != (request.lng() == null)) {
             throw new IllegalArgumentException("lat과 lng는 함께 보내거나 둘 다 생략해야 합니다.");
         }
         if (request.lat() != null) {
             validateCoordinate(request.lat(), request.lng(), request.accuracy());
+        }
+        if (request.bpm() != null && (request.bpm() < 20 || request.bpm() > 250)) {
+            throw new IllegalArgumentException("bpm은 20~250 사이여야 합니다.");
         }
 
         // 같은 사용자의 SOS 시작 요청이 동시에 와도 하나씩 처리되게 사용자 행을 잠근다
@@ -111,10 +132,38 @@ public class EmergencyService {
                     throw new EmergencyAlreadyOpenException(open.getEmergencyId());
                 });
 
-        EmergencyEvent event = eventRepository.save(
-                EmergencyEvent.sos(user, request.source(), request.lat(), request.lng()));
+        EmergencyEvent event;
+        if (type == EmergencyType.SOS) {
+            event = EmergencyEvent.sos(user, request.source());
+        } else {
+            SensorContextResolver.Result ctx = sensorContextResolver.resolve(userId, request.lat(), request.lng());
+            if (ctx.context() == null) {
+                throw new EmergencyStateException(switch (ctx.missing()) {
+                    case NO_ROUTE -> "워치 감지 SOS는 경로 안내 중에만 보낼 수 있습니다.";
+                    case NO_WEARABLE -> "연결된 워치가 없습니다. 워치 연결을 확인해 주세요.";
+                    case NO_SEGMENT -> "진행 중 경로의 구간 정보가 없습니다.";
+                });
+            }
+            event = EmergencyEvent.autoDetected(user, type, ctx.context().wearableId(), ctx.context().routeId(),
+                    ctx.context().segmentId());
+        }
+        event = eventRepository.save(event);
         Long emergencyId = event.getEmergencyId();
-        log(event, EmergencyLogType.CREATED, request.source().name());
+        log(event, EmergencyLogType.CREATED,
+                type == EmergencyType.SOS ? request.source().name() : request.source().name() + " " + type.name());
+
+        // 심박 이상 SOS: 감지 당시 심박을 Redis에 기록 → 종료 때 bpm_log(발생·종료 심박)로 저장
+        if (type == EmergencyType.ABNORMAL_HEART_RATE) {
+            Integer startBpm = request.bpm();
+            long occurredAtMs = event.getOccurredAt().toInstant().toEpochMilli();
+            AfterCommit.run(() -> {
+                try {
+                    sensorStreamService.beginHeartRate(emergencyId, startBpm, occurredAtMs);
+                } catch (RuntimeException e) {
+                    LOGGER.warn("SOS 발생 당시 심박 기록 실패 (emergencyId={})", emergencyId, e);
+                }
+            });
+        }
 
         gpsLogService.backfillRecent(userId, emergencyId);
         // A concurrent upload can finish while the SOS transaction is committing.
@@ -145,10 +194,11 @@ public class EmergencyService {
             }
             notificationService.notify(g.getGuardianUser(), NotificationType.EMERGENCY, "EMERGENCY_STARTED",
                     "긴급 SOS",
-                    user.getName() + "님이 SOS를 요청했어요." + (shared ? " 지금 위치를 확인해 주세요." : ""),
+                    startedText(user.getName(), type) + (shared ? " 지금 위치를 확인해 주세요." : ""),
                     ReferenceType.EMERGENCY_EVENT, emergencyId,
                     Map.of("emergencyId", String.valueOf(emergencyId),
                             "wardName", user.getName(),
+                            "type", type.name(),
                             "locationShared", String.valueOf(shared)));
         }
         if (!connected.isEmpty()) {
@@ -157,7 +207,7 @@ public class EmergencyService {
 
         // 대표 보호자가 앱에 연결돼 있지 않으면 그 1명에게만 문자
         int sms = smsPrimaryGuardian(event,
-                "[안심동행] " + user.getName() + "님이 SOS를 요청했습니다. ("
+                "[안심동행] " + startedText(user.getName(), type) + " ("
                         + HH_MM.format(event.getOccurredAt().atZoneSameInstant(KOREA)) + ")");
 
         return new EmergencyResponses.Started(emergencyId, event.getStatus(), event.getOccurredAt(),
@@ -281,6 +331,7 @@ public class EmergencyService {
         Long emergencyId = event.getEmergencyId();
         User ward = event.getUser();
         EmergencySseHub.StatusEvent status = new EmergencySseHub.StatusEvent(event.getStatus(), event.getResolvedAt());
+        boolean heartRate = event.getType() == EmergencyType.ABNORMAL_HEART_RATE;
         AfterCommit.run(() -> {
             sseHub.publishStatusAndClose(emergencyId, status);
             locationStore.remove(emergencyId);
@@ -288,6 +339,14 @@ public class EmergencyService {
                 gpsLogService.closeEmergency(ward.getUserId(), emergencyId);
             } catch (RuntimeException e) {
                 LOGGER.warn("종료된 SOS 최신 위치 정리 실패 (emergencyId={})", emergencyId, e);
+            }
+            // 심박 이상 SOS: 발생 당시·종료 시 심박 → bpm_log
+            if (heartRate) {
+                try {
+                    bpmLogWriter.save(emergencyId);
+                } catch (RuntimeException e) {
+                    LOGGER.warn("bpm_log 저장 실패 (emergencyId={})", emergencyId, e);
+                }
             }
         });
 
@@ -404,14 +463,16 @@ public class EmergencyService {
         if (latest.isPresent()) {
             return latest;
         }
-        latest = gpsLogService.latestEmergency(event.getEmergencyId());
-        if (latest.isPresent() || event.getLat() == null) return latest;
-        return Optional.of(new LocationPoint(event.getLat(), event.getLng(), null, event.getOccurredAt()));
+        // sos_log에는 SOS 시작 위치도 들어 있으므로 별도의 발생 위치 대체값은 필요 없다
+        return gpsLogService.latestEmergency(event.getEmergencyId());
     }
 
     private EmergencyResponses.Detail detail(EmergencyEvent e, Access access) {
-        EmergencyResponses.InitialLocation initial = access.canViewLocation() && e.getLat() != null
-                ? new EmergencyResponses.InitialLocation(e.getLat(), e.getLng())
+        // 발생 위치 = sos_log의 SOS 세션('sos-{id}') 첫 위치 (emergency_event에는 위치가 없음, 2026-11-13)
+        EmergencyResponses.InitialLocation initial = access.canViewLocation()
+                ? gpsLogService.initialEmergency(e.getEmergencyId())
+                        .map(p -> new EmergencyResponses.InitialLocation(p.lat(), p.lng()))
+                        .orElse(null)
                 : null;
         EmergencyResponses.ResolvedBy resolvedBy = null;
         if (e.getResolvedBy() != null) {
@@ -447,6 +508,15 @@ public class EmergencyService {
         notificationService.sendSms(primary.get().getPhone(), text);
         log(event, EmergencyLogType.GUARDIAN_SMS_SENT, "대표 보호자 guardianId=" + primary.get().getGuardianId());
         return 1;
+    }
+
+    /** 시작 알림·문자 문구. 자동 감지면 무엇이 감지됐는지 알린다 */
+    private static String startedText(String name, EmergencyType type) {
+        return switch (type) {
+            case FALL -> name + "님의 워치에서 낙상이 감지되어 SOS가 시작됐어요.";
+            case ABNORMAL_HEART_RATE -> name + "님의 워치에서 심박 이상이 감지되어 SOS가 시작됐어요.";
+            default -> name + "님이 SOS를 요청했어요.";
+        };
     }
 
     private void log(EmergencyEvent event, EmergencyLogType type, String message) {

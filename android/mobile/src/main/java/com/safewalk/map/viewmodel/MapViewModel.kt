@@ -18,6 +18,7 @@ import com.safewalk.map.model.RouteGuidanceRepository
 import com.safewalk.map.model.MAX_ROUTE_POINTS
 import com.safewalk.map.model.SearchHistoryItem
 import com.safewalk.map.model.SearchHistoryStore
+import com.safewalk.watch.GuidanceStore
 import com.safewalk.watch.WatchConnectionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -335,6 +336,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     showMessage(R.string.route_guidance_started, startName, endName)
                     if (started.cancelledRouteId != null) showMessage(R.string.route_guidance_replaced)
+                    // 안내 중에만 워치 이상 감지(낙상·심박) 팝업을 띄운다
+                    GuidanceStore.set(getApplication<Application>(), started.routeId)
                 }
                 .onFailure { error ->
                     setGuidanceBusy(false)
@@ -386,6 +389,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.update {
                         it.copy(route = it.route.copy(guidance = GuidanceState(active.routeId, startName, endName)))
                     }
+                    GuidanceStore.set(getApplication<Application>(), active.routeId)
                     showMessage(R.string.route_guidance_restored, startName, endName)
                 }
             // 복원 실패(오프라인 등)는 조용히 넘어간다. 서버가 6시간 뒤 자동 취소한다.
@@ -397,6 +401,9 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun clearGuidance(routeId: Long) {
+        if (GuidanceStore.activeRouteId(getApplication<Application>()) == routeId) {
+            GuidanceStore.clear(getApplication<Application>())
+        }
         _uiState.update {
             if (it.route.guidance?.routeId == routeId) {
                 it.copy(route = it.route.copy(guidance = null, guidanceBusy = false))

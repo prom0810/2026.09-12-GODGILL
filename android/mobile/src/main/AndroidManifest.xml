@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 워치 이상 감지 팝업을 잠금 화면 위 전체 화면으로 띄움 (SensorAlertActivity) -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
@@ -37,6 +39,13 @@
         <activity android:name=".notification.view.NotificationActivity" android:exported="false" />
         <activity android:name=".mypage.view.MyActivity" android:exported="false" />
         <activity android:name=".guardian.GuardianActivity" android:exported="false" />
+        <activity
+            android:name=".watch.SensorAlertActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
         <!-- 워치(com.safewalk, 같은 서명)에서 오는 /safewalk/* 메시지 수신 -->
         <service android:name=".watch.WatchMessageService" android:exported="true">

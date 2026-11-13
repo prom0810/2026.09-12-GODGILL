@@ -61,8 +61,9 @@ INSERT INTO motion_record (user_id, wearable_id, segment_id, start_distance, end
                            avg_acceleration, max_acceleration, avg_gyro, max_gyro, sample_count, started_at, ended_at)
 VALUES (2, 1, 1, 0, 100, 9.92, 13.41, 0.32, 1.18, 1180, now() - interval '2 min', now());
 
-INSERT INTO emergency_event (emergency_id, user_id, type, source, lat, lng)
-VALUES (1, 2, 'SOS', 'MOBILE', 36.8095, 127.1462);
+INSERT INTO emergency_event (emergency_id, user_id, type, source)
+VALUES (1, 2, 'SOS', 'MOBILE');
+INSERT INTO bpm_log (emergency_id, bpm_start, bpm_end) VALUES (1, 128, 96);
 INSERT INTO emergency_event_log (emergency_id, event_type, message) VALUES (1, 'CREATED', 'SOS 버튼');
 UPDATE emergency_event SET status = 'RESOLVED', resolved_at = now() WHERE emergency_id = 1;
 INSERT INTO emergency_event (emergency_id, user_id, wearable_id, route_id, segment_id, type, source)
@@ -147,8 +148,10 @@ DO $do$ BEGIN
       $q$INSERT INTO emergency_event (user_id, type, source) VALUES (2, 'SOS', 'MOBILE')$q$);
     PERFORM pg_temp.expect_error('emergency: 종료 상태인데 종료 시각 없음', 'ck_emergency_resolved_when_closed',
       $q$UPDATE emergency_event SET status = 'RESOLVED' WHERE emergency_id = 2$q$);
-    PERFORM pg_temp.expect_error('emergency: 위도만 있고 경도 없음', 'ck_emergency_lat_lng_pair',
-      $q$INSERT INTO emergency_event (user_id, type, source, lat) VALUES (1, 'SOS', 'MOBILE', 36.8)$q$);
+    PERFORM pg_temp.expect_error('bpm_log: 같은 사건에 두 번 저장', 'uq_bpm_log_emergency',
+      $q$INSERT INTO bpm_log (emergency_id, bpm_start, bpm_end) VALUES (1, 120, 90)$q$);
+    PERFORM pg_temp.expect_error('bpm_log: 심박 0', 'ck_bpm_log_bpm',
+      $q$INSERT INTO bpm_log (emergency_id, bpm_start, bpm_end) VALUES (2, 0, 90)$q$);
 
     PERFORM pg_temp.expect_error('risk_report: 승인인데 위험구역 없음', 'ck_risk_report_area_when_approved',
       $q$INSERT INTO risk_report (user_id, risk_type, lat, lng, status) VALUES (1, 'DARK_ROAD', 36.8, 127.1, 'APPROVED')$q$);
