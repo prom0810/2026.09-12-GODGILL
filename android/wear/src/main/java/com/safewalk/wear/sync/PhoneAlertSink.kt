@@ -31,6 +31,8 @@ object PhoneAlertSink : AlertSink {
             .put("timeMs", rec.timeMs)
             .put("bpm", rec.bpm ?: JSONObject.NULL)
             .put("outcome", rec.outcome)
+            // 워치 카운트다운 길이(초). 폰 팝업이 같은 시간을 보여 주고, 확정 메시지가 안 오면 이 시간 뒤 SOS를 보낸다
+            .put("seconds", if (rec.auto) Settings.autoSeconds else com.safewalk.wear.sos.SosManager.MANUAL_SECONDS)
             .toString()
         PhoneLink.send(context, Protocol.PATH_EVENT, json)
         if (rec.outcome == "CONFIRMED") PhoneLink.send(context, Protocol.PATH_ALERT, json)

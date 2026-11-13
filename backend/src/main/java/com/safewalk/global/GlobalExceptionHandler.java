@@ -15,6 +15,7 @@ import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
 import com.safewalk.route.RouteNotFoundException;
 import com.safewalk.route.RouteStateException;
+import com.safewalk.sensor.SensorStreamException;
 import com.safewalk.wearable.WearableConnectionException;
 import com.safewalk.wearable.WearableNotFoundException;
 import com.safewalk.storage.ImageStorageException;
@@ -203,6 +204,15 @@ public class GlobalExceptionHandler {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("reason", e.getReason().name());
         data.put("currentWearable", e.getCurrentWearable());
+        return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON)
+                .body(new ApiResponse<>(false, data, e.getMessage()));
+    }
+
+    /** 센서 배치를 받을 수 없음 → 409 + data { reason }. 앱은 워치 스트리밍을 멈춘다 */
+    @ExceptionHandler(SensorStreamException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleSensorStream(SensorStreamException e) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("reason", e.getReason().name());
         return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON)
                 .body(new ApiResponse<>(false, data, e.getMessage()));
     }

@@ -190,6 +190,8 @@ class EmergencyLocationService : Service() {
 
         fun stop(context: Context, emergencyId: Long? = null) {
             EmergencySessionStore(context).clear(emergencyId)
+            // 심박 이상 SOS면 워치 센서 전송도 멈춘다 (서버도 SOS가 끝나면 409로 알려 준다)
+            com.safewalk.watch.SensorStreamRelay.stop(context)
             context.stopService(Intent(context, EmergencyLocationService::class.java))
         }
     }

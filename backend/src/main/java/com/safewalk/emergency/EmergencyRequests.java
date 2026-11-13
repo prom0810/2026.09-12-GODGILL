@@ -12,10 +12,12 @@ public final class EmergencyRequests {
      * POST /api/emergencies
      * { "type": "SOS", "source": "MOBILE", "lat": 36.81, "lng": 127.14, "accuracy": 12.5 }
      * type 생략 시 SOS. lat/lng는 GPS를 못 잡았으면 둘 다 생략.
-     * wearableId·routeId·segmentId는 웨어러블·경로 기능 구현 후 받는다 (지금 보내면 400).
+     * wearableId·routeId·segmentId는 서버가 정한다 (보내면 400).
+     * 워치 감지: { "type": "FALL" | "ABNORMAL_HEART_RATE", "source": "WEARABLE", lat, lng, "bpm": 132 }
+     *   bpm = 워치가 감지할 때 잰 심박(20~250, 선택). 심박 이상 SOS면 bpm_log.bpm_start로 저장된다
      */
     public record Start(EmergencyType type, EmergencySource source, Double lat, Double lng, Double accuracy,
-                        Long wearableId, Long routeId, Long segmentId) {
+                        Long wearableId, Long routeId, Long segmentId, Integer bpm) {
     }
 
     /**
