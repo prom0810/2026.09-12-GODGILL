@@ -38,11 +38,8 @@ object RouteSafetyScorer {
     )
 
     private const val CCTV_BOOST_RADIUS_M = 150.0
-    private const val CCTV_BOOST_AMOUNT = 0.15
     private const val SECURITY_LIGHT_BOOST_RADIUS_M = 100.0
-    private const val SECURITY_LIGHT_BOOST_AMOUNT = 0.10
     private const val FACILITY_BOOST_RADIUS_M = 150.0
-    private const val FACILITY_BOOST_AMOUNT = 0.15
 
     /**
      * 구간 점수 계산 결과와 그 내역.
@@ -69,7 +66,8 @@ object RouteSafetyScorer {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
-    ): Double = score(midLat, midLon, cctvSites, securityLightSites, facilities).raw
+        weights: RouteSafetyWeights = RouteSafetyWeights.DEFAULT,
+    ): Double = score(midLat, midLon, cctvSites, securityLightSites, facilities, weights).raw
 
     /** [rawSafetyScore]와 같은 계산을 하면서, 감점·시설별 보너스 내역도 함께 돌려준다. */
     fun score(
@@ -78,6 +76,7 @@ object RouteSafetyScorer {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
+        weights: RouteSafetyWeights = RouteSafetyWeights.DEFAULT,
     ): ScoreBreakdown {
         var riskPenalty = 0.0
         for (zone in dangerZones) {
@@ -99,7 +98,7 @@ object RouteSafetyScorer {
                     lon = site.longitude,
                     quantity = site.cameraCount.coerceAtLeast(1),
                     distanceMeters = nearest,
-                    appliedScore = CCTV_BOOST_AMOUNT * (1.0 - nearest / CCTV_BOOST_RADIUS_M),
+                    appliedScore = weights.bonus("CCTV") * (1.0 - nearest / CCTV_BOOST_RADIUS_M),
                 )
             }
         }
@@ -113,12 +112,15 @@ object RouteSafetyScorer {
                     lon = site.longitude,
                     quantity = site.lightCount.coerceAtLeast(1),
                     distanceMeters = nearest,
-                    appliedScore = SECURITY_LIGHT_BOOST_AMOUNT * (1.0 - nearest / SECURITY_LIGHT_BOOST_RADIUS_M),
+                    appliedScore = weights.bonus("STREET_LIGHT") * (1.0 - nearest / SECURITY_LIGHT_BOOST_RADIUS_M),
                 )
             }
         }
 
-        facilities.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { facility ->
+        // 시설 종류마다 가장 가까운 1곳을 평가한다. 가까운 편의점 때문에 경찰시설이 누락되지 않게 한다.
+        for (sameType in facilities.groupBy { it.type }.values) {
+            val facility = sameType.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }
+                ?: continue
             val nearest = haversineMeters(midLat, midLon, facility.latitude, facility.longitude)
             if (nearest < FACILITY_BOOST_RADIUS_M) {
                 applied += AppliedFacility(
@@ -127,7 +129,7 @@ object RouteSafetyScorer {
                     lon = facility.longitude,
                     quantity = 1,
                     distanceMeters = nearest,
-                    appliedScore = FACILITY_BOOST_AMOUNT * (1.0 - nearest / FACILITY_BOOST_RADIUS_M),
+                    appliedScore = weights.bonus(facility.type.serverCode()) * (1.0 - nearest / FACILITY_BOOST_RADIUS_M),
                 )
             }
         }

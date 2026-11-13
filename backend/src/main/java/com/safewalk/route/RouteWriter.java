@@ -43,8 +43,8 @@ public class RouteWriter {
 
     private static final String INSERT_ROUTE = """
             INSERT INTO route (route_id, user_id, user_type_id, total_distance, estimated_time, safety_score,
-                               status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?)
+                               status, created_at, safety_age_band)
+            VALUES (?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?, ?)
             """;
 
     private static final String INSERT_POINT = """
@@ -70,12 +70,14 @@ public class RouteWriter {
     }
 
     /** @return 새 route_id */
-    public long insert(long userId, long userTypeId, RouteDraft draft, OffsetDateTime createdAt) {
+    public long insert(long userId, long userTypeId, RouteDraft draft, OffsetDateTime createdAt,
+                       RouteAgeBand safetyAgeBand) {
         AllocatedIds ids = allocate(draft.points().size(), draft.segments().size(), draft.facilityCount());
         long routeId = ids.route;
 
         jdbc.update(INSERT_ROUTE, routeId, userId, userTypeId, draft.totalDistance(), draft.estimatedTime(),
-                draft.safetyScore(), Timestamp.from(createdAt.toInstant()));
+                draft.safetyScore(), Timestamp.from(createdAt.toInstant()),
+                safetyAgeBand == null ? null : safetyAgeBand.name());
 
         List<RouteDraft.PointRow> points = draft.points();
         long[] pointIds = ids.points;

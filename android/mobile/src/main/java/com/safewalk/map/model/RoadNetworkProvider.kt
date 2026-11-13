@@ -21,12 +21,19 @@ internal class RoadNetworkProvider(
     }
 
     @Throws(IOException::class)
+    fun buildGraph(
+        cctvSites: List<CctvSite>,
+        securityLightSites: List<SecurityLightSite>,
+        facilities: List<Facility>,
+    ): RouteGraph = buildGraph(cctvSites, securityLightSites, facilities, RouteSafetyWeights.DEFAULT)
+
     override fun buildGraph(
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
+        weights: RouteSafetyWeights,
     ): RouteGraph {
-        val safetyData = RouteSafetyData(cctvSites, securityLightSites, facilities)
+        val safetyData = RouteSafetyData(cctvSites, securityLightSites, facilities, weights)
         val query = buildOverpassQuery()
         val startedAt = clock.nowMillis()
         var lastError: IOException? = null
@@ -99,4 +106,5 @@ internal data class RouteSafetyData(
     val cctvSites: List<CctvSite>,
     val securityLightSites: List<SecurityLightSite>,
     val facilities: List<Facility>,
+    val weights: RouteSafetyWeights = RouteSafetyWeights.DEFAULT,
 )

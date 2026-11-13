@@ -1,5 +1,17 @@
 # GODGILL DB 스키마 v3 (2026-10-15, 2026-10-26·2026-11-11 갱신)
 
+## 경로 연령대별 가중치 (2026-11-13)
+
+기존 DB에는 백엔드 배포 전에 `09_route_age_weights.sql`을 실행한다. `08_sos_location_log.sql`과 별개이며, 데이터 삭제 없이 `users.birth_date`, `route.safety_age_band`, `route_facility_weight`를 추가한다. 여러 번 실행해도 이미 조정한 가중치를 덮어쓰지 않는다.
+
+- 빈 DB: `01_full_schema.sql` → `03_seed_base.sql` → (선택) `04_enable_rls.sql`.
+- 기존 v3 DB: `09_route_age_weights.sql` → 백엔드·앱 배포.
+- v1에서 처음 이전: `02_migrate_supabase_v1_to_v3.sql` → `09_route_age_weights.sql` → `03_seed_base.sql` → (선택) `04_enable_rls.sql`.
+
+경로 가중치는 `UNDER_14`(만 14세 미만), `AGE_14_PLUS`(만 14세 이상)의 두 종류다. 서버가 한국 날짜와 생년월일로 계산하며, `ADULT/MINOR` 회원 유형 및 그 보호자 규칙은 독립적으로 유지한다. 기존 계정의 생년월일과 기존 경로의 연령대는 알 수 없으므로 NULL로 남긴다.
+
+API·앱 흐름과 초기 가중치는 [경로 연령 가중치 설명](route-age-weights.md)을 참고한다.
+
 ## SOS 위치 로그 (2026-11-12)
 
 기존 PostgreSQL DB에는 백엔드 배포 전에 `08_sos_location_log.sql`을 실행한다. 빈 DB를 `01_full_schema.sql`로 새로 만들면 `sos_log`가 포함되어 있으므로 `08`은 필요하지 않다. 이미 `sos_log`가 있는 DB에도 `08`은 누락된 기록 시각, 세션 ID, 정확도 컬럼과 인덱스를 추가한다.
@@ -11,7 +23,7 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 
 | 파일 | 용도 |
 |---|---|
-| `01_full_schema.sql` | 빈 DB에 21개 테이블을 처음부터 생성 (기준 스키마, 2026-10-26·2026-11-11 변경 포함) |
+| `01_full_schema.sql` | 빈 DB에 23개 테이블을 처음부터 생성 (SOS 위치 기록·경로 연령대별 가중치 포함) |
 | `02_migrate_supabase_v1_to_v3.sql` | 지금 Supabase(v1 테이블 10개)를 v3로 변경 |
 | `03_seed_base.sql` | 사용자 유형(ADULT/MINOR), 시설 유형 코드 입력. 여러 번 실행해도 안전 |
 | `04_enable_rls.sql` | (선택) Supabase REST API로 테이블을 읽지 못하게 RLS 켜기 |
@@ -19,12 +31,13 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 | `06_backfill_primary_guardian.sql` | 기존 사용자에게 대표 보호자 지정 (2026-10-20, 1회) |
 | `07_emergency_sos_20261026.sql` | SOS 기능용 컬럼·CHECK 추가 (2026-10-26, Supabase 적용 완료, 기록용) |
 | `08_wearable_connection_20261111.sql` | 워치 연결 인덱스·컬럼 설명 (2026-11-11, **Supabase 적용 필요**) |
+| `09_route_age_weights.sql` | 생년월일, 경로 연령대 스냅샷, 14세 기준 시설 가중치 추가 (기존 DB 배포 전 실행) |
 | `build/` | `02`를 `01`에서 생성하는 스크립트. `01`의 CREATE 문을 고치면 다시 실행 |
 
 ## Supabase 적용 순서
 
 1. Supabase 대시보드에서 백업이 있는지 확인합니다.
-2. SQL Editor에서 `02_migrate_supabase_v1_to_v3.sql` 실행
+2. SQL Editor에서 `02_migrate_supabase_v1_to_v3.sql` 실행 후 `09_route_age_weights.sql` 실행
    - `route`, `route_point`, `route_segment`, `safety_facility`, `segment_facility`에 데이터가 있으면 아무것도 바꾸지 않고 중단합니다.
    - 새로 만들 테이블이 이미 있어도 중단합니다.
    - 한 트랜잭션이라 중간에 실패하면 전부 취소됩니다.

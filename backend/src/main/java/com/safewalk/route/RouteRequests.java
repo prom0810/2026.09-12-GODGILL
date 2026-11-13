@@ -29,7 +29,11 @@ public final class RouteRequests {
      * </pre>
      * 거리(구간·총거리)는 서버가 좌표로 계산하므로 보내지 않는다. name·address는 첫/마지막 지점에만 저장한다.
      */
-    public record Start(Integer estimatedTime, Double safetyScore, List<Point> points, List<Segment> segments) {
+    public record Start(Integer estimatedTime, Double safetyScore, List<Point> points, List<Segment> segments,
+                        RouteAgeBand safetyAgeBand) {
+        public Start(Integer estimatedTime, Double safetyScore, List<Point> points, List<Segment> segments) {
+            this(estimatedTime, safetyScore, points, segments, null);
+        }
     }
 
     public record Point(Double lat, Double lng, String name, String address) {

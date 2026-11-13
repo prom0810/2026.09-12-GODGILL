@@ -2,6 +2,7 @@ package com.safewalk.auth;
 
 import com.safewalk.guardian.GuardianRequest;
 import java.util.List;
+import java.time.LocalDate;
 
 /**
  * 회원가입 요청.
@@ -23,8 +24,15 @@ public record SignupRequest(
         String name,
         String phone,
         String userType,
-        List<GuardianRequest> guardians
+        List<GuardianRequest> guardians,
+        LocalDate birthDate
 ) {
+
+    /** 이전 클라이언트는 경로 계산 전에 생년월일을 추가 등록한다. */
+    public SignupRequest(String email, String password, String name, String phone,
+                         String userType, List<GuardianRequest> guardians) {
+        this(email, password, name, phone, userType, guardians, null);
+    }
 
     public SignupRequest {
         email = email == null ? "" : email;

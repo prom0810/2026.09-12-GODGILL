@@ -19,7 +19,8 @@ INSERT INTO safety_facility_type (type_name, description) VALUES
     ('STREET_LIGHT',   '가로등')
 ON CONFLICT (type_name) DO NOTHING;
 
--- 가중치(facility_type_weight)는 알고리즘 확정 후 입력합니다.
+-- 기존 회원 유형별 facility_type_weight는 현재 경로 계산에서 사용하지 않는다.
+-- 실제 경로 연령대별 가중치는 아래 route_facility_weight에 입력한다.
 -- 예시 (ERD 메모의 임시값, 확정 아님):
 -- INSERT INTO facility_type_weight (facility_type_id, user_type_id, weight)
 -- SELECT f.facility_type_id, u.user_type_id, w.weight
@@ -27,5 +28,16 @@ ON CONFLICT (type_name) DO NOTHING;
 -- JOIN safety_facility_type f ON f.type_name = w.type_name
 -- CROSS JOIN user_type u
 -- ON CONFLICT (facility_type_id, user_type_id) DO UPDATE SET weight = EXCLUDED.weight;
+
+-- 경로 가중치 초기값. 기존 회원 유형별 facility_type_weight와 별개로 사용한다.
+-- 수치는 서비스 초기 설정이며, 재실행해도 조정된 값을 덮어쓰지 않는다.
+INSERT INTO route_facility_weight (age_band, facility_type, weight) VALUES
+    ('UNDER_14', 'CCTV', 0.20), ('UNDER_14', 'STREET_LIGHT', 0.20),
+    ('UNDER_14', 'POLICE', 0.30), ('UNDER_14', 'EMERGENCY_BELL', 0.25),
+    ('UNDER_14', 'CONVENIENCE_STORE', 0.15), ('UNDER_14', 'FIRE_STATION', 0.20),
+    ('AGE_14_PLUS', 'CCTV', 0.15), ('AGE_14_PLUS', 'STREET_LIGHT', 0.10),
+    ('AGE_14_PLUS', 'POLICE', 0.15), ('AGE_14_PLUS', 'EMERGENCY_BELL', 0.15),
+    ('AGE_14_PLUS', 'CONVENIENCE_STORE', 0.15), ('AGE_14_PLUS', 'FIRE_STATION', 0.15)
+ON CONFLICT (age_band, facility_type) DO NOTHING;
 
 COMMIT;

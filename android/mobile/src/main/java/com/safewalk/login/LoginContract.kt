@@ -1,5 +1,7 @@
 package com.safewalk.login
 
+import com.safewalk.auth.BirthDates
+
 enum class AuthStep { LOGIN, SIGN_UP, TERMS, USER_TYPE, PERMISSIONS }
 
 enum class UserType { CHILD, GUARDIAN, COMPANION, ADULT, MINOR }
@@ -12,6 +14,7 @@ data class LoginUiState(
     val signUpEmail: String = "",
     val signUpPassword: String = "",
     val phoneNumber: String = "",
+    val birthDate: String = "",
     val guardianName: String = "",
     val guardianPhone: String = "",
     val agreedToTerms: Boolean = false,
@@ -31,7 +34,10 @@ data class LoginUiState(
         get() = name.isNotBlank() &&
             signUpEmail.isNotBlank() &&
             signUpPassword.isNotBlank() &&
-            phoneNumber.isNotBlank()
+            phoneNumber.isNotBlank() && BirthDates.parse(birthDate) != null
+
+    val requiresGuardian: Boolean
+        get() = userType == UserType.CHILD || BirthDates.isMinor(birthDate)
 
     val canContinueTerms: Boolean
         get() = agreedToTerms && agreedToPrivacy
@@ -41,13 +47,14 @@ data class LoginUiState(
 
     val canContinueUserType: Boolean
         get() = userType != null &&
-            (userType != UserType.CHILD || (guardianName.isNotBlank() && guardianPhone.isNotBlank()))
+            (!requiresGuardian || (guardianName.isNotBlank() && guardianPhone.isNotBlank()))
 
     fun toLoginRequest() = LoginRequest(loginEmail.trim(), loginPassword)
 
     fun toSignUpRequest() = SignUpRequest(
         name.trim(), signUpEmail.trim(), signUpPassword, phoneNumber.trim(), requireNotNull(userType),
         guardianName.trim(), guardianPhone.trim(),
+        birthDate,
     )
 }
 
@@ -62,4 +69,5 @@ data class SignUpRequest(
     val userType: UserType,
     val guardianName: String,
     val guardianPhone: String,
+    val birthDate: String,
 )

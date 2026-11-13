@@ -1,6 +1,7 @@
 package com.safewalk.user;
 
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 
 /** 내 정보 응답. 비밀번호(해시 포함)는 절대 포함하지 않는다. */
 public record UserResponse(
@@ -9,7 +10,8 @@ public record UserResponse(
         String email,
         String phone,
         String userType,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        LocalDate birthDate
 ) {
 
     /** user.getUserType()이 LAZY 로딩이므로 트랜잭션 안에서 호출해야 한다. */
@@ -20,7 +22,8 @@ public record UserResponse(
                 user.getEmail(),
                 user.getPhone(),
                 user.getUserType().getTypeName(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                user.getBirthDate()
         );
     }
 }

@@ -59,6 +59,7 @@ internal class OverpassGraphParser {
                 cctvSites = safetyData.cctvSites,
                 securityLightSites = safetyData.securityLightSites,
                 facilities = safetyData.facilities,
+                weights = safetyData.weights,
             )
             rawEdges += RawEdge(fromId, toId, distance, breakdown)
         }

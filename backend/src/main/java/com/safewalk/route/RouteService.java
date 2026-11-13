@@ -59,6 +59,11 @@ public class RouteService {
         // 같은 사용자의 안내 시작이 동시에 와도 하나씩 처리되게 사용자 행을 잠근다
         User user = userService.getActiveUserForUpdate(userId);
 
+        if (request.safetyAgeBand() != null && (user.getBirthDate() == null
+                || request.safetyAgeBand() != RouteAgeBand.from(user.getBirthDate(), RouteAgeBand.today()))) {
+            throw new IllegalArgumentException("연령 정보가 변경되었습니다. 경로를 다시 계산해 주세요.");
+        }
+
         Long cancelledRouteId = null;
         for (Route open : routeRepository.findByUser_UserIdAndStatusOrderByCreatedAtDesc(userId, RouteStatus.IN_PROGRESS)) {
             open.cancel();
@@ -68,7 +73,8 @@ public class RouteService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        long routeId = routeWriter.insert(userId, user.getUserType().getUserTypeId(), draft, now);
+        long routeId = routeWriter.insert(userId, user.getUserType().getUserTypeId(), draft, now,
+                request.safetyAgeBand());
         return new RouteResponses.Started(
                 routeId,
                 RouteStatus.IN_PROGRESS.name(),

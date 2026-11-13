@@ -18,9 +18,10 @@ class AuthRepository(
         phone: String,
         userType: String,
         guardians: List<GuardianSignupApiRequest> = emptyList(),
+        birthDate: String? = null,
     ): AuthApiResult {
         val result = api.signup(
-            SignupApiRequest(email, password, name, phone, userType, guardians),
+            SignupApiRequest(email, password, name, phone, userType, guardians, birthDate),
         )
         tokenStore.save(result)
         return result
