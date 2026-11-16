@@ -186,8 +186,10 @@ object SensorAlertCoordinator {
 
     /** 현재 위치 (최대 5초), 실패하면 마지막으로 알려진 위치, 권한이 없으면 null */
     private fun currentLocation(app: Context): Location? {
-        val granted = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            .any { ContextCompat.checkSelfPermission(app, it) == PackageManager.PERMISSION_GRANTED }
+        val granted = ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
         if (!granted) return null
         val current: Location? = try {
             Tasks.await(
@@ -201,10 +203,22 @@ object SensorAlertCoordinator {
         return current ?: lastKnown(app)
     }
 
+    /** 마지막으로 알려진 위치. lint(MissingPermission) 때문에 이 함수 안에서도 권한을 확인하고 SecurityException을 직접 잡는다 */
     private fun lastKnown(app: Context): Location? {
+        val granted = ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) return null
         val lm = app.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
         return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+            .mapNotNull { provider ->
+                try {
+                    lm.getLastKnownLocation(provider)
+                } catch (_: SecurityException) {
+                    null   // 권한이 그 사이 회수된 경우
+                }
+            }
             .maxByOrNull { it.time }
     }
 
