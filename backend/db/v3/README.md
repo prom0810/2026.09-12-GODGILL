@@ -7,11 +7,11 @@
 평상시 위치 공유 이력은 Redis의 최근 60분 세션 트랙에 저장된다. SOS가 시작되면 해당 사용자의 Redis 최근 기록과 최신 위치를 `sos_log`에 복사하고, SOS 중 새 위치 기록은 PostgreSQL에 직접 저장한다. Redis에는 실시간 조회용 최신 위치만 유지한다. `sos_log`는 `emergency_id`, `session_id`, `recorded_at` 조합으로 중복 적재를 방지한다.
 
 ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
-로컬 PostgreSQL 16에서 아래 두 경로를 모두 실행했고, 결과 스키마가 서로 같다는 것과 `05_constraint_tests.sql`의 34개 검사가 통과하는 것을 확인했습니다.
+로컬 PostgreSQL 16에서 아래 두 경로를 모두 실행했고, 결과 스키마가 서로 같다는 것과 `05_constraint_tests.sql`의 35개 검사가 통과하는 것을 확인했습니다 (2026-11-13 갱신).
 
 | 파일 | 용도 |
 |---|---|
-| `01_full_schema.sql` | 빈 DB에 21개 테이블을 처음부터 생성 (기준 스키마, 2026-10-26·2026-11-11 변경 포함) |
+| `01_full_schema.sql` | 빈 DB에 22개 테이블을 처음부터 생성 (기준 스키마, 2026-10-26·2026-11-11·2026-11-13 변경 포함) |
 | `02_migrate_supabase_v1_to_v3.sql` | 지금 Supabase(v1 테이블 10개)를 v3로 변경 |
 | `03_seed_base.sql` | 사용자 유형(ADULT/MINOR), 시설 유형 코드 입력. 여러 번 실행해도 안전 |
 | `04_enable_rls.sql` | (선택) Supabase REST API로 테이블을 읽지 못하게 RLS 켜기 |
@@ -19,6 +19,7 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 | `06_backfill_primary_guardian.sql` | 기존 사용자에게 대표 보호자 지정 (2026-10-20, 1회) |
 | `07_emergency_sos_20261026.sql` | SOS 기능용 컬럼·CHECK 추가 (2026-10-26, Supabase 적용 완료, 기록용) |
 | `08_wearable_connection_20261111.sql` | 워치 연결 인덱스·컬럼 설명 (2026-11-11, **Supabase 적용 필요**) |
+| `09_erd_20261113.sql` | ERD 변경: `bpm_log` 추가, `emergency_event.lat/lng` → `sos_log` 이동 후 삭제 (2026-11-13, **Supabase 적용 필요 · 백엔드와 함께**) |
 | `build/` | `02`를 `01`에서 생성하는 스크립트. `01`의 CREATE 문을 고치면 다시 실행 |
 
 ## Supabase 적용 순서
@@ -58,3 +59,13 @@ python3 build/build_migration.py .
 - **Supabase 적용:** SQL Editor에서 `08_wearable_connection_20261111.sql` 실행 → 백엔드 재시작.
   같은 워치가 여러 계정에서 연결 중으로 남아 있으면 가장 최근 것만 남기고 해제한 뒤 인덱스를 만든다. 여러 번 실행해도 안전.
 - 이전 워치 앱(설치 UUID)으로 등록한 테스트 기기는 ANDROID_ID와 값이 달라 새 기기로 보인다 → 앱에서 삭제 후 다시 등록.
+
+## 2026-11-13 변경 (SOS 심박 기록, SOS 위치 → sos_log)
+
+- `bpm_log` 추가: 심박 이상 SOS(`emergency_event.type = ABNORMAL_HEART_RATE`)의 발생 당시(`bpm_start`)·종료 시(`bpm_end`) 심박. 사건당 1행(`uq_bpm_log_emergency`), SOS 종료 때 백엔드가 저장.
+- 낙상 SOS·직접 누른 SOS는 센서 값을 저장하지 않는다. `heart_rate_record`, `motion_record`는 용도 미정으로 보류(테이블은 남겨 둠, 백엔드가 쓰지 않음).
+- ERD 그림의 PK 이름 `sos_log_id`는 `sos_log` 표에서 복사된 것으로 보고 `bpm_log_id`로 만들었다. 팀이 이미 다른 이름으로 만들었다면 그대로 써도 백엔드는 PK 이름을 쓰지 않아 영향 없음.
+- `emergency_event.lat/lng` 삭제: SOS 위치는 `sos_log`(main의 `08_sos_location_log.sql`, 팀원 #40)에만 둔다. 삭제 전에 sos_log에 위치가 없는 사건의 발생 위치를 `session_id = 'sos-' || emergency_id`, `recorded_at = occurred_at`으로 옮긴다. `01`의 emergency_event에서도 lat/lng·관련 CHECK를 뺐고, `05`의 lat/lng 검사를 bpm_log 검사 2개로 바꿨다.
+- **Supabase 적용:** SQL Editor에서 `09_erd_20261113.sql` 실행 (한 트랜잭션, 여러 번 실행해도 안전, sos_log가 없으면 아무것도 바꾸지 않고 중단).
+- 백엔드(`feature/backend/watch-sos-bpm`)는 lat/lng 매핑을 뺐다: 발생 위치는 sos_log의 `sos-{id}` 세션 첫 위치, 진행 중 위치 대체값은 sos_log 최신 위치.
+- **주의:** lat/lng를 매핑하는 이전 백엔드(현재 main)는 `09` 적용 후 `ddl-auto=validate`에서 시작에 실패한다. 이 브랜치 백엔드로 실행할 것.

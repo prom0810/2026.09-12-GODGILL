@@ -45,6 +45,29 @@ object ApiClient {
     fun delete(path: String, body: JSONObject? = null, accessToken: String? = null): Any? =
         request("DELETE", path, body, accessToken)
 
+    /** 바이너리 본문 POST (application/octet-stream). 워치 센서 배치(gzip)를 그대로 올릴 때 쓴다 */
+    fun postBytes(path: String, bytes: ByteArray, accessToken: String? = null): Any? {
+        val normalizedPath = if (path.startsWith('/')) path else "/$path"
+        val connection = URL(baseUrl + normalizedPath).openConnection(Proxy.NO_PROXY) as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 15_000
+            connection.doOutput = true
+            connection.setFixedLengthStreamingMode(bytes.size)
+            connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("Content-Type", "application/octet-stream")
+            connection.setRequestProperty("ngrok-skip-browser-warning", "true")
+            if (!accessToken.isNullOrBlank()) {
+                connection.setRequestProperty("Authorization", "Bearer $accessToken")
+            }
+            connection.outputStream.use { it.write(bytes) }
+            return readResponse(connection)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     data class MultipartPart(
         val fieldName: String,
         val fileName: String,
@@ -170,6 +193,7 @@ class AuthenticatedApiClient(context: Context) {
         execute { ApiClient.patch(path, body, it) }.asObject()
     fun patch(path: String, body: JSONObject? = null) { execute { ApiClient.patch(path, body, it) } }
     fun delete(path: String, body: JSONObject? = null) { execute { ApiClient.delete(path, body, it) } }
+    fun postBytes(path: String, bytes: ByteArray) { execute { ApiClient.postBytes(path, bytes, it) } }
     fun postMultipartObject(
         path: String,
         fields: Map<String, String>,

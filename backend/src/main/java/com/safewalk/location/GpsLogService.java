@@ -180,6 +180,13 @@ public class GpsLogService {
                 OffsetDateTime.ofInstant(point.recordedAt(), ZoneOffset.UTC)));
     }
 
+    /** SOS 발생 위치: SOS 세션('sos-{id}')의 첫 위치. 시작 때 GPS가 없었으면 그 뒤 처음 받은 위치 */
+    public Optional<LocationPoint> initialEmergency(Long emergencyId) {
+        return sosLogs.first(emergencyId, "sos-" + emergencyId).map(point -> new LocationPoint(
+                point.lat(), point.lng(), point.accuracy(),
+                OffsetDateTime.ofInstant(point.recordedAt(), ZoneOffset.UTC)));
+    }
+
     public void closeEmergency(Long userId, Long emergencyId) {
         store.closeEmergency(userId, emergencyId);
         if (!store.hasActiveSession(userId)) locationSse.stopped(userId);

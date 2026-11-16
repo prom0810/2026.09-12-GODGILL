@@ -9,7 +9,7 @@ class EmergencyEventTest {
 
     @Test
     void sosStartsOpenWithoutResolver() {
-        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE, 36.81, 127.14);
+        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE);
 
         assertThat(event.getType()).isEqualTo(EmergencyType.SOS);
         assertThat(event.getStatus()).isEqualTo(EmergencyStatus.OCCURRED);
@@ -18,17 +18,25 @@ class EmergencyEventTest {
     }
 
     @Test
-    void sosRequiresBothCoordinatesOrNeither() {
-        assertThatThrownBy(() -> EmergencyEvent.sos(null, EmergencySource.MOBILE, 36.81, null))
+    void sosRejectsSystemSource() {
+        assertThatThrownBy(() -> EmergencyEvent.sos(null, EmergencySource.SYSTEM))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
 
-        EmergencyEvent noGps = EmergencyEvent.sos(null, EmergencySource.WEARABLE, null, null);
-        assertThat(noGps.getLat()).isNull();
+    @Test
+    void autoDetectedNeedsWatchRouteSegment() {
+        EmergencyEvent fall = EmergencyEvent.autoDetected(null, EmergencyType.FALL, 1L, 2L, 3L);
+        assertThat(fall.getSource()).isEqualTo(EmergencySource.WEARABLE);
+        assertThat(fall.getSegmentId()).isEqualTo(3L);
+        assertThatThrownBy(() -> EmergencyEvent.autoDetected(null, EmergencyType.ABNORMAL_HEART_RATE, 1L, 2L, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> EmergencyEvent.autoDetected(null, EmergencyType.SOS, 1L, 2L, 3L))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void resolveClosesOnceAndRejectsSecondClose() {
-        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE, null, null);
+        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE);
 
         event.resolve(EmergencyStatus.FALSE_ALARM, null);
 
@@ -42,7 +50,7 @@ class EmergencyEventTest {
 
     @Test
     void resolveRejectsOpenStatus() {
-        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE, null, null);
+        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE);
 
         assertThatThrownBy(() -> event.resolve(EmergencyStatus.OCCURRED, null))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -51,7 +59,7 @@ class EmergencyEventTest {
 
     @Test
     void autoCloseCancelsWithoutResolver() {
-        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE, null, null);
+        EmergencyEvent event = EmergencyEvent.sos(null, EmergencySource.MOBILE);
 
         event.autoClose();
 

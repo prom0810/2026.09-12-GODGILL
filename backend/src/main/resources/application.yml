@@ -105,3 +105,9 @@ route:
 #                             그 계정이 경로 안내 중이 아니면 해제하고 새 계정에 연결 (기본 24시간)
 wearable:
   connection-stale-hours: ${WEARABLE_CONNECTION_STALE_HOURS:24}
+
+# 워치 센서 수집 (sensor 패키지). 심박 이상 SOS 동안만 워치 배치를 받아 심박만 읽는다.
+#  - SOS 발생 당시·종료 시 심박을 Redis에 두었다가 SOS 종료 때 bpm_log에 저장 (경로 안내 중 평소에는 받지 않음)
+#  - max-batch-bytes : gzip을 푼 배치 최대 크기
+sensor:
+  max-batch-bytes: ${SENSOR_MAX_BATCH_BYTES:1048576}

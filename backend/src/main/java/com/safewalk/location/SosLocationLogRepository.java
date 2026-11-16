@@ -52,6 +52,20 @@ public class SosLocationLogRepository {
                 userId, sessionId, Timestamp.from(from), Timestamp.from(to));
     }
 
+    /** 한 세션의 가장 이른 위치 (SOS 발생 위치 조회용) */
+    public Optional<GpsPoint> first(Long emergencyId, String sessionId) {
+        return jdbc.query("""
+                SELECT e.user_id, l.session_id, l.lat, l.lng, l.recorded_at, l.accuracy
+                FROM sos_log l JOIN emergency_event e ON e.emergency_id = l.emergency_id
+                WHERE l.emergency_id = ? AND l.session_id = ? AND l.recorded_at IS NOT NULL
+                ORDER BY l.recorded_at, l.sos_log_id
+                LIMIT 1
+                """, (rs, row) -> new GpsPoint(rs.getLong("user_id"), rs.getString("session_id"),
+                        rs.getDouble("lat"), rs.getDouble("lng"),
+                        rs.getTimestamp("recorded_at").toInstant(),
+                        (Double) rs.getObject("accuracy")), emergencyId, sessionId).stream().findFirst();
+    }
+
     public Optional<GpsPoint> latest(Long emergencyId) {
         return jdbc.query("""
                 SELECT e.user_id, l.session_id, l.lat, l.lng, l.recorded_at, l.accuracy
