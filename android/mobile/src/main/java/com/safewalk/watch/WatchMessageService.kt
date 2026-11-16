@@ -47,8 +47,14 @@ class WatchMessageService : WearableListenerService() {
                 WatchState.lastLon?.let { json.put("lon", it) }
                 if (WatchState.lastLat != null) json.put("accuracy", WatchState.lastAccuracy.toDouble())
                 WatchForwarder.onEvent?.invoke(json)
+                // 경로 안내 중 워치 자동 감지(낙상·심박) → 폰 팝업 → 무응답이면 SOS
+                SensorAlertCoordinator.onWatchEvent(app, json)
             }
-            Protocol.PATH_TELEMETRY -> WatchForwarder.onTelemetry?.invoke(event.data)
+            Protocol.PATH_TELEMETRY -> {
+                // 심박 이상 SOS 중이면 서버로 전달 (서버는 심박만 읽어 bpm_log에 저장)
+                SensorStreamRelay.onTelemetry(app, event.data)
+                WatchForwarder.onTelemetry?.invoke(event.data)
+            }
         }
     }
 

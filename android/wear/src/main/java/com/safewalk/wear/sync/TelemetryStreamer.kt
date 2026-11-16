@@ -14,7 +14,8 @@ import java.util.zip.GZIPOutputStream
  *    헤더: {"v":1,"deviceId","deviceType","seq","startMs","fs","cols","units"}
  *    행  : dt_ms,ax,ay,az,gx,gy,gz,bpm      (dt_ms = startMs 기준 경과 ms, bpm 은 없으면 빈칸)
  *
- *  - Settings.streaming 이 꺼져 있으면 아무 것도 하지 않는다.
+ *  - Settings.streaming(설정 화면)도 꺼져 있고 폰이 요청(phoneRequested)하지도 않았으면 아무 것도 하지 않는다.
+ *    폰은 심박 이상 SOS가 시작되면 PATH_STREAM on, SOS가 끝나면 off를 보낸다 (서버가 종료 시 심박을 bpm_log에 저장).
  *  - 폰 연결이 끊기면 최근 MAX_QUEUE 개 배치만 메모리에 보관했다가 연결되면 순서대로 보낸다.
  *  - 압축/전송은 별도 스레드에서 처리(센서 콜백은 빨리 반환).
  */
@@ -36,7 +37,16 @@ object TelemetryStreamer {
     private val queue = ArrayDeque<ByteArray>()
     private var sending = false
 
+    /** 폰이 전송을 요청한 동안 true (PATH_STREAM, 심박 이상 SOS 중). 워치 앱이 다시 시작되면 false로 돌아간다 */
+    @Volatile var phoneRequested = false
+        private set
+
     fun start(context: Context) { appContext = context.applicationContext }
+
+    fun setPhoneRequested(on: Boolean) {
+        phoneRequested = on
+        if (!on && !Settings.streaming) flushPartial()
+    }
 
     /** 남은 샘플을 마지막 배치로 내보낸다(서비스 종료 시). */
     fun stop() { flushPartial() }
@@ -45,7 +55,7 @@ object TelemetryStreamer {
         epochMs: Long, ax: Float, ay: Float, az: Float,
         gx: Float, gy: Float, gz: Float, bpm: Double?,
     ) {
-        if (!Settings.streaming) return
+        if (!Settings.streaming && !phoneRequested) return
         var ready: Triple<String, Long, Long>? = null
         synchronized(lock) {
             if (count == 0) startMs = epochMs
