@@ -18,6 +18,7 @@ import org.json.JSONObject
  *  - PATH_INFO_REQUEST : 워치 정보 요청 → 요청한 폰(sourceNodeId)에게만 PATH_INFO로 답한다 (폰의 워치 등록·연결용)
  *  - PATH_STREAM       : 센서 스트리밍 on/off (폰이 심박 이상 SOS 동안 요청). on인데 감시 서비스가 꺼져 있으면 켜 본다
  *                        (백그라운드 시작 제한 등으로 실패하면 워치 화면에서 감시를 켜야 한다)
+ *  - PATH_DISMISS      : 폰에서 SOS가 끝남 → 울리고 있는 경보 해제 (경보 중이 아니면 무시)
  */
 class WearMessageService : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
@@ -25,6 +26,7 @@ class WearMessageService : WearableListenerService() {
             Protocol.PATH_CANCEL -> SosManager.cancel(applicationContext)
             Protocol.PATH_INFO_REQUEST -> replyInfo(event.sourceNodeId)
             Protocol.PATH_STREAM -> onStream(event.data)
+            Protocol.PATH_DISMISS -> if (SafetyState.emergencyActive) SosManager.dismissEmergency(applicationContext)
         }
     }
 

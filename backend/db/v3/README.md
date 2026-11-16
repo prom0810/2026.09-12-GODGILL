@@ -20,6 +20,7 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 | `07_emergency_sos_20261026.sql` | SOS 기능용 컬럼·CHECK 추가 (2026-10-26, Supabase 적용 완료, 기록용) |
 | `08_wearable_connection_20261111.sql` | 워치 연결 인덱스·컬럼 설명 (2026-11-11, **Supabase 적용 필요**) |
 | `09_erd_20261113.sql` | ERD 변경: `bpm_log` 추가, `emergency_event.lat/lng` → `sos_log` 이동 후 삭제 (2026-11-13, **Supabase 적용 필요 · 백엔드와 함께**) |
+| `10_risk_area_seed_20261116.sql` | 위험구역 목업 4개 시드 (앱 하드코딩 목업 → DB, `GET /api/risk-areas`) (2026-11-16, **Supabase 적용 필요**, 여러 번 실행 안전) |
 | `build/` | `02`를 `01`에서 생성하는 스크립트. `01`의 CREATE 문을 고치면 다시 실행 |
 
 ## Supabase 적용 순서

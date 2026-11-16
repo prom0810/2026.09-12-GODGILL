@@ -367,6 +367,8 @@ class MapActivity : ComponentActivity() {
         sosButton.setOnClickListener { onSosClicked() }
         myLocationButton.setOnClickListener { refreshMyLocation() }
         gpsShareButton.setOnClickListener {
+            // 사용자가 직접 켜고 끈 공유는 안내가 끝나도 그대로 둔다 (안내가 자동으로 켠 표시 해제)
+            com.safewalk.watch.GuidanceStore.setAutoSharing(this, false)
             if (GpsSharingService.isSharing(this)) {
                 GpsSharingService.stop(this)
                 gpsShareButton.isEnabled = false
@@ -1026,6 +1028,36 @@ class MapActivity : ComponentActivity() {
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
+    /**
+     * Android 14+: 잠금 화면 위 전체 화면 알림(워치 낙상·심박 이상 팝업)은 사용자가 설정에서 허용해야 한다.
+     * 워치를 연결해 둔 사용자에게 한 번만 안내한다. 허용하지 않으면 화면 상단 알림으로만 보인다.
+     */
+    private fun requestFullScreenIntentOnce() {
+        if (android.os.Build.VERSION.SDK_INT < 34 || !TokenStore(this).isLoggedIn()) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        if (!com.safewalk.watch.WatchConnectionManager.hasActiveWatch(this)) return
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        if (nm.canUseFullScreenIntent()) return
+        val prefs = getSharedPreferences("safewalk_push", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("full_screen_intent_requested", false)) return
+        prefs.edit().putBoolean("full_screen_intent_requested", true).apply()
+        AlertDialog.Builder(this)
+            .setTitle("긴급 알림 화면 허용")
+            .setMessage("워치가 낙상이나 심박 이상을 감지하면 잠금 화면 위에 바로 확인 화면을 띄웁니다. 다음 화면에서 허용해 주세요.")
+            .setPositiveButton("설정 열기") { _, _ ->
+                runCatching {
+                    startActivity(
+                        Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                            .setData(android.net.Uri.parse("package:$packageName")),
+                    )
+                }
+            }
+            .setNegativeButton("나중에", null)
+            .show()
+    }
+
     private fun renderSosState(overrideText: String? = null) {
         if (!::sosButton.isInitialized) return
         sosButton.isEnabled = !sosBusy
@@ -1160,10 +1192,15 @@ class MapActivity : ComponentActivity() {
         NotificationBadge.refresh(this)
         mapView?.resume()
         activeEmergencyId = emergencySessionStore.activeEmergencyId()
+        // 백그라운드(워치 자동 SOS 등)에서 시작하지 못한 위치 공유를 이어서 시작. 이미 돌고 있으면 영향 없음
+        activeEmergencyId?.let { id ->
+            if (hasLocationPermission()) runCatching { EmergencyLocationService.start(this, id) }
+        }
         renderSosState()
         restoreActiveEmergency()
         checkSharedEmergencies()
         requestNotificationPermissionOnce()
+        requestFullScreenIntentOnce()
         renderGpsShareButton()
         if (!hasLocationPermission()) {
             val prefs = getSharedPreferences("map_location", MODE_PRIVATE)

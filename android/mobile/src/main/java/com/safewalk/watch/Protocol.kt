@@ -12,6 +12,7 @@ object Protocol {
     const val PATH_INFO_REQUEST = "/safewalk/info-request" // 폰 -> 워치: 워치 정보 요청 (빈 본문)
     const val PATH_INFO = "/safewalk/info"            // 워치 -> 폰: {"deviceId"(ANDROID_ID),"model","appVersion"}
     const val PATH_STREAM = "/safewalk/stream"        // 폰 -> 워치: 심박 이상 SOS 동안 센서 스트리밍 {"on":true|false}
+    const val PATH_DISMISS = "/safewalk/dismiss"      // 폰 -> 워치: SOS 종료 → 워치 경보음·진동 해제 (빈 본문)
 
     /** 워치 앱이 res/values/wear.xml에 선언하는 capability. 블루투스로 붙어 있는 워치 찾기·끊김 감지에 쓴다 */
     const val CAPABILITY_WATCH = "safewalk_watch"
@@ -31,6 +32,8 @@ object WatchState {
     @Volatile var lastLat: Double? = null
     @Volatile var lastLon: Double? = null
     @Volatile var lastAccuracy: Float = 0f
+    /** 위 위치를 측정한 시각(epoch ms). 알림에 "N분 전 위치"를 표시하는 데 쓴다 */
+    @Volatile var lastLocationTimeMs: Long = 0
 }
 
 data class WatchAlert(val type: String, val auto: Boolean, val timeMs: Long, val bpm: Double?)

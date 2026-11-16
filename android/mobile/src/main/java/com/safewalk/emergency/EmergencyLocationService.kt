@@ -74,7 +74,16 @@ class EmergencyLocationService : Service() {
         }
         emergencyId = id
         sessionStore.setActive(id)
-        startForeground(NOTIFICATION_ID, trackingNotification())
+        try {
+            startForeground(NOTIFICATION_ID, trackingNotification())
+        } catch (error: RuntimeException) {
+            // Android 12+ 백그라운드 시작 제한(ForegroundServiceStartNotAllowedException) 또는
+            // Android 14+ 위치 권한 없음(SecurityException). 세션은 남겨 두고 앱이 열릴 때 다시 시작한다.
+            // TRACKING_STOPPED는 보내지 않는다 (지도 화면이 SOS가 끝난 것으로 표시하므로)
+            emergencyId = null
+            stopSelf()
+            return START_NOT_STICKY
+        }
         requestLocationUpdates(id)
         return START_STICKY
     }
@@ -189,7 +198,12 @@ class EmergencyLocationService : Service() {
         }
 
         fun stop(context: Context, emergencyId: Long? = null) {
-            EmergencySessionStore(context).clear(emergencyId)
+            val store = EmergencySessionStore(context)
+            val activeId = store.activeEmergencyId()
+            // 내 SOS가 끝난 경우에만 워치 경보를 끈다 (보호자 폰이 보호 대상의 종료 알림을 받은 경우는 제외)
+            val ownSosEnded = activeId != null && (emergencyId == null || emergencyId == activeId)
+            store.clear(emergencyId)
+            if (ownSosEnded) com.safewalk.watch.WatchGateway.send(context, com.safewalk.watch.Protocol.PATH_DISMISS)
             // 심박 이상 SOS면 워치 센서 전송도 멈춘다 (서버도 SOS가 끝나면 409로 알려 준다)
             com.safewalk.watch.SensorStreamRelay.stop(context)
             context.stopService(Intent(context, EmergencyLocationService::class.java))
