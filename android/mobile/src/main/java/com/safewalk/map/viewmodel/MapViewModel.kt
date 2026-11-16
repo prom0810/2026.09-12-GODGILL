@@ -91,7 +91,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setFacilitiesEnabled(enabled: Boolean) {
         _uiState.update { it.copy(facilitiesEnabled = enabled) }
-        if (enabled) lastViewport?.let(::loadFacilities) else facilityJob?.cancel()
+        if (enabled) lastViewport?.let(::loadFacilities)
     }
 
     fun setCctvEnabled(enabled: Boolean) {
@@ -199,6 +199,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         routeJob = viewModelScope.launch {
             _uiState.update { it.copy(route = it.route.copy(isLoading = true)) }
             showMessage(R.string.route_loading)
+            // 시설 표시 여부와 관계없이 경찰시설을 평가한다. 진행 중인 조회 결과를 기다린다.
+            facilityJob?.join()
             // 매 계산마다 조회해서 생일 경과·다른 화면의 정보 수정·DB 가중치 조정을 반영한다.
             val profile = runCatchingIo {
                 if (tokenStore.isLoggedIn()) safetyProfiles.load()
@@ -217,7 +219,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 val graph = routeGraph ?: repository.buildRouteGraph(
                     state.cctvSites,
                     state.securityLightSites,
-                    state.facilities,
+                    _uiState.value.facilities,
                     profile.weights,
                 ).also { routeGraph = it; graphProfile = profile }
                 val startNode = graph.nearestNode(start.latitude, start.longitude)
@@ -457,7 +459,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadFacilities(viewport: MapViewport) {
-        if (!_uiState.value.facilitiesEnabled || !repository.canSearchPlaces) return
+        if (!repository.canSearchPlaces) return
         facilityJob?.cancel()
         facilityJob = viewModelScope.launch {
             runCatchingIo { repository.loadFacilities(viewport.bounds) }

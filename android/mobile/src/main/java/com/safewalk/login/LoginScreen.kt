@@ -269,7 +269,7 @@ private fun SignUpPage(
             OutlinedButton(onClick = { showBirthDatePicker(context, state.birthDate, onBirthDateChange) }) {
                 Text(state.birthDate.ifBlank { "생년월일 선택" })
             }
-            Text("연령에 맞는 안전 경로를 안내하는 데 사용해요.", color = Muted, fontSize = 12.sp)
+            Text("경로 안내용 연령 구분에 사용해요.", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(18.dp))
         }
         PrimaryButton("다음", state.canContinueSignUp, onNext)

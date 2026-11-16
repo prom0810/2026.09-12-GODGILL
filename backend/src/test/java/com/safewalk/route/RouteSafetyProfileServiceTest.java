@@ -53,8 +53,8 @@ class RouteSafetyProfileServiceTest {
     void fourteenYearOldMinorUsesAge14PlusDatabaseValues() {
         User user = user();
         user.setBirthDate(RouteAgeBand.today().minusYears(16));
-        Map<String, Double> values = Map.of("CCTV", .17, "STREET_LIGHT", .12, "POLICE", .3,
-                "EMERGENCY_BELL", .2, "CONVENIENCE_STORE", .1, "FIRE_STATION", .2);
+        Map<String, Double> values = Map.of("CCTV", .02, "STREET_LIGHT", .04, "POLICE", .04,
+                "EMERGENCY_BELL", .0, "CONVENIENCE_STORE", .0, "FIRE_STATION", .0);
         rows(RouteAgeBand.AGE_14_PLUS, values);
         RouteSafetyProfile profile = service.get(1L);
         assertThat(profile.birthDateRequired()).isFalse();
@@ -69,5 +69,13 @@ class RouteSafetyProfileServiceTest {
         assertThatThrownBy(() -> service.get(1L)).isInstanceOf(IllegalStateException.class).hasMessageContaining("누락");
         rows(RouteAgeBand.UNDER_14, Map.of("CCTV", Double.NaN));
         assertThatThrownBy(() -> service.get(1L)).isInstanceOf(IllegalStateException.class).hasMessageContaining("올바르지");
+    }
+
+    @Test
+    void rejectsConfigurationWhoseTotalWouldOverwhelmRiskPenalty() {
+        user().setBirthDate(RouteAgeBand.today().minusYears(10));
+        rows(RouteAgeBand.UNDER_14, Map.of("CCTV", .06, "STREET_LIGHT", .06, "POLICE", 0.,
+                "EMERGENCY_BELL", 0., "CONVENIENCE_STORE", 0., "FIRE_STATION", 0.));
+        assertThatThrownBy(() -> service.get(1L)).isInstanceOf(IllegalStateException.class).hasMessageContaining("합계");
     }
 }

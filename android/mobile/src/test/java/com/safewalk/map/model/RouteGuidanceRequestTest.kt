@@ -69,7 +69,7 @@ class RouteGuidanceRequestTest {
         assertEquals("CCTV", breakdown.facilities[0].type)
         assertEquals(3, breakdown.facilities[0].quantity)
         assertTrue(breakdown.facilities[0].appliedScore > 0.0)
-        assertEquals(0.85 - breakdown.riskPenalty + breakdown.facilities.sumOf { it.appliedScore }, breakdown.raw, 1e-12)
+        assertEquals(RouteSafetyScorer.fixedScore(breakdown.riskPenalty, breakdown.facilities.sumOf { it.appliedScore }), breakdown.raw, 1e-12)
     }
 
     @Test

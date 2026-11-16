@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
  *
  * - facilityType: {@link SegmentFacilityType} 이름
  * - distance(m): 구간 중간 지점에서 시설까지 거리
- * - appliedScore: 이 시설이 준 보너스. 예: CCTV는 0.15 × (1 − 거리/150)
+ * - appliedScore: 앱이 실제로 반영한 보너스. 현재는 가중치 × 거리 감쇠 × 위험에 따른 감쇠
  * 조회 전용 (저장은 {@link RouteWriter}).
  */
 @Entity

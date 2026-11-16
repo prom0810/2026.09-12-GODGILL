@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
  * 연속된 두 지점 사이 구간 (DB v3 route_segment). 앱 A*의 간선(edge) 하나와 1:1이다.
  *
  * - distance(m): 서버가 두 지점 좌표로 계산
- * - safetyScore(0~1): 앱이 A*에 실제로 쓴 정규화 안전점수. 불러온 지도 범위에 따라 달라지는 상대값이다
+ * - safetyScore(0~1): 현재 앱은 고정 기준 환경 지표, 이전 앱은 Min-Max 상대값을 저장한다
  * - riskScore(0 이상): 위험구역 감점의 합(절대값). 위험구역 밖이면 0
  *
  * route_id 컬럼이 없어서 어느 경로의 구간인지는 시작 지점(startPoint.route)으로 찾는다.

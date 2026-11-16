@@ -32,12 +32,12 @@ ON CONFLICT (type_name) DO NOTHING;
 -- 경로 가중치 초기값. 기존 회원 유형별 facility_type_weight와 별개로 사용한다.
 -- 수치는 서비스 초기 설정이며, 재실행해도 조정된 값을 덮어쓰지 않는다.
 INSERT INTO route_facility_weight (age_band, facility_type, weight) VALUES
-    ('UNDER_14', 'CCTV', 0.20), ('UNDER_14', 'STREET_LIGHT', 0.20),
-    ('UNDER_14', 'POLICE', 0.30), ('UNDER_14', 'EMERGENCY_BELL', 0.25),
-    ('UNDER_14', 'CONVENIENCE_STORE', 0.15), ('UNDER_14', 'FIRE_STATION', 0.20),
-    ('AGE_14_PLUS', 'CCTV', 0.15), ('AGE_14_PLUS', 'STREET_LIGHT', 0.10),
-    ('AGE_14_PLUS', 'POLICE', 0.15), ('AGE_14_PLUS', 'EMERGENCY_BELL', 0.15),
-    ('AGE_14_PLUS', 'CONVENIENCE_STORE', 0.15), ('AGE_14_PLUS', 'FIRE_STATION', 0.15)
+    ('UNDER_14', 'CCTV', 0.02), ('UNDER_14', 'STREET_LIGHT', 0.04),
+    ('UNDER_14', 'POLICE', 0.04), ('UNDER_14', 'EMERGENCY_BELL', 0.00),
+    ('UNDER_14', 'CONVENIENCE_STORE', 0.00), ('UNDER_14', 'FIRE_STATION', 0.00),
+    ('AGE_14_PLUS', 'CCTV', 0.02), ('AGE_14_PLUS', 'STREET_LIGHT', 0.04),
+    ('AGE_14_PLUS', 'POLICE', 0.04), ('AGE_14_PLUS', 'EMERGENCY_BELL', 0.00),
+    ('AGE_14_PLUS', 'CONVENIENCE_STORE', 0.00), ('AGE_14_PLUS', 'FIRE_STATION', 0.00)
 ON CONFLICT (age_band, facility_type) DO NOTHING;
 
 COMMIT;

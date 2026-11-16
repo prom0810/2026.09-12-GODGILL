@@ -1,4 +1,4 @@
--- Apply 01 + 03, or 09, first. Test data is rolled back.
+-- Apply 01 + 03, or 09 + 10 + 11, first. Test data is rolled back.
 BEGIN;
 DO $$
 DECLARE

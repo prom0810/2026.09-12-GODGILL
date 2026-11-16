@@ -5,13 +5,10 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RouteAgeWeightsTest {
-    private val under14 = RouteSafetyWeights(RouteSafetyWeights.DEFAULT.facilityWeights + mapOf(
-        "CCTV" to .20, "STREET_LIGHT" to .20, "POLICE" to .30,
-        "EMERGENCY_BELL" to .25, "FIRE_STATION" to .20,
-    ))
+    private val under14 = RouteSafetyWeights.DEFAULT
 
     @Test
-    fun `age-specific settings change the chosen safe route through the road provider and parser`() {
+    fun `common age profiles choose the same route and a bounded policy adjustment remains effective`() {
         // 좌우 갈림길: 왼쪽에는 CCTV, 조금 더 짧은 오른쪽에는 가로등이 있다.
         val start = RouteNode("1", 36.8300, 127.1800)
         val left = RouteNode("2", 36.8320, 127.1776)
@@ -40,13 +37,26 @@ class RouteAgeWeightsTest {
 
         val standard = route(RouteSafetyWeights.DEFAULT)
         val child = route(under14)
-        assertEquals("2", standard.segments.first().to.id)
+        assertEquals("3", standard.segments.first().to.id)
         assertEquals("3", child.segments.first().to.id)
-        assertEquals(.20, child.segments.first().facilities.single().appliedScore, 1e-9)
+        assertEquals(.04, child.segments.first().facilities.single().appliedScore, 1e-9)
+        assertEquals(standard, child)
+        val experimental = RouteSafetyWeights(under14.facilityWeights + mapOf("CCTV" to .08, "STREET_LIGHT" to .02, "POLICE" to .0))
+        assertEquals("2", route(experimental).segments.first().to.id)
+
+        // 동일 도로망에서 경찰시설 접근성이 실제 경로 선택에 기여하는지도 확인한다.
+        val police = cctv.mapIndexed { index, site ->
+            Facility("police-$index", FacilityType.SECURITY, "경찰시설", "", site.latitude, site.longitude)
+        }
+        fun policeRoute(weights: RouteSafetyWeights) = RouteAStar.findRoute(
+            provider.buildGraph(emptyList(), emptyList(), police, weights), "1", "4", .55,
+        )!!
+        assertEquals("2", policeRoute(under14).segments.first().to.id)
+        assertEquals("3", policeRoute(RouteSafetyWeights(under14.facilityWeights + ("POLICE" to .0))).segments.first().to.id)
     }
 
     @Test
-    fun `each facility type contributes its own weighted nearest site`() {
+    fun `nearest police facility contributes once and unverified shops stay excluded`() {
         val lat = 36.83
         val lon = 127.18
         val facilities = listOf(
@@ -56,12 +66,11 @@ class RouteAgeWeightsTest {
         )
         val standard = RouteSafetyScorer.score(lat, lon, emptyList(), emptyList(), facilities)
         val child = RouteSafetyScorer.score(lat, lon, emptyList(), emptyList(), facilities, under14)
-        assertEquals(2, child.facilities.size)
-        val standardPolice = standard.facilities.single { it.type == "POLICE" }
-        val childPolice = child.facilities.single { it.type == "POLICE" }
-        assertEquals(standardPolice.appliedScore * 2, childPolice.appliedScore, 1e-9)
-        assertEquals("police", facilities.single { it.latitude == childPolice.lat && it.longitude == childPolice.lon }.id)
-        assertTrue(child.raw > standard.raw)
+        assertEquals(1, child.facilities.size)
+        assertEquals("POLICE", child.facilities.single().type)
+        assertEquals(lon + .0001, child.facilities.single().lon, 1e-9)
+        assertTrue(child.raw > .5)
+        assertEquals(standard.raw, child.raw, 0.0)
         assertEquals(standard.riskPenalty, child.riskPenalty, 0.0)
     }
 
@@ -86,5 +95,18 @@ class RouteAgeWeightsTest {
     @Test(expected = IllegalArgumentException::class)
     fun `invalid configuration cannot produce nan scores`() {
         RouteSafetyWeights(under14.facilityWeights + ("CCTV" to Double.NaN))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `facility support cannot exceed the shared budget`() {
+        RouteSafetyWeights(under14.facilityWeights + ("CCTV" to .06))
+    }
+
+    @Test
+    fun `age bands decode the same common weights`() {
+        fun profile(band: String) = RouteSafetyProfile.fromJson(JSONObject()
+            .put("birthDateRequired", false).put("ageBand", band)
+            .put("facilityWeights", JSONObject(under14.facilityWeights)))
+        assertEquals(profile("UNDER_14").weights, profile("AGE_14_PLUS").weights)
     }
 }

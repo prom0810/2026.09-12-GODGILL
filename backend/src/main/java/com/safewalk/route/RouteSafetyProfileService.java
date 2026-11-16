@@ -40,6 +40,9 @@ public class RouteSafetyProfileService {
                 throw new IllegalStateException("경로 시설 가중치가 누락되었습니다: " + type.name());
             }
         }
+        if (weights.values().stream().mapToDouble(Double::doubleValue).sum() > 0.10 + 1e-9) {
+            throw new IllegalStateException("시설 보너스 합계는 0.10 이하여야 합니다. 10_common_route_weights.sql 적용 여부를 확인해 주세요.");
+        }
         return new RouteSafetyProfile(band, false, Map.copyOf(weights));
     }
 }

@@ -1,12 +1,18 @@
 # GODGILL DB 스키마 v3 (2026-10-15, 2026-10-26·2026-11-11 갱신)
 
+## 공통 시설 정책으로 전환
+
+현재 정책은 두 연령대에 CCTV 0.02·가로등 0.04·경찰시설 0.04·나머지 0을 적용하고 전체 보너스를 0.10으로 제한한다. 연령별 시설 배수와 도로망 Min-Max 정규화는 제거했다. 자세한 근거·한계는 [계산 설명](route-age-weights.md), 현장 검증은 [정책 비교 계획](route-weight-evaluation.md)을 참고한다.
+
+기존 DB는 `09_route_age_weights.sql` → `10_common_route_weights.sql` → **`11_police_route_weights.sql`을 실행하고 백엔드·앱을 함께 배포**한다. 이미 10까지 적용했으면 11만 실행한다. 각 정책 전환은 이전 값을 백업한 뒤 최초 1회 적용하고 재실행으로 조정값을 덮어쓰지 않는다. 아래 09 설명은 연령 정보 구조를 추가한 이전 단계에 해당한다.
+
 ## 경로 연령대별 가중치 (2026-11-13)
 
 기존 DB에는 백엔드 배포 전에 `09_route_age_weights.sql`을 실행한다. `08_sos_location_log.sql`과 별개이며, 데이터 삭제 없이 `users.birth_date`, `route.safety_age_band`, `route_facility_weight`를 추가한다. 여러 번 실행해도 이미 조정한 가중치를 덮어쓰지 않는다.
 
 - 빈 DB: `01_full_schema.sql` → `03_seed_base.sql` → (선택) `04_enable_rls.sql`.
-- 기존 v3 DB: `09_route_age_weights.sql` → 백엔드·앱 배포.
-- v1에서 처음 이전: `02_migrate_supabase_v1_to_v3.sql` → `09_route_age_weights.sql` → `03_seed_base.sql` → (선택) `04_enable_rls.sql`.
+- 기존 v3 DB: `09_route_age_weights.sql` → `10_common_route_weights.sql` → `11_police_route_weights.sql` → 백엔드·앱 배포.
+- v1에서 처음 이전: `02_migrate_supabase_v1_to_v3.sql` → `09_route_age_weights.sql` → `10_common_route_weights.sql` → `11_police_route_weights.sql` → `03_seed_base.sql` → (선택) `04_enable_rls.sql`.
 
 경로 가중치는 `UNDER_14`(만 14세 미만), `AGE_14_PLUS`(만 14세 이상)의 두 종류다. 서버가 한국 날짜와 생년월일로 계산하며, `ADULT/MINOR` 회원 유형 및 그 보호자 규칙은 독립적으로 유지한다. 기존 계정의 생년월일과 기존 경로의 연령대는 알 수 없으므로 NULL로 남긴다.
 
@@ -23,7 +29,7 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 
 | 파일 | 용도 |
 |---|---|
-| `01_full_schema.sql` | 빈 DB에 23개 테이블을 처음부터 생성 (SOS 위치 기록·경로 연령대별 가중치 포함) |
+| `01_full_schema.sql` | 빈 DB에 24개 테이블을 처음부터 생성 (공통 시설 정책 전환 이력 포함) |
 | `02_migrate_supabase_v1_to_v3.sql` | 지금 Supabase(v1 테이블 10개)를 v3로 변경 |
 | `03_seed_base.sql` | 사용자 유형(ADULT/MINOR), 시설 유형 코드 입력. 여러 번 실행해도 안전 |
 | `04_enable_rls.sql` | (선택) Supabase REST API로 테이블을 읽지 못하게 RLS 켜기 |
@@ -32,12 +38,14 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 | `07_emergency_sos_20261026.sql` | SOS 기능용 컬럼·CHECK 추가 (2026-10-26, Supabase 적용 완료, 기록용) |
 | `08_wearable_connection_20261111.sql` | 워치 연결 인덱스·컬럼 설명 (2026-11-11, **Supabase 적용 필요**) |
 | `09_route_age_weights.sql` | 생년월일, 경로 연령대 스냅샷, 14세 기준 시설 가중치 추가 (기존 DB 배포 전 실행) |
+| `10_common_route_weights.sql` | 이전 설정 백업 후 연령 공통 시설 가중치로 전환, 전환 이력 기록 |
+| `11_police_route_weights.sql` | 경찰시설 0.04를 포함하도록 공통 예산 재배분, 이전 값 백업 |
 | `build/` | `02`를 `01`에서 생성하는 스크립트. `01`의 CREATE 문을 고치면 다시 실행 |
 
 ## Supabase 적용 순서
 
 1. Supabase 대시보드에서 백업이 있는지 확인합니다.
-2. SQL Editor에서 `02_migrate_supabase_v1_to_v3.sql` 실행 후 `09_route_age_weights.sql` 실행
+2. SQL Editor에서 `02_migrate_supabase_v1_to_v3.sql` 실행 후 `09_route_age_weights.sql`, `10_common_route_weights.sql`, `11_police_route_weights.sql` 순서로 실행
    - `route`, `route_point`, `route_segment`, `safety_facility`, `segment_facility`에 데이터가 있으면 아무것도 바꾸지 않고 중단합니다.
    - 새로 만들 테이블이 이미 있어도 중단합니다.
    - 한 트랜잭션이라 중간에 실패하면 전부 취소됩니다.
