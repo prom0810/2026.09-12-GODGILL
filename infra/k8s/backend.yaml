@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/ikunkun17/godgill-backend:v1
+          image: ghcr.io/prom0810/godgill-backend:sha-a4bb8bc
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
