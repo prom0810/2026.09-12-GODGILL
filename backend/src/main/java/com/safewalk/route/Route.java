@@ -44,6 +44,10 @@ public class Route {
     @JoinColumn(name = "user_type_id", nullable = false)
     private UserType userType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "safety_age_band", length = 20)
+    private RouteAgeBand safetyAgeBand;
+
     @Column(name = "total_distance", nullable = false)
     private double totalDistance;
 
@@ -77,6 +81,10 @@ public class Route {
 
     public UserType getUserType() {
         return userType;
+    }
+
+    public RouteAgeBand getSafetyAgeBand() {
+        return safetyAgeBand;
     }
 
     public double getTotalDistance() {

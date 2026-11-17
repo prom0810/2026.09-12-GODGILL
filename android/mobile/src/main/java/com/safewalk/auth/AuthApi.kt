@@ -13,6 +13,7 @@ class AuthApi {
             put("name", request.name)
             put("phone", request.phone)
             put("userType", request.userType)
+            request.birthDate?.let { put("birthDate", it) }
             put("guardians", JSONArray().apply {
                 request.guardians.forEach { guardian ->
                     put(JSONObject().apply {

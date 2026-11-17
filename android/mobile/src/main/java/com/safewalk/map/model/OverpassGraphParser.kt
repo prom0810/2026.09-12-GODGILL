@@ -59,6 +59,7 @@ internal class OverpassGraphParser {
                 cctvSites = safetyData.cctvSites,
                 securityLightSites = safetyData.securityLightSites,
                 facilities = safetyData.facilities,
+                weights = safetyData.weights,
             )
             rawEdges += RawEdge(fromId, toId, distance, breakdown)
         }
@@ -70,20 +71,13 @@ internal class OverpassGraphParser {
             }
         }
 
-        val minRaw = rawEdges.minOfOrNull { it.rawSafetyScore } ?: 0.0
-        val maxRaw = rawEdges.maxOfOrNull { it.rawSafetyScore } ?: 1.0
         val adjacency = HashMap<String, MutableList<RouteEdge>>()
 
         for (edge in rawEdges) {
-            val normalizedSafety = RouteSafetyScorer.normalize(
-                raw = edge.rawSafetyScore,
-                min = minRaw,
-                max = maxRaw,
-            )
             adjacency.getOrPut(edge.fromId) { mutableListOf() } += RouteEdge(
                 toNodeId = edge.toId,
                 distanceMeters = edge.distance,
-                safetyScore = normalizedSafety,
+                safetyScore = edge.rawSafetyScore,
                 riskPenalty = edge.breakdown.riskPenalty,
                 facilities = edge.breakdown.facilities,
             )

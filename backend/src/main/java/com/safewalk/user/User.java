@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 
 /**
  * 앱 사용자 계정 (DB 설계서의 USER 엔티티. 테이블명은 Postgres 예약어 회피를 위해 users).
@@ -43,6 +44,9 @@ public class User {
     @Column(name = "phone", nullable = false, length = 20)
     private String phone = "";
 
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -64,6 +68,14 @@ public class User {
 
     public Long getUserId() {
         return userId;
+    }
+
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
+
+    public void setBirthDate(LocalDate birthDate) {
+        this.birthDate = birthDate;
     }
 
     public UserType getUserType() {

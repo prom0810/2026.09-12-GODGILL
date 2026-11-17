@@ -1,5 +1,7 @@
 package com.safewalk.map.view
 
+import com.safewalk.auth.showBirthDatePicker
+
 import android.Manifest
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
@@ -550,6 +552,9 @@ class MapActivity : ComponentActivity() {
             }
             is MapEffect.ChooseRoutePoint -> showRoutePointPicker(effect.isStart, effect.places)
             is MapEffect.ShowMessage -> showMessage(effect.text)
+            is MapEffect.RequestBirthDate -> showBirthDatePicker(this) { birthDate ->
+                viewModel.saveBirthDateAndShowRoute(birthDate, effect.isSafeRoute)
+            }
         }
     }
 
@@ -796,6 +801,10 @@ class MapActivity : ComponentActivity() {
     private fun renderRouteSummary(route: RouteUiState) {
         if (route.isLoading || route.shortestResult == null && route.safeResult == null) return
         routeResultText.text = buildString {
+            route.displayedResult?.safetyAgeBand?.let {
+                append(getString(R.string.route_age_band_applied, it.label))
+                append("\n")
+            }
             route.shortestResult?.let {
                 append(getString(
                     R.string.route_summary_shortest,
@@ -805,7 +814,7 @@ class MapActivity : ComponentActivity() {
                 ))
             }
             route.safeResult?.let {
-                if (isNotEmpty()) append(" | ")
+                if (route.shortestResult != null) append(" | ")
                 append(getString(
                     R.string.route_summary_safe,
                     it.totalDistanceMeters.toInt(),

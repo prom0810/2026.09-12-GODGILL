@@ -72,4 +72,5 @@ sealed interface MapEffect {
     /** 입력창 텍스트를 채운다. null이면 그 입력창은 그대로 둔다. */
     data class FillRouteQueries(val startName: String?, val endName: String?) : MapEffect
     data class ShowMessage(val text: UiText) : MapEffect
+    data class RequestBirthDate(val isSafeRoute: Boolean) : MapEffect
 }

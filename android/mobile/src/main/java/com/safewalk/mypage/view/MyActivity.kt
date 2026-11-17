@@ -4,6 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
+import com.safewalk.auth.showBirthDatePicker
+import com.safewalk.common.network.AuthenticatedApiClient
+import com.safewalk.map.model.RouteSafetyProfileRepository
 import android.view.View
 import androidx.lifecycle.lifecycleScope
 import com.safewalk.R
@@ -56,6 +60,7 @@ class MyActivity : BaseMainTabActivity() {
             }
         }
         renderSession()
+        findViewById<Button>(R.id.my_birth_date_button).setOnClickListener { editBirthDate() }
     }
 
     override fun onResume() {
@@ -66,6 +71,7 @@ class MyActivity : BaseMainTabActivity() {
     private fun renderSession() {
         val store = TokenStore(this)
         val loggedIn = store.isLoggedIn()
+        findViewById<Button>(R.id.my_birth_date_button).visibility = if (loggedIn) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.my_login_button).visibility = if (loggedIn) View.GONE else View.VISIBLE
         findViewById<Button>(R.id.my_guardian_button).visibility = if (loggedIn) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.my_logout_button).visibility = if (loggedIn) View.VISIBLE else View.GONE
@@ -74,6 +80,30 @@ class MyActivity : BaseMainTabActivity() {
             "${if (store.userType() == "MINOR") "미성년 사용자" else "성인 사용자"} · 보호자 연결과 알림을 관리할 수 있어요."
         } else {
             "로그인하면 보호자 연결과 알림 설정을\n저장할 수 있어요."
+        }
+    }
+
+    private fun editBirthDate() {
+        val button = findViewById<Button>(R.id.my_birth_date_button)
+        button.isEnabled = false
+        lifecycleScope.launch {
+            try {
+                val user = withContext(Dispatchers.IO) { AuthenticatedApiClient(this@MyActivity).getObject("/api/users/me") }
+                showBirthDatePicker(this@MyActivity, user.optString("birthDate")) { birthDate ->
+                    lifecycleScope.launch {
+                        try {
+                            withContext(Dispatchers.IO) { RouteSafetyProfileRepository(this@MyActivity).updateBirthDate(birthDate) }
+                            Toast.makeText(this@MyActivity, R.string.my_birth_date_saved, Toast.LENGTH_LONG).show()
+                        } catch (error: Exception) {
+                            Toast.makeText(this@MyActivity, error.message ?: getString(R.string.route_birth_date_save_failed), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            } catch (error: Exception) {
+                Toast.makeText(this@MyActivity, error.message ?: getString(R.string.route_birth_date_save_failed), Toast.LENGTH_LONG).show()
+            } finally {
+                button.isEnabled = true
+            }
         }
     }
 }

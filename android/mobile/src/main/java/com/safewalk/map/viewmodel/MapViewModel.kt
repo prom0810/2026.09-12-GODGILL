@@ -15,6 +15,10 @@ import com.safewalk.map.model.RouteAStar
 import com.safewalk.map.model.HistoryKind
 import com.safewalk.map.model.RouteGraph
 import com.safewalk.map.model.RouteGuidanceRepository
+import com.safewalk.map.model.RouteSafetyProfile
+import com.safewalk.map.model.RouteSafetyProfileRepository
+import com.safewalk.map.model.RouteSafetyWeights
+import com.safewalk.map.model.BirthDateRequiredException
 import com.safewalk.map.model.MAX_ROUTE_POINTS
 import com.safewalk.map.model.SearchHistoryItem
 import com.safewalk.map.model.SearchHistoryStore
@@ -42,6 +46,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private val historyStore = SearchHistoryStore(application)
     private val guidanceRepository = RouteGuidanceRepository(application)
     private val tokenStore = TokenStore(application)
+    private val safetyProfiles = RouteSafetyProfileRepository(application)
+    private var graphProfile: RouteSafetyProfile? = null
 
     private val _uiState = MutableStateFlow(MapUiState(history = historyStore.load()))
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
@@ -86,7 +92,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setFacilitiesEnabled(enabled: Boolean) {
         _uiState.update { it.copy(facilitiesEnabled = enabled) }
-        if (enabled) lastViewport?.let(::loadFacilities) else facilityJob?.cancel()
+        if (enabled) lastViewport?.let(::loadFacilities)
     }
 
     fun setCctvEnabled(enabled: Boolean) {
@@ -194,18 +200,37 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         routeJob = viewModelScope.launch {
             _uiState.update { it.copy(route = it.route.copy(isLoading = true)) }
             showMessage(R.string.route_loading)
+            // 시설 표시 여부와 관계없이 경찰시설을 평가한다. 진행 중인 조회 결과를 기다린다.
+            facilityJob?.join()
+            // 매 계산마다 조회해서 생일 경과·다른 화면의 정보 수정·DB 가중치 조정을 반영한다.
+            val profile = runCatchingIo {
+                if (tokenStore.isLoggedIn()) safetyProfiles.load()
+                    else RouteSafetyProfile(null, RouteSafetyWeights.DEFAULT)
+            }.getOrElse { error ->
+                _uiState.update { it.copy(route = it.route.copy(isLoading = false)) }
+                when {
+                    error is BirthDateRequiredException -> emitEffect(MapEffect.RequestBirthDate(isSafeRoute))
+                    (error as? ApiClient.ApiException)?.statusCode == 401 -> showMessage(R.string.route_guidance_need_login)
+                    else -> showMessage(R.string.route_safety_profile_failed)
+                }
+                return@launch
+            }
             runCatchingIo {
+                if (profile != graphProfile) routeGraph = null
                 val graph = routeGraph ?: repository.buildRouteGraph(
                     state.cctvSites,
                     state.securityLightSites,
-                    state.facilities,
-                ).also { routeGraph = it }
+                    _uiState.value.facilities,
+                    profile.weights,
+                ).also { routeGraph = it; graphProfile = profile }
                 val startNode = graph.nearestNode(start.latitude, start.longitude)
                 val endNode = graph.nearestNode(end.latitude, end.longitude)
                 if (startNode == null || endNode == null) return@runCatchingIo RouteCalculation.OutOfArea
                 RouteCalculation.Complete(
-                    shortest = RouteAStar.findRoute(graph, startNode.id, endNode.id, safetyWeight = 0.0),
-                    safe = RouteAStar.findRoute(graph, startNode.id, endNode.id, safetyWeight = 0.55),
+                    shortest = RouteAStar.findRoute(graph, startNode.id, endNode.id, safetyWeight = 0.0)
+                        ?.copy(safetyAgeBand = profile.ageBand),
+                    safe = RouteAStar.findRoute(graph, startNode.id, endNode.id, safetyWeight = 0.55)
+                        ?.copy(safetyAgeBand = profile.ageBand),
                 )
             }.onSuccess { result ->
                 when (result) {
@@ -238,6 +263,23 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private fun saveHistory(item: SearchHistoryItem) {
         val next = historyStore.add(item)
         _uiState.update { it.copy(history = next) }
+    }
+
+    fun saveBirthDateAndShowRoute(birthDate: String, isSafeRoute: Boolean) {
+        routeJob?.cancel()
+        routeJob = viewModelScope.launch {
+            _uiState.update { it.copy(route = it.route.copy(isLoading = true)) }
+            runCatchingIo { safetyProfiles.updateBirthDate(birthDate) }
+                .onSuccess {
+                    routeGraph = null
+                    _uiState.update { it.copy(route = it.route.copy(shortestResult = null, safeResult = null, isLoading = false)) }
+                    showRoute(isSafeRoute)
+                }
+                .onFailure {
+                    _uiState.update { it.copy(route = it.route.copy(isLoading = false)) }
+                    showMessage(R.string.route_birth_date_save_failed)
+                }
+        }
     }
 
     /** 경로 계산에 성공한 출발지→도착지를 '경로' 기록으로 저장한다. */
@@ -341,10 +383,10 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure { error ->
                     setGuidanceBusy(false)
-                    showMessage(if ((error as? ApiClient.ApiException)?.statusCode == 401) {
-                        R.string.route_guidance_need_login
-                    } else {
-                        R.string.route_guidance_failed
+                    showMessage(when ((error as? ApiClient.ApiException)?.statusCode) {
+                        401 -> R.string.route_guidance_need_login
+                        400 -> R.string.route_guidance_recalculate
+                        else -> R.string.route_guidance_failed
                     })
                 }
         }
@@ -424,7 +466,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadFacilities(viewport: MapViewport) {
-        if (!_uiState.value.facilitiesEnabled || !repository.canSearchPlaces) return
+        if (!repository.canSearchPlaces) return
         facilityJob?.cancel()
         facilityJob = viewModelScope.launch {
             runCatchingIo { repository.loadFacilities(viewport.bounds) }

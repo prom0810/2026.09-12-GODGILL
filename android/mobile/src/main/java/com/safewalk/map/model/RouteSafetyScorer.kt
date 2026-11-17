@@ -10,7 +10,8 @@ import kotlin.math.sqrt
  * MapActivity가 이미 지도 화면 표시를 위해 불러온 CCTV·보안등·안전시설 데이터를
  * 그대로 재사용하기 때문에 이 계산 자체는 추가 네트워크 요청이 필요 없다.
  *
- * S(e) = 0.85 - 위험구역 감점 + CCTV 근접보너스 + 보안등 근접보너스 + 안전시설 근접보너스
+ * 시설 존재는 제한적인 환경 지표다. 실제 조도·촬영 범위·범죄 확률로 해석하지 않는다.
+ * 고정 기준 점수 = clamp(0.5 - 위험감점 + 제한된 근접 보너스, 0, 1).
  *
  * 점수 내역([ScoreBreakdown]: 위험구역 감점 합, 보너스를 준 시설)은 안내 시작 시 서버에 함께 저장된다
  * (route_segment.risk_score, segment_facility).
@@ -37,17 +38,16 @@ object RouteSafetyScorer {
         DangerZone(-1100.0, -700.0, 220.0, 0.5),
     )
 
+    // 검색 거리 감쇠용 휴리스틱이며 실제 촬영·조명 도달 범위가 아니다.
     private const val CCTV_BOOST_RADIUS_M = 150.0
-    private const val CCTV_BOOST_AMOUNT = 0.15
     private const val SECURITY_LIGHT_BOOST_RADIUS_M = 100.0
-    private const val SECURITY_LIGHT_BOOST_AMOUNT = 0.10
     private const val FACILITY_BOOST_RADIUS_M = 150.0
-    private const val FACILITY_BOOST_AMOUNT = 0.15
+    private const val NEUTRAL_SCORE = 0.5
 
     /**
      * 구간 점수 계산 결과와 그 내역.
      *
-     * @param raw 정규화 전 원점수 (0.85 − riskPenalty + 시설 보너스 합)
+     * @param raw 고정 기준 점수. 값이 같으면 다른 도로가 추가되어도 점수가 같다.
      * @param riskPenalty 위험구역 감점의 합 (서버 route_segment.risk_score로 저장)
      * @param facilities 보너스를 준 시설 (서버 segment_facility로 저장)
      */
@@ -58,10 +58,7 @@ object RouteSafetyScorer {
     )
 
     /**
-     * 정규화 없이 원시 안전도 점수를 계산한다.
-     * 그래프 전체 min~max 기준 정규화는 [OverpassGraphParser]가 담당한다
-     * (이론적 상/하한으로 정규화하면 실제 점수 차이가 눌려버리는 문제가 있어,
-     *  실제 관찰된 값 범위를 쓰는 동적 정규화 방식을 쓴다).
+     * 도로망의 최솟값·최댓값에 의존하지 않는 고정 기준 점수.
      */
     fun rawSafetyScore(
         midLat: Double,
@@ -69,7 +66,8 @@ object RouteSafetyScorer {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
-    ): Double = score(midLat, midLon, cctvSites, securityLightSites, facilities).raw
+        weights: RouteSafetyWeights = RouteSafetyWeights.DEFAULT,
+    ): Double = score(midLat, midLon, cctvSites, securityLightSites, facilities, weights).raw
 
     /** [rawSafetyScore]와 같은 계산을 하면서, 감점·시설별 보너스 내역도 함께 돌려준다. */
     fun score(
@@ -78,6 +76,7 @@ object RouteSafetyScorer {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
+        weights: RouteSafetyWeights = RouteSafetyWeights.DEFAULT,
     ): ScoreBreakdown {
         var riskPenalty = 0.0
         for (zone in dangerZones) {
@@ -90,35 +89,44 @@ object RouteSafetyScorer {
 
         val applied = mutableListOf<AppliedFacility>()
 
-        cctvSites.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { site ->
+        val risk = riskPenalty.coerceIn(0.0, 1.0)
+        // 알려진 위험이 클수록 시설 근접성으로 상쇄할 수 있는 양도 줄인다.
+        val supportFactor = 1.0 - risk
+        cctvSites.asSequence().filter { it.purpose.contains("방범") }
+            .minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { site ->
             val nearest = haversineMeters(midLat, midLon, site.latitude, site.longitude)
-            if (nearest < CCTV_BOOST_RADIUS_M) {
+            if (nearest < CCTV_BOOST_RADIUS_M && weights.bonus("CCTV") > 0.0 && supportFactor > 0.0) {
                 applied += AppliedFacility(
                     type = "CCTV",
                     lat = site.latitude,
                     lon = site.longitude,
                     quantity = site.cameraCount.coerceAtLeast(1),
                     distanceMeters = nearest,
-                    appliedScore = CCTV_BOOST_AMOUNT * (1.0 - nearest / CCTV_BOOST_RADIUS_M),
+                    appliedScore = weights.bonus("CCTV") * (1.0 - nearest / CCTV_BOOST_RADIUS_M) * supportFactor,
                 )
             }
         }
 
         securityLightSites.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { site ->
             val nearest = haversineMeters(midLat, midLon, site.latitude, site.longitude)
-            if (nearest < SECURITY_LIGHT_BOOST_RADIUS_M) {
+            if (nearest < SECURITY_LIGHT_BOOST_RADIUS_M && weights.bonus("STREET_LIGHT") > 0.0 && supportFactor > 0.0) {
                 applied += AppliedFacility(
                     type = "STREET_LIGHT",
                     lat = site.latitude,
                     lon = site.longitude,
                     quantity = site.lightCount.coerceAtLeast(1),
                     distanceMeters = nearest,
-                    appliedScore = SECURITY_LIGHT_BOOST_AMOUNT * (1.0 - nearest / SECURITY_LIGHT_BOOST_RADIUS_M),
+                    appliedScore = weights.bonus("STREET_LIGHT") * (1.0 - nearest / SECURITY_LIGHT_BOOST_RADIUS_M) * supportFactor,
                 )
             }
         }
 
-        facilities.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }?.let { facility ->
+        // 시설 종류마다 가장 가까운 1곳을 평가한다. 가까운 편의점 때문에 경찰시설이 누락되지 않게 한다.
+        for (sameType in facilities.groupBy { it.type }.values) {
+            val type = sameType.first().type.serverCode()
+            if (weights.bonus(type) == 0.0 || supportFactor == 0.0) continue
+            val facility = sameType.minByOrNull { haversineMeters(midLat, midLon, it.latitude, it.longitude) }
+                ?: continue
             val nearest = haversineMeters(midLat, midLon, facility.latitude, facility.longitude)
             if (nearest < FACILITY_BOOST_RADIUS_M) {
                 applied += AppliedFacility(
@@ -127,12 +135,12 @@ object RouteSafetyScorer {
                     lon = facility.longitude,
                     quantity = 1,
                     distanceMeters = nearest,
-                    appliedScore = FACILITY_BOOST_AMOUNT * (1.0 - nearest / FACILITY_BOOST_RADIUS_M),
+                    appliedScore = weights.bonus(type) * (1.0 - nearest / FACILITY_BOOST_RADIUS_M) * supportFactor,
                 )
             }
         }
 
-        val raw = 0.85 - riskPenalty + applied.sumOf { it.appliedScore }
+        val raw = fixedScore(riskPenalty, applied.sumOf { it.appliedScore })
         return ScoreBreakdown(raw = raw, riskPenalty = riskPenalty, facilities = applied)
     }
 
@@ -143,11 +151,10 @@ object RouteSafetyScorer {
         FacilityType.FIRE -> "FIRE_STATION"
     }
 
-    /** 그래프 전체에서 실제로 관찰된 min~max 범위를 기준으로 raw 점수를 0~1로 정규화한다. */
-    fun normalize(raw: Double, min: Double, max: Double): Double {
-        if (max - min < 1e-6) return 0.5
-        return ((raw - min) / (max - min)).coerceIn(0.0, 1.0)
-    }
+    /** appliedSupport는 위험도에 따라 감쇠한 보너스다. 시설은 위험감점 자체를 바꾸지 않는다. */
+    internal fun fixedScore(riskPenalty: Double, appliedSupport: Double): Double =
+        (NEUTRAL_SCORE - riskPenalty.coerceIn(0.0, 1.0) +
+            appliedSupport.coerceIn(0.0, RouteSafetyWeights.MAX_TOTAL_BONUS)).coerceIn(0.0, 1.0)
 
     private fun offsetToLatLon(dNorthM: Double, dEastM: Double): Pair<Double, Double> {
         val dLat = dNorthM / 111_320.0

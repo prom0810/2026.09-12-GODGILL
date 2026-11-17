@@ -9,5 +9,6 @@ fun interface RouteGraphProvider {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
+        weights: RouteSafetyWeights,
     ): RouteGraph
 }

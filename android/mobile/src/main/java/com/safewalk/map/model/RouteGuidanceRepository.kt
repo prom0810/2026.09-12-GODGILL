@@ -113,4 +113,5 @@ fun buildRouteStartRequest(result: RouteAStar.RouteResult, startName: String, en
         .put("safetyScore", result.averageSafetyScore.coerceIn(0.0, 1.0))
         .put("points", points)
         .put("segments", segments)
+        .apply { result.safetyAgeBand?.let { put("safetyAgeBand", it.name) } }
 }

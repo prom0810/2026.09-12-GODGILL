@@ -6,7 +6,10 @@ import com.safewalk.user.User;
 import com.safewalk.user.UserRepository;
 import com.safewalk.user.UserType;
 import com.safewalk.user.UserTypeRepository;
+import com.safewalk.route.RouteAgeBand;
 import java.util.Locale;
+import java.time.Period;
+import java.time.LocalDate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +82,15 @@ public class AuthService {
         }
 
         User user = new User(userType, name, email, passwordEncoder.encode(password), phone);
+        if (request.birthDate() != null) {
+            LocalDate today = RouteAgeBand.today();
+            RouteAgeBand.validateBirthDate(request.birthDate(), today);
+            boolean minorByAge = Period.between(request.birthDate(), today).getYears() < 19;
+            if (minorByAge != userType.isMinor()) {
+                throw new IllegalArgumentException("생년월일과 사용자 유형(만 19세 기준)이 일치하지 않습니다.");
+            }
+            user.setBirthDate(request.birthDate());
+        }
         User saved = userRepository.save(user);
 
         guardianService.addGuardiansOnSignup(saved, request.guardians());

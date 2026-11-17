@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.safewalk.auth.AuthRepository
+import com.safewalk.auth.BirthDates
 import com.safewalk.auth.GuardianSignupApiRequest
 import com.safewalk.notification.FcmTokenManager
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSignUpEmail(value: String) = update { copy(signUpEmail = value) }
     fun updateSignUpPassword(value: String) = update { copy(signUpPassword = value) }
     fun updatePhoneNumber(value: String) = update { copy(phoneNumber = value) }
+    fun updateBirthDate(value: String) = update { copy(birthDate = value, errorMessage = null) }
     fun updateGuardianName(value: String) = update { copy(guardianName = value, errorMessage = null) }
     fun updateGuardianPhone(value: String) = update { copy(guardianPhone = value, errorMessage = null) }
     fun setTermsAgreement(value: Boolean) = update { copy(agreedToTerms = value) }
@@ -70,8 +72,8 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     fun signup(onSuccess: () -> Unit) {
         if (!uiState.canContinueSignUp || !uiState.canContinueUserType || uiState.isLoading) return
         val request = uiState.toSignUpRequest()
-        val backendType = if (request.userType == UserType.CHILD) "MINOR" else "ADULT"
-        val guardians = if (request.userType == UserType.CHILD) {
+        val backendType = if (BirthDates.isMinor(request.birthDate)) "MINOR" else "ADULT"
+        val guardians = if (uiState.requiresGuardian) {
             listOf(GuardianSignupApiRequest(request.guardianName, request.guardianPhone))
         } else {
             emptyList()
@@ -87,6 +89,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                         phone = request.phoneNumber,
                         userType = backendType,
                         guardians = guardians,
+                        birthDate = request.birthDate,
                     )
                 }
                 uiState = uiState.copy(isLoading = false)

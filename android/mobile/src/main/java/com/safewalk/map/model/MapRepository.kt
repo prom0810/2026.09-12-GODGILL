@@ -16,6 +16,7 @@ interface MapRepository {
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
+        weights: RouteSafetyWeights,
     ): RouteGraph
 }
 
@@ -57,5 +58,6 @@ class DefaultMapRepository(
         cctvSites: List<CctvSite>,
         securityLightSites: List<SecurityLightSite>,
         facilities: List<Facility>,
-    ): RouteGraph = routeGraphProvider.buildGraph(cctvSites, securityLightSites, facilities)
+        weights: RouteSafetyWeights,
+    ): RouteGraph = routeGraphProvider.buildGraph(cctvSites, securityLightSites, facilities, weights)
 }

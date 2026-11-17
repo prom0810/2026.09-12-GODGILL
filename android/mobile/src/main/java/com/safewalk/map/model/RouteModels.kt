@@ -8,7 +8,7 @@ data class RouteNode(val id: String, val lat: Double, val lon: Double)
  *
  * @param type 서버 시설 코드: CCTV, STREET_LIGHT, POLICE, CONVENIENCE_STORE, FIRE_STATION
  * @param distanceMeters 구간 중간 지점에서 시설까지 거리
- * @param appliedScore 이 시설이 준 보너스 (예: CCTV 0.15 × (1 − 거리/150))
+ * @param appliedScore 가중치 × 거리 감쇠 × (1 − 위험감점), 실제 반영한 제한적 보너스
  */
 data class AppliedFacility(
     val type: String,
@@ -22,7 +22,7 @@ data class AppliedFacility(
 /**
  * 도로망 그래프의 간선(구간).
  *
- * @param safetyScore 정규화된 안전도(0~1). A*가 비용 계산에 쓰는 값
+ * @param safetyScore 고정 기준 환경 점수(0~1). A*가 비용 계산에 쓰는 값이며 안전 확률이 아니다
  * @param riskPenalty 위험구역 감점의 합(0 이상, 정규화 전 절대값). 위험구역 밖이면 0
  * @param facilities 점수에 반영된 안전시설 (CCTV·보안등·주변시설 중 가장 가까운 각 1개, 반경 안일 때만)
  */

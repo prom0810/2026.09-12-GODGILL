@@ -37,6 +37,7 @@ class LoginActivity : ComponentActivity() {
                 onSignUpEmailChange = viewModel::updateSignUpEmail,
                 onSignUpPasswordChange = viewModel::updateSignUpPassword,
                 onPhoneNumberChange = viewModel::updatePhoneNumber,
+                onBirthDateChange = viewModel::updateBirthDate,
                 onGuardianNameChange = viewModel::updateGuardianName,
                 onGuardianPhoneChange = viewModel::updateGuardianPhone,
                 onTermsAgreementChange = viewModel::setTermsAgreement,

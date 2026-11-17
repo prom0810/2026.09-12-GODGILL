@@ -8,6 +8,7 @@ data class SignupApiRequest(
     val phone: String,
     val userType: String,
     val guardians: List<GuardianSignupApiRequest> = emptyList(),
+    val birthDate: String? = null,
 )
 
 data class GuardianSignupApiRequest(

@@ -1,6 +1,8 @@
 package com.safewalk.user;
 
 import com.safewalk.auth.UnauthorizedException;
+import com.safewalk.route.RouteAgeBand;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,5 +40,13 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getMyInfo(Long userId) {
         return UserResponse.from(getActiveUser(userId));
+    }
+
+    @Transactional
+    public UserResponse updateBirthDate(Long userId, LocalDate birthDate) {
+        RouteAgeBand.validateBirthDate(birthDate, RouteAgeBand.today());
+        User user = getActiveUserForUpdate(userId);
+        user.setBirthDate(birthDate);
+        return UserResponse.from(user);
     }
 }

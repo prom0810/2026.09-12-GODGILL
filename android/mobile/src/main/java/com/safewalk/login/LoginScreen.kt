@@ -41,6 +41,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import com.safewalk.auth.showBirthDatePicker
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -86,6 +88,7 @@ fun LoginScreen(
     onContinueAsGuest: () -> Unit,
     onStart: () -> Unit,
     onSkipPermissions: () -> Unit,
+    onBirthDateChange: (String) -> Unit = {},
 ) {
     BackHandler(enabled = state.step != AuthStep.LOGIN, onBack = onBack)
     MaterialTheme {
@@ -105,6 +108,7 @@ fun LoginScreen(
                     onEmailChange = onSignUpEmailChange,
                     onPasswordChange = onSignUpPasswordChange,
                     onPhoneNumberChange = onPhoneNumberChange,
+                    onBirthDateChange = onBirthDateChange,
                     onBack = onBack,
                     onNext = onContinueToTerms,
                 )
@@ -236,9 +240,11 @@ private fun SignUpPage(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onPhoneNumberChange: (String) -> Unit,
+    onBirthDateChange: (String) -> Unit,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
+    val context = LocalContext.current
     OnboardingLayout(title = "회원가입", step = 1, onBack = onBack) {
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Text("기본 정보를 입력해 주세요", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
@@ -258,6 +264,12 @@ private fun SignUpPage(
                 state.phoneNumber, onPhoneNumberChange, "휴대폰 번호", "010-0000-0000",
                 KeyboardType.Phone,
             )
+            Spacer(Modifier.height(18.dp))
+            Text("생년월일", color = Ink, fontSize = 14.sp)
+            OutlinedButton(onClick = { showBirthDatePicker(context, state.birthDate, onBirthDateChange) }) {
+                Text(state.birthDate.ifBlank { "생년월일 선택" })
+            }
+            Text("경로 안내용 연령 구분에 사용해요.", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(18.dp))
         }
         PrimaryButton("다음", state.canContinueSignUp, onNext)
@@ -374,7 +386,7 @@ private fun UserTypePage(
                 selected = state.userType == UserType.COMPANION,
                 onClick = { onUserTypeChange(UserType.COMPANION) },
             )
-            if (state.userType == UserType.CHILD) {
+            if (state.requiresGuardian) {
                 Spacer(Modifier.height(18.dp))
                 Text("대표 보호자", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))

@@ -30,6 +30,7 @@ object RouteAStar {
         val segments: List<RouteSegment>,
         val totalDistanceMeters: Double,
         val averageSafetyScore: Double,
+        val safetyAgeBand: RouteAgeBand? = null,
     )
 
     fun findRoute(graph: RouteGraph, startId: String, endId: String, safetyWeight: Double): RouteResult? {
