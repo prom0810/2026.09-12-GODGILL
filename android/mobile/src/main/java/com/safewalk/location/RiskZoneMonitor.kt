@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import com.safewalk.map.model.RouteSafetyScorer
 import com.safewalk.map.view.MapActivity
 import com.safewalk.watch.GuidanceStore
+import com.safewalk.watch.Protocol
+import com.safewalk.watch.WatchGuideAlert
 import kotlin.math.roundToLong
 
 /**
@@ -23,6 +25,9 @@ import kotlin.math.roundToLong
  * 위치는 [GpsSharingService]가 넘겨준다 (안내 중 자동으로 켜짐). 구역은 [RouteSafetyScorer.riskZones]
  * (서버 risk_area 캐시, 없으면 목업) — 경로 안전도 감점과 같은 데이터다.
  * 안내가 바뀌거나 구역 목록이 바뀌면 판단 상태를 새로 만든다.
+ *
+ * 연결된 워치에도 경보를 보낸다 ([WatchGuideAlert]): 접근 = 짧은 비프, 진입 = 강한 경보음(3~5초).
+ * 폰 알림은 워치로 전달되지 않게 한다(setLocalOnly) — 워치에서 두 번 울리지 않도록.
  */
 object RiskZoneMonitor {
     private const val MAX_ACCURACY_METERS = 40f
@@ -55,16 +60,39 @@ object RiskZoneMonitor {
         if (location.hasAccuracy() && location.accuracy > MAX_ACCURACY_METERS) return
         val alerts = tracker?.update(location.latitude, location.longitude) ?: return
         // 한 번에 여러 개면 진입을 먼저 (알림은 하나만 갱신해 보여 준다)
-        alerts.sortedBy { if (it.kind == RiskZoneTracker.Kind.ENTERED) 0 else 1 }.firstOrNull()?.let { notify(app, it) }
+        alerts.sortedBy { if (it.kind == RiskZoneTracker.Kind.ENTERED) 0 else 1 }.firstOrNull()?.let {
+            alertWatch(app, it)
+            notify(app, it)
+        }
     }
 
     /** 안내 종료·로그아웃 시 */
     @Synchronized
     fun reset(context: Context) {
+        val hadRoute = routeId != null
         routeId = null
         zones = null
         tracker = null
         NotificationManagerCompat.from(context.applicationContext).cancel(NOTIFICATION_ID)
+        if (hadRoute) {
+            WatchGuideAlert.clear(context.applicationContext, Protocol.GUIDE_RISK_APPROACH)
+            WatchGuideAlert.clear(context.applicationContext, Protocol.GUIDE_RISK_ENTER)
+        }
+    }
+
+    private fun alertWatch(app: Context, alert: RiskZoneTracker.Alert) {
+        when (alert.kind) {
+            RiskZoneTracker.Kind.APPROACHING -> WatchGuideAlert.send(
+                app, Protocol.GUIDE_RISK_APPROACH,
+                "위험구역이 가까워요",
+                "약 ${alert.distanceToEdgeMeters.roundToLong().coerceAtLeast(1)}m 앞 위험구역(${alert.zone.label})",
+            )
+            RiskZoneTracker.Kind.ENTERED -> WatchGuideAlert.send(
+                app, Protocol.GUIDE_RISK_ENTER,
+                "위험구역에 들어왔어요",
+                "${alert.zone.label} · 밝고 사람 많은 길로 이동하세요",
+            )
+        }
     }
 
     private fun notify(app: Context, alert: RiskZoneTracker.Alert) {
@@ -97,6 +125,7 @@ object RiskZoneMonitor {
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
+                .setLocalOnly(true) // 워치는 WatchGuideAlert로 따로 울린다
                 .setAutoCancel(true)
                 .setContentIntent(open)
                 .build(),

@@ -13,6 +13,13 @@ object Protocol {
     const val PATH_INFO = "/safewalk/info"            // 워치 -> 폰: {"deviceId"(ANDROID_ID),"model","appVersion"}
     const val PATH_STREAM = "/safewalk/stream"        // 폰 -> 워치: 심박 이상 SOS 동안 센서 스트리밍 {"on":true|false}
     const val PATH_DISMISS = "/safewalk/dismiss"      // 폰 -> 워치: SOS 종료 → 워치 경보음·진동 해제 (빈 본문)
+    const val PATH_GUIDE_ALERT = "/safewalk/guide-alert" // 폰 -> 워치: 안내 중 경보 {"kind","title","text","timeMs"}
+    const val PATH_GUIDE_CLEAR = "/safewalk/guide-clear" // 폰 -> 워치: 안내 경보 해제 {"kind"} (kind 없으면 전부)
+
+    /** PATH_GUIDE_ALERT kind. 워치 GuideAlertPlayer에서 종류마다 소리·진동 세기가 다르다 */
+    const val GUIDE_ROUTE_DEVIATION = "ROUTE_DEVIATION"
+    const val GUIDE_RISK_APPROACH = "RISK_APPROACH"
+    const val GUIDE_RISK_ENTER = "RISK_ENTER"
 
     /** 워치 앱이 res/values/wear.xml에 선언하는 capability. 블루투스로 붙어 있는 워치 찾기·끊김 감지에 쓴다 */
     const val CAPABILITY_WATCH = "safewalk_watch"
