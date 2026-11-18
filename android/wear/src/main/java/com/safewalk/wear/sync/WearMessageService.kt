@@ -6,6 +6,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
+import com.safewalk.wear.guide.GuideAlertPlayer
 import com.safewalk.wear.sensor.MonitoringService
 import com.safewalk.wear.settings.Settings
 import com.safewalk.wear.sos.SafetyState
@@ -18,6 +19,9 @@ import org.json.JSONObject
  *  - PATH_INFO_REQUEST : 워치 정보 요청 → 요청한 폰(sourceNodeId)에게만 PATH_INFO로 답한다 (폰의 워치 등록·연결용)
  *  - PATH_STREAM       : 센서 스트리밍 on/off (폰이 심박 이상 SOS 동안 요청). on인데 감시 서비스가 꺼져 있으면 켜 본다
  *                        (백그라운드 시작 제한 등으로 실패하면 워치 화면에서 감시를 켜야 한다)
+ *  - PATH_DISMISS      : 폰에서 SOS가 끝남 → 울리고 있는 경보 해제 (경보 중이 아니면 무시)
+ *  - PATH_GUIDE_ALERT  : 경로 이탈·위험구역 접근·진입 → 종류별 경보음·진동 ([GuideAlertPlayer])
+ *  - PATH_GUIDE_CLEAR  : 경로 복귀·안내 종료 → 안내 경보 해제
  */
 class WearMessageService : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
@@ -25,7 +29,24 @@ class WearMessageService : WearableListenerService() {
             Protocol.PATH_CANCEL -> SosManager.cancel(applicationContext)
             Protocol.PATH_INFO_REQUEST -> replyInfo(event.sourceNodeId)
             Protocol.PATH_STREAM -> onStream(event.data)
+            Protocol.PATH_DISMISS -> if (SafetyState.emergencyActive) SosManager.dismissEmergency(applicationContext)
+            Protocol.PATH_GUIDE_ALERT -> onGuideAlert(event.data)
+            Protocol.PATH_GUIDE_CLEAR -> {
+                val kind = runCatching { JSONObject(String(event.data)).optString("kind") }.getOrNull()
+                GuideAlertPlayer.stop(applicationContext, kind?.takeIf { it.isNotBlank() })
+            }
         }
+    }
+
+    private fun onGuideAlert(data: ByteArray) {
+        val json = runCatching { JSONObject(String(data)) }.getOrNull() ?: return
+        GuideAlertPlayer.play(
+            applicationContext,
+            kind = json.optString("kind"),
+            title = json.optString("title"),
+            text = json.optString("text"),
+            timeMs = json.optLong("timeMs", 0L),
+        )
     }
 
     private fun onStream(data: ByteArray) {

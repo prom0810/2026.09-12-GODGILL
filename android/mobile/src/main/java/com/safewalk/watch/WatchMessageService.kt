@@ -37,7 +37,14 @@ class WatchMessageService : WearableListenerService() {
                     timeMs = json.optLong("timeMs"),
                     bpm = if (json.isNull("bpm")) WatchState.lastBpm else json.optDouble("bpm"),
                 )
-                SafetyAlertNotifier.showAlert(app, alert)
+                when {
+                    // 워치 SOS 버튼 확정 → 서버 SOS (보호자 푸시·위치 공유). 실패해도 결과 알림에 112 버튼이 있다
+                    alert.type == Protocol.TYPE_SOS_MANUAL -> SensorAlertCoordinator.onManualSos(app, alert.timeMs)
+                    // 경로 안내 중 자동 감지는 PATH_EVENT로 SensorAlertCoordinator가 팝업·SOS를 처리 → 중복 알림 생략
+                    alert.auto && SensorAlertCoordinator.isAutoType(alert.type) &&
+                        GuidanceStore.activeRouteId(app) != null -> Unit
+                    else -> SafetyAlertNotifier.showAlert(app, alert)
+                }
                 GuardianNotifier.handler?.invoke(alert, WatchState.lastLat, WatchState.lastLon)
             }
             Protocol.PATH_EVENT -> {

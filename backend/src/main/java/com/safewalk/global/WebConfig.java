@@ -26,7 +26,9 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/**", "/api/road-images/**");
+                .excludePathPatterns("/api/auth/**", "/api/road-images/**",
+                        // 위험구역 조회(GET만 있음): 로그인 전에도 앱이 경로 안전도 계산에 쓴다
+                        "/api/risk-areas");
     }
 
     @Override

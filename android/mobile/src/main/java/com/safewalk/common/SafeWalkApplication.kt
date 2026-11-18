@@ -24,5 +24,8 @@ class SafeWalkApplication : Application() {
             )
         }
         FcmTokenManager.sync(this)
+        // 위험구역: 캐시를 바로 반영하고(경로 점수·안내 중 알림), 서버 값은 백그라운드에서 갱신 (6시간마다)
+        com.safewalk.map.model.RiskZoneRepository.loadCached(this)
+        Thread { com.safewalk.map.model.RiskZoneRepository.refresh(this) }.start()
     }
 }

@@ -1,12 +1,18 @@
 package com.safewalk.map.viewmodel
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.safewalk.BuildConfig
 import com.safewalk.R
 import com.safewalk.auth.TokenStore
 import com.safewalk.common.network.ApiClient
+import com.safewalk.location.GpsSharingService
+import com.safewalk.location.RiskZoneMonitor
+import com.safewalk.location.RouteDeviationMonitor
 import com.safewalk.map.model.DefaultMapRepository
 import com.safewalk.map.model.MapRepository
 import com.safewalk.map.model.Place
@@ -337,7 +343,14 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                     showMessage(R.string.route_guidance_started, startName, endName)
                     if (started.cancelledRouteId != null) showMessage(R.string.route_guidance_replaced)
                     // 안내 중에만 워치 이상 감지(낙상·심박) 팝업을 띄운다
-                    GuidanceStore.set(getApplication<Application>(), started.routeId)
+                    val app = getApplication<Application>()
+                    GuidanceStore.set(app, started.routeId)
+                    // 경로 이탈 감지용 좌표 (서버에 보낸 지점과 같은 순서)
+                    val nodes = listOf(result.segments.first().from) + result.segments.map { it.to }
+                    GuidanceStore.setPath(app, started.routeId, nodes.map { doubleArrayOf(it.lat, it.lon) })
+                    RouteDeviationMonitor.reset(app)
+                    RiskZoneMonitor.reset(app)
+                    startGuidanceLocation()
                 }
                 .onFailure { error ->
                     setGuidanceBusy(false)
@@ -389,8 +402,15 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.update {
                         it.copy(route = it.route.copy(guidance = GuidanceState(active.routeId, startName, endName)))
                     }
-                    GuidanceStore.set(getApplication<Application>(), active.routeId)
+                    val app = getApplication<Application>()
+                    GuidanceStore.set(app, active.routeId)
                     showMessage(R.string.route_guidance_restored, startName, endName)
+                    // 경로 좌표가 없으면(앱 재설치·다른 기기 등) 서버에서 받아 둔다. 실패하면 이탈 감지만 쉰다
+                    if (GuidanceStore.path(app, active.routeId) == null) {
+                        runCatchingIo { guidanceRepository.path(active.routeId) }
+                            .onSuccess { path -> if (path != null) GuidanceStore.setPath(app, active.routeId, path) }
+                    }
+                    startGuidanceLocation()
                 }
             // 복원 실패(오프라인 등)는 조용히 넘어간다. 서버가 6시간 뒤 자동 취소한다.
         }
@@ -400,9 +420,29 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(route = it.route.copy(guidanceBusy = busy)) }
     }
 
+    /**
+     * 경로 이탈 감지는 위치 공유(GpsSharingService)가 넘겨주는 위치로 한다 → 안내 중에는 위치 공유를 켠다.
+     * 이미 사용자가 켜 둔 공유면 그대로 두고, 안내가 켠 경우만 표시해 두었다가 안내가 끝날 때 끈다.
+     * 위치 권한이 없으면 켜지 않는다 (지도 화면이 권한을 요청한다).
+     */
+    private fun startGuidanceLocation() {
+        val app = getApplication<Application>()
+        if (GpsSharingService.isSharing(app)) return
+        val granted = ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) return
+        if (runCatching { GpsSharingService.start(app) }.isSuccess) GuidanceStore.setAutoSharing(app, true)
+    }
+
     private fun clearGuidance(routeId: Long) {
-        if (GuidanceStore.activeRouteId(getApplication<Application>()) == routeId) {
-            GuidanceStore.clear(getApplication<Application>())
+        val app = getApplication<Application>()
+        if (GuidanceStore.activeRouteId(app) == routeId) {
+            if (GuidanceStore.isAutoSharing(app)) runCatching { GpsSharingService.stop(app) }
+            GuidanceStore.clear(app)
+            RouteDeviationMonitor.reset(app)
+            RiskZoneMonitor.reset(app)
         }
         _uiState.update {
             if (it.route.guidance?.routeId == routeId) {

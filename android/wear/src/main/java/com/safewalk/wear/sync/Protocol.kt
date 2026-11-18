@@ -13,6 +13,10 @@ package com.safewalk.wear.sync
  *   PATH_CANCEL       : 카운트다운 취소 (폰 화면 또는 서버 2차 판정이 "오탐"일 때)
  *   PATH_INFO_REQUEST : 워치 정보 요청 (빈 본문). 폰이 워치를 등록·연결할 때 보낸다
  *   PATH_STREAM       : 센서 스트리밍 켜기/끄기 {"on":true|false}. 심박 이상 SOS 시작·종료 때 폰이 보낸다
+ *   PATH_DISMISS      : SOS 종료(사용자·보호자·자동 종료) → 경보음·진동 해제 (빈 본문)
+ *   PATH_GUIDE_ALERT  : 경로 안내 중 경보 {"kind","title","text","timeMs"}
+ *                       kind = ROUTE_DEVIATION(경로 이탈) / RISK_APPROACH(위험구역 50m 전) / RISK_ENTER(위험구역 진입)
+ *   PATH_GUIDE_CLEAR  : 안내 경보 해제 {"kind"} (kind 없으면 전부). 경로 복귀·안내 종료 때 폰이 보낸다
  *
  *  capability "safewalk_watch"(res/values/wear.xml): 폰이 이 앱이 설치된 워치를 찾고 연결 끊김을 감지하는 데 쓴다.
  */
@@ -24,4 +28,7 @@ object Protocol {
     const val PATH_INFO_REQUEST = "/safewalk/info-request"
     const val PATH_INFO = "/safewalk/info"
     const val PATH_STREAM = "/safewalk/stream"
+    const val PATH_DISMISS = "/safewalk/dismiss"
+    const val PATH_GUIDE_ALERT = "/safewalk/guide-alert"
+    const val PATH_GUIDE_CLEAR = "/safewalk/guide-clear"
 }
