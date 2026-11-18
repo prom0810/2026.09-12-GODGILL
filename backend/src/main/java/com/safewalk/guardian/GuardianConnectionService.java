@@ -55,14 +55,22 @@ public class GuardianConnectionService {
     /**
      * POST /api/guardians/{guardianId}/revoke — 초대 취소 또는 연결 해제.
      * 초대 중이면 UNREGISTERED로, 연결돼 있으면 REVOKED로 바꾼다. 보호자 행 자체는 남는다(삭제는 DELETE).
+     * 미성년자가 믿을 수 있는 보호자(앱 연결 또는 인증번호 확인)를 모두 끊게 되는 연결 해제는 400.
      */
     @Transactional
     public GuardianResponse revoke(Long userId, Long guardianId) {
-        userService.getActiveUserForUpdate(userId);
+        User user = userService.getActiveUserForUpdate(userId);
         Guardian guardian = findOwned(userId, guardianId);
         if (guardian.getRegistrationStatus() == RegistrationStatus.INVITED) {
             guardian.cancelInvite();
         } else {
+            // 미성년자는 믿을 수 있는 보호자를 모두 끊을 수 없다 (삭제 규칙과 같음, GuardianTrust).
+            // 연결을 끊어도 인증번호로 확인된 보호자는 문자를 받을 수 있으므로 믿을 수 있는 보호자로 남는다.
+            if (user.getUserType().isMinor() && GuardianTrust.losesLastTrusted(
+                    guardianRepository.findByUser_UserIdAndDeletedAtIsNullOrderByGuardianIdAsc(userId),
+                    guardian, guardian.isSmsVerified())) {
+                throw new IllegalArgumentException(GuardianService.LAST_TRUSTED_MESSAGE);
+            }
             guardian.revoke();
             notifier.disconnectedByWard(guardian);
         }
@@ -124,6 +132,8 @@ public class GuardianConnectionService {
                 .filter(g -> g.getGuardianUser() != null && g.getGuardianUser().getUserId().equals(me.getUserId()))
                 .orElseThrow(() -> new GuardianNotFoundException("연결된 사용자를 찾을 수 없습니다."));
         guardian.revoke();
+        // 보호자가 직접 연결을 끊었으면 SOS 문자 수신 동의도 거둔 것으로 본다
+        guardian.withdrawSmsConsent();
         notifier.leftByGuardian(guardian);
     }
 

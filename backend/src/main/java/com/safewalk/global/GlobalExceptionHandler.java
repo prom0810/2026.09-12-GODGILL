@@ -10,6 +10,8 @@ import com.safewalk.emergency.EmergencyStateException;
 import com.safewalk.guardian.DuplicateGuardianException;
 import com.safewalk.guardian.GuardianNotFoundException;
 import com.safewalk.guardian.GuardianStateException;
+import com.safewalk.guardian.GuardianVerificationException;
+import com.safewalk.guardian.VerificationTooSoonException;
 import com.safewalk.location.LocationNotFoundException;
 import com.safewalk.notification.NotificationNotFoundException;
 import com.safewalk.report.RiskReportNotFoundException;
@@ -170,6 +172,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GuardianStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleGuardianState(GuardianStateException e) {
         return fail(HttpStatus.CONFLICT, e, "현재 보호자 연결 상태에서는 처리할 수 없습니다.");
+    }
+
+    /** 보호자 인증번호 확인 실패 → 400 + data { reason, remainingAttempts } */
+    @ExceptionHandler(GuardianVerificationException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleGuardianVerification(GuardianVerificationException e) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("reason", e.getReason().name());
+        data.put("remainingAttempts", e.getRemainingAttempts());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
+                .body(new ApiResponse<>(false, data, e.getMessage()));
+    }
+
+    /** 인증번호 재발송 1분 제한 → 429 + data { retryAfterSeconds } + Retry-After 헤더 */
+    @ExceptionHandler(VerificationTooSoonException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleVerificationTooSoon(VerificationTooSoonException e) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("retryAfterSeconds", e.getRetryAfterSeconds());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).contentType(MediaType.APPLICATION_JSON)
+                .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
+                .body(new ApiResponse<>(false, data, e.getMessage()));
     }
 
     @ExceptionHandler(EmergencyNotFoundException.class)

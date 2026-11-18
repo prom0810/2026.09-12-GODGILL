@@ -5,7 +5,8 @@
 #   powershell -ExecutionPolicy Bypass -File .\http\sos-test.ps1
 #
 # 등장인물: 아이(SOS 당사자, 미성년자)
-#   - 삼촌: 대표 보호자, 앱 미가입 → 문자(서버 로그) 대상
+#   - 삼촌: 대표 보호자, 앱 미가입 → 인증번호로 확인한 뒤 문자(서버 로그) 대상
+#           (확인에 .env의 GUARDIAN_VERIFICATION_EXPOSE_CODE=true 필요. 없으면 확인을 건너뛰고 문자 0명을 기대)
 #   - 아빠: 앱 연결 + 위치 열람 허용 → 푸시 + 실시간 위치
 #   - 엄마: 앱 연결, 위치 열람 안 함 → 푸시만
 #   - 남: 아무 관계 없음 → 모든 조회 404
@@ -245,21 +246,39 @@ Test-Case "5. 아빠·엄마 연결, 아빠만 위치 열람 허용, 삼촌이 �
     $true
 }
 
+# 삼촌(앱 미가입 대표 보호자) 인증번호 확인 → 확인된 보호자에게만 SOS 문자가 간다
+$uncleVerified = $false
+$r = Send-Api -Method "POST" -Path "/api/guardians/$gUncle/verification" -Token $kidToken
+if ($r.Status -eq 200 -and $r.Body.data.devCode) {
+    $r = Send-Api -Method "POST" -Path "/api/guardians/$gUncle/verification/confirm" -Token $kidToken `
+        -Body ([ordered]@{ code = $r.Body.data.devCode })
+    Test-Case "5-1. 삼촌 인증번호 확인 → smsVerified" $r 200 {
+        param($res) if ($res.Body.data.smsVerified -eq $true) { $true } else { "smsVerified: $($res.Body.data.smsVerified)" }
+    }
+    $uncleVerified = ($r.Status -eq 200)
+} else {
+    Write-Host "       (삼촌 확인 건너뜀: .env에 GUARDIAN_VERIFICATION_EXPOSE_CODE=true가 없어 인증번호를 받을 수 없음 → 문자 0명을 기대)" -ForegroundColor DarkGray
+}
+$expectedSms = if ($uncleVerified) { 1 } else { 0 }
+
 # ── SOS 시작: 입력 검사 ────────────────────────────────────────────────
 $bad = @(
     @{ n = "본문 없음"; b = $null },
-    @{ n = "type=FALL (아직 미지원)"; b = [ordered]@{ type = "FALL"; source = "WEARABLE" } },
+    @{ n = "type=FALL인데 source=MOBILE"; b = [ordered]@{ type = "FALL"; source = "MOBILE" } },
     @{ n = "source 없음"; b = [ordered]@{ type = "SOS" } },
     @{ n = "source=SYSTEM"; b = [ordered]@{ source = "SYSTEM" } },
     @{ n = "lat만 있음"; b = [ordered]@{ source = "MOBILE"; lat = 36.81 } },
     @{ n = "lat 범위 초과"; b = [ordered]@{ source = "MOBILE"; lat = 100; lng = 127.1 } },
     @{ n = "accuracy 음수"; b = [ordered]@{ source = "MOBILE"; lat = 36.81; lng = 127.14; accuracy = -1 } },
-    @{ n = "wearableId (아직 미지원)"; b = [ordered]@{ source = "WEARABLE"; wearableId = 1 } }
+    @{ n = "wearableId 직접 지정 (서버가 정함)"; b = [ordered]@{ source = "WEARABLE"; wearableId = 1 } }
 )
 foreach ($c in $bad) {
     $r = Send-Api -Method "POST" -Path "/api/emergencies" -Token $kidToken -Body $c.b
     Test-Case "6. SOS 시작 거부: $($c.n) → 400" $r 400
 }
+# 워치 감지 SOS(낙상·심박 이상)는 경로 안내 중에만 받는다 → 안내 중이 아니면 409
+$r = Send-Api -Method "POST" -Path "/api/emergencies" -Token $kidToken -Body ([ordered]@{ type = "FALL"; source = "WEARABLE" })
+Test-Case "6-1. 경로 안내 중이 아닌데 워치 낙상 SOS → 409" $r 409
 $r = Send-Api -Method "POST" -Path "/api/emergencies" -Body ([ordered]@{ source = "MOBILE" })
 Test-Case "7. 토큰 없이 SOS → 401" $r 401
 
@@ -267,18 +286,20 @@ Test-Case "7. 토큰 없이 SOS → 401" $r 401
 $r = Send-Api -Method "POST" -Path "/api/emergencies" -Token $kidToken -Body ([ordered]@{
     type = "SOS"; source = "MOBILE"; lat = 36.8100; lng = 127.1400; accuracy = 12.5
 })
-Test-Case "8. 아이 SOS 시작 → 201, 푸시 2명·위치 공유 1명·문자 1명" $r 201 {
+Test-Case "8. 아이 SOS 시작 → 201, 푸시 2명·위치 공유 1명·문자 $($expectedSms)명" $r 201 {
     param($res)
     $d = $res.Body.data
     if ($d.status -ne "OCCURRED") { return "status: $($d.status)" }
     $n = $d.notified
-    if ($n.pushGuardians -ne 2 -or $n.locationSharedGuardians -ne 1 -or $n.smsGuardians -ne 1) {
+    if ($n.pushGuardians -ne 2 -or $n.locationSharedGuardians -ne 1 -or $n.smsGuardians -ne $expectedSms) {
         return "notified: push $($n.pushGuardians), shared $($n.locationSharedGuardians), sms $($n.smsGuardians)"
     }
     $true
 }
 $eid = $r.Body.data.emergencyId
-Write-Host "       (서버 로그에 '[문자(콘솔)] 받는 사람: 010-****-$Run' 이 찍혀야 합니다)" -ForegroundColor DarkGray
+if ($uncleVerified) {
+    Write-Host "       (서버 로그에 '[문자(콘솔)] 받는 사람: 010-****-$Run' 이 찍혀야 합니다)" -ForegroundColor DarkGray
+}
 
 $r = Send-Api -Method "POST" -Path "/api/emergencies" -Token $kidToken -Body ([ordered]@{ source = "WEARABLE" })
 Test-Case "9. 진행 중인데 또 SOS → 409 + 기존 emergencyId" $r 409 {

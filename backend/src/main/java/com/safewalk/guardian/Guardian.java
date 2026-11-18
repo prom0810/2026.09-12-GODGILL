@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
  * - guardianUser: 보호자의 앱 계정. 연결 전(UNREGISTERED/INVITED)에는 null일 수 있다
  * - primary: 대표 보호자. 사용자당 삭제되지 않은 대표 보호자는 최대 1명 (DB uq_guardian_primary_active)
  * - canViewLocation: 보호자가 사용자의 위치를 볼 수 있는지 (기본 false)
+ * - smsVerifiedAt: 인증번호로 SOS 문자 수신에 동의한 시각 (앱 없는 보호자용, {@link GuardianVerificationService})
  *
  * 한 사용자당 최대 {@link GuardianService#MAX_GUARDIANS}명. 삭제는 soft delete(deleted_at 기록) 방식이다.
  * 상태 변경은 setter 대신 아래 의미 있는 메서드로만 한다.
@@ -71,6 +72,10 @@ public class Guardian {
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
+
+    /** 인증번호로 SOS 문자 수신에 동의한 시각. null이면 미확인 → SOS 문자를 보내지 않는다 */
+    @Column(name = "sms_verified_at")
+    private OffsetDateTime smsVerifiedAt;
 
     /** JPA 전용 기본 생성자 */
     protected Guardian() {
@@ -132,6 +137,24 @@ public class Guardian {
 
     public OffsetDateTime getDeletedAt() {
         return deletedAt;
+    }
+
+    public OffsetDateTime getSmsVerifiedAt() {
+        return smsVerifiedAt;
+    }
+
+    public boolean isSmsVerified() {
+        return smsVerifiedAt != null;
+    }
+
+    /** 인증번호 확인 성공 ({@link GuardianVerificationService}) */
+    public void markSmsVerified(OffsetDateTime verifiedAt) {
+        this.smsVerifiedAt = verifiedAt;
+    }
+
+    /** 보호자가 동의를 거둠 (앱에서 스스로 연결을 끊은 경우). 다시 받으려면 인증번호부터 다시 확인한다 */
+    public void withdrawSmsConsent() {
+        this.smsVerifiedAt = null;
     }
 
     /** 이름·관계 변경 (PATCH /api/guardians/{id}). 값 검증은 GuardianService에서 한다. */

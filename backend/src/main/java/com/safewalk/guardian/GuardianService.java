@@ -24,7 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 대표가 없는 상태에서 보호자를 추가하면 그 보호자가 자동으로 대표가 된다
  *  - isPrimary=true로 추가·수정하면 기존 대표는 해제되고 이 보호자가 대표가 된다
  *  - 대표를 직접 해제할 수는 없다 (400). 다른 보호자를 대표로 지정하면 자동으로 바뀐다
- *  - 대표 보호자를 삭제하면 남은 보호자 중 가장 먼저 등록된 사람이 대표가 된다
+ *  - 대표 보호자를 삭제하면 남은 보호자 중 새 대표를 고른다: 인증번호로 확인된(앱 미연결) 보호자 → 앱으로 연결된 보호자
+ *    → 그 외 순서, 같은 순위면 먼저 등록된 사람 ({@link GuardianTrust#pickPrimarySuccessor})
  *
  * 수정 규칙 (PATCH /api/guardians/{guardianId}):
  *  - name, relationship, isPrimary, canViewLocation 중 보낸 값만 바꾼다
@@ -34,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  *  - soft delete (deleted_at 기록). 초대 중·연결된 보호자는 REVOKED로 바뀐다
  *  - 본인 보호자가 아니거나, 없거나, 이미 삭제된 경우 404
  *  - 미성년자(MINOR)는 마지막 남은 보호자 1명을 삭제할 수 없다 (400)
+ *  - 미성년자는 "믿을 수 있는 보호자"(앱으로 연결됐거나 인증번호로 확인됨)를 모두 없애는 삭제도 할 수 없다 (400).
+ *    아무 번호나 추가한 뒤 진짜 보호자를 지우는 바꿔치기를 막기 위함 ({@link GuardianTrust#losesLastTrusted})
  *
  * 추가·수정·삭제는 사용자 행에 쓰기 잠금을 걸고 처리하므로, 동시에 요청이 들어와도 위 규칙이 유지된다.
  */
@@ -42,6 +45,10 @@ public class GuardianService {
 
     public static final int MAX_GUARDIANS = 5;
     private static final int MIN_GUARDIANS_FOR_MINOR = 1;
+    /** 미성년자가 믿을 수 있는 보호자를 모두 없애려 할 때 (삭제·연결 해제 공통) */
+    static final String LAST_TRUSTED_MESSAGE =
+            "미성년자는 앱으로 연결됐거나 인증번호로 확인된 보호자를 최소 1명 유지해야 합니다. "
+                    + "다른 보호자의 확인(인증번호 또는 앱 연결)을 먼저 받은 뒤 다시 시도해 주세요.";
     private static final int NAME_MAX_LENGTH = 50;
 
     private final GuardianRepository guardianRepository;
@@ -111,6 +118,10 @@ public class GuardianService {
             throw new IllegalArgumentException(
                     "미성년자는 보호자를 최소 " + MIN_GUARDIANS_FOR_MINOR + "명 유지해야 합니다. 다른 보호자를 먼저 추가한 뒤 삭제해 주세요.");
         }
+        if (user.getUserType().isMinor() && GuardianTrust.losesLastTrusted(
+                guardianRepository.findByUser_UserIdAndDeletedAtIsNullOrderByGuardianIdAsc(userId), guardian, false)) {
+            throw new IllegalArgumentException(LAST_TRUSTED_MESSAGE);
+        }
 
         boolean wasPrimary = guardian.isPrimary();
         boolean wasConnected = guardian.getRegistrationStatus() == RegistrationStatus.CONNECTED;
@@ -122,7 +133,8 @@ public class GuardianService {
         guardianRepository.flush();
 
         if (wasPrimary) {
-            guardianRepository.findFirstByUser_UserIdAndDeletedAtIsNullOrderByGuardianIdAsc(userId)
+            GuardianTrust.pickPrimarySuccessor(
+                            guardianRepository.findByUser_UserIdAndDeletedAtIsNullOrderByGuardianIdAsc(userId))
                     .ifPresent(Guardian::markPrimary);
         }
     }

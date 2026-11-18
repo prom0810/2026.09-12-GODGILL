@@ -20,6 +20,7 @@ ERD 3차 확정본(테이블 20개)을 PostgreSQL DDL로 옮긴 파일입니다.
 | `07_emergency_sos_20261026.sql` | SOS 기능용 컬럼·CHECK 추가 (2026-10-26, Supabase 적용 완료, 기록용) |
 | `08_wearable_connection_20261111.sql` | 워치 연결 인덱스·컬럼 설명 (2026-11-11, **Supabase 적용 필요**) |
 | `09_erd_20261113.sql` | ERD 변경: `bpm_log` 추가, `emergency_event.lat/lng` → `sos_log` 이동 후 삭제 (2026-11-13, **Supabase 적용 필요 · 백엔드와 함께**) |
+| `12_guardian_sms_verification_20261117.sql` | 보호자 확인: `guardian.sms_verified_at` 추가 |
 | `10_risk_area_seed_20261116.sql` | 위험구역 목업 4개 시드 (앱 하드코딩 목업 → DB, `GET /api/risk-areas`) (2026-11-16, **Supabase 적용 필요**, 여러 번 실행 안전) |
 | `build/` | `02`를 `01`에서 생성하는 스크립트. `01`의 CREATE 문을 고치면 다시 실행 |
 
@@ -70,3 +71,11 @@ python3 build/build_migration.py .
 - **Supabase 적용:** SQL Editor에서 `09_erd_20261113.sql` 실행 (한 트랜잭션, 여러 번 실행해도 안전, sos_log가 없으면 아무것도 바꾸지 않고 중단).
 - 백엔드(`feature/backend/watch-sos-bpm`)는 lat/lng 매핑을 뺐다: 발생 위치는 sos_log의 `sos-{id}` 세션 첫 위치, 진행 중 위치 대체값은 sos_log 최신 위치.
 - **주의:** lat/lng를 매핑하는 이전 백엔드(현재 main)는 `09` 적용 후 `ddl-auto=validate`에서 시작에 실패한다. 이 브랜치 백엔드로 실행할 것.
+
+## 2026-11-17 변경 (보호자 확인 — 인증번호)
+
+- `guardian.sms_verified_at` 추가: 앱에 가입하지 않은 보호자가 인증번호로 SOS 문자 수신에 동의한 시각. NULL이면 미확인.
+- SOS 시작·종료 문자는 **확인된** 대표 보호자에게만 간다. 기존 보호자는 모두 미확인으로 시작하므로, 앱에서 인증번호 확인을 받아야 문자가 간다.
+- 인증번호 자체는 DB에 저장하지 않는다 (서버 메모리, 3분 유효).
+- 보호자가 앱에서 스스로 연결을 끊으면(`leave`) `sms_verified_at`도 NULL로 돌아간다.
+- **Supabase 적용:** SQL Editor에서 `12_guardian_sms_verification_20261117.sql` 실행 → 새 백엔드 시작 (이 컬럼이 없으면 `ddl-auto=validate`에서 시작 실패). `01`에도 반영.
