@@ -411,6 +411,16 @@ object WatchConnectionManager {
     private fun cachedWearableId(app: Context, deviceId: String): Long? =
         prefs(app).getLong(registeredPrefix(app) + deviceId, 0L).takeIf { it > 0L }
 
+    /** 이 계정에 연결해 둔 워치가 있는지 (지도 화면의 전체 화면 알림 권한 안내에 쓴다) */
+    fun hasActiveWatch(context: Context): Boolean = activeWearableId(context.applicationContext) != null
+
+    /** 지금 이 계정에 연결된 워치의 노드 ID. 연결된 워치가 없으면 null ([WatchGuideAlert]가 이 워치에만 보낸다) */
+    fun activeNodeId(context: Context): String? {
+        val app = context.applicationContext
+        if (activeWearableId(app) == null) return null
+        return prefs(app).getString(activeNodeKey(app), null)
+    }
+
     private fun activeWearableId(app: Context): Long? =
         prefs(app).getLong(activeKey(app), 0L).takeIf { it > 0L }
 

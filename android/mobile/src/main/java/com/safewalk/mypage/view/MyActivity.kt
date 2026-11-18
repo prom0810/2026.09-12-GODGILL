@@ -43,6 +43,8 @@ class MyActivity : BaseMainTabActivity() {
                 WatchConnectionManager.onLogout(this@MyActivity)
                 SensorStreamRelay.stop(this@MyActivity)
                 GuidanceStore.clear(this@MyActivity)
+                com.safewalk.location.RouteDeviationMonitor.reset(this@MyActivity)
+                com.safewalk.location.RiskZoneMonitor.reset(this@MyActivity)
                 GpsSharingService.stop(this@MyActivity)
                 val sessionId = getSharedPreferences("gps_sharing", MODE_PRIVATE).getString("sessionId", null)
                 if (sessionId != null) {

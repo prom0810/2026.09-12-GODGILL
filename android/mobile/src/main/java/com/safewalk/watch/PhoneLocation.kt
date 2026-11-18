@@ -23,6 +23,7 @@ object PhoneLocation {
             WatchState.lastLat = it.latitude
             WatchState.lastLon = it.longitude
             WatchState.lastAccuracy = it.accuracy
+            WatchState.lastLocationTimeMs = it.time
         }
     }
 }

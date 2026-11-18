@@ -22,20 +22,20 @@ object RouteSafetyScorer {
     const val CENTER_LATITUDE = 36.8100
     const val CENTER_LONGITUDE = 127.1467
 
-    private data class DangerZone(
-        val latOffsetM: Double,
-        val lonOffsetM: Double,
-        val radiusM: Double,
-        val severity: Double,
+    /**
+     * 서버(risk_area)에서 받지 못했을 때 쓰는 목업 위험구역 4개.
+     * DB 시드(backend/db/v3/10_risk_area_seed_20261116.sql)와 같은 구역이다 (천안역 기준 북/동 오프셋 m).
+     */
+    val MOCK_RISK_ZONES: List<RiskZone> = listOf(
+        mockZone(-1, -600.0, 300.0, 250.0, 0.7, "범죄주의구간"),
+        mockZone(-2, 700.0, -400.0, 200.0, 0.55, "범죄주의구간"),
+        mockZone(-3, 200.0, 900.0, 180.0, 0.6, "범죄주의구간"),
+        mockZone(-4, -1100.0, -700.0, 220.0, 0.5, "범죄주의구간"),
     )
 
-    // 실제 범죄주의구간 공공데이터 연동 전까지 쓰는 목업 위험구역 (향후 과제: 실제 데이터로 교체)
-    private val dangerZones = listOf(
-        DangerZone(-600.0, 300.0, 250.0, 0.7),
-        DangerZone(700.0, -400.0, 200.0, 0.55),
-        DangerZone(200.0, 900.0, 180.0, 0.6),
-        DangerZone(-1100.0, -700.0, 220.0, 0.5),
-    )
+    /** 경로 감점·안내 중 알림에 쓰는 위험구역. 앱 시작 시 캐시, 이후 서버 값으로 바뀐다 ([RiskZoneRepository]) */
+    @Volatile
+    var riskZones: List<RiskZone> = MOCK_RISK_ZONES
 
     private const val CCTV_BOOST_RADIUS_M = 150.0
     private const val CCTV_BOOST_AMOUNT = 0.15
@@ -80,9 +80,8 @@ object RouteSafetyScorer {
         facilities: List<Facility>,
     ): ScoreBreakdown {
         var riskPenalty = 0.0
-        for (zone in dangerZones) {
-            val (zoneLat, zoneLon) = offsetToLatLon(zone.latOffsetM, zone.lonOffsetM)
-            val dist = haversineMeters(midLat, midLon, zoneLat, zoneLon)
+        for (zone in riskZones) {
+            val dist = haversineMeters(midLat, midLon, zone.lat, zone.lng)
             if (dist < zone.radiusM) {
                 riskPenalty += zone.severity * (1.0 - dist / zone.radiusM)
             }
@@ -147,6 +146,11 @@ object RouteSafetyScorer {
     fun normalize(raw: Double, min: Double, max: Double): Double {
         if (max - min < 1e-6) return 0.5
         return ((raw - min) / (max - min)).coerceIn(0.0, 1.0)
+    }
+
+    private fun mockZone(id: Long, dNorthM: Double, dEastM: Double, radiusM: Double, severity: Double, label: String): RiskZone {
+        val (lat, lng) = offsetToLatLon(dNorthM, dEastM)
+        return RiskZone(id, lat, lng, radiusM, severity, label)
     }
 
     private fun offsetToLatLon(dNorthM: Double, dEastM: Double): Pair<Double, Double> {

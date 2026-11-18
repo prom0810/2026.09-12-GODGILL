@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
@@ -46,6 +47,10 @@ import java.util.concurrent.TimeUnit
  * SOS = POST /api/emergencies {type: FALL | ABNORMAL_HEART_RATE, source: WEARABLE, bpm}. 이후 위치 공유는
  * 기존 SOS와 같다 (EmergencyLocationService). 심박 이상 SOS면 [SensorStreamRelay]로 SOS 동안 워치 센서를 서버에 보내
  * 서버가 종료 시 심박을 알 수 있게 한다 (bpm_log). 낙상은 사건만 기록하고 센서는 보내지 않는다.
+ *
+ * 워치 SOS 버튼(SOS_MANUAL)은 워치에서 5초 카운트다운이 끝나 확정되면 [onManualSos]로 바로 서버 SOS를 보낸다
+ * (type=SOS, source=WEARABLE). 경로 안내 중이 아니어도 보낸다. 폰 팝업은 띄우지 않고 결과 알림만 띄운다.
+ * 안내 중이 아닐 때의 자동 감지(낙상·심박)는 DB 제약(segment_id 필요)상 서버로 보내지 않고 폰 알림만 띄운다.
  */
 object SensorAlertCoordinator {
 
@@ -54,15 +59,21 @@ object SensorAlertCoordinator {
         /** 카운트다운 중. countdownEndElapsedMs = SystemClock.elapsedRealtime() 기준 워치 카운트다운 끝 */
         data class Counting(val alert: Alert, val countdownEndElapsedMs: Long) : State
         data class Sending(val alert: Alert) : State
-        data class Started(val emergencyId: Long, val recovered: Boolean) : State
+        /** locationSharing=false: 백그라운드라 위치 공유 서비스를 시작하지 못함 → 앱을 열면 시작된다 (MapActivity.onResume) */
+        data class Started(val emergencyId: Long, val recovered: Boolean, val locationSharing: Boolean = true) : State
         data class Failed(val message: String) : State
     }
 
     /** bpm = 워치가 감지할 때 잰 심박 (없을 수 있음) */
     data class Alert(val watchTimeMs: Long, val watchType: String, val seconds: Int, val bpm: Int? = null) {
         /** 서버 emergency_event.type */
-        val serverType: String get() = if (watchType == Protocol.TYPE_FALL) "FALL" else "ABNORMAL_HEART_RATE"
+        val serverType: String get() = when (watchType) {
+            Protocol.TYPE_SOS_MANUAL -> "SOS"
+            Protocol.TYPE_FALL -> "FALL"
+            else -> "ABNORMAL_HEART_RATE"
+        }
         val title: String get() = when (watchType) {
+            Protocol.TYPE_SOS_MANUAL -> "워치에서 SOS를 요청했어요"
             Protocol.TYPE_FALL -> "낙상이 감지되었어요"
             Protocol.TYPE_VITALS_HIGH -> "심박수가 매우 높아요"
             Protocol.TYPE_VITALS_LOW -> "심박수가 매우 낮아요"
@@ -76,7 +87,8 @@ object SensorAlertCoordinator {
     private const val GRACE_MS = 3_000L
     private const val DEFAULT_SECONDS = 10
     private const val CHANNEL = "safewalk_sensor_alert"
-    private const val NOTIFICATION_ID = 2101
+    // WatchConnectionNotifier(2101·2102)·SafetyAlertNotifier(2001)와 겹치지 않게. 결과 알림 PendingIntent는 +1
+    private const val NOTIFICATION_ID = 2201
 
     private val _state = MutableStateFlow<State>(State.Idle)
     val state: StateFlow<State> = _state.asStateFlow()
@@ -109,6 +121,20 @@ object SensorAlertCoordinator {
                         GuidanceStore.activeRouteId(app) != null -> sendSos(app, Alert(timeMs, type, seconds, bpm))
                 }
             }
+        }
+    }
+
+    /** 자동 감지 팝업으로 처리하는 워치 이벤트 종류인지 (WatchMessageService가 PATH_ALERT 중복 알림을 거를 때 쓴다) */
+    fun isAutoType(type: String): Boolean = type in AUTO_TYPES
+
+    /** 워치 SOS 버튼 확정(PATH_ALERT, SOS_MANUAL) → 바로 서버 SOS. 어느 스레드에서 불러도 된다 */
+    fun onManualSos(context: Context, watchTimeMs: Long) {
+        val app = context.applicationContext
+        main.post {
+            if (_state.value is State.Sending) return@post
+            // 자동 감지 카운트다운 중이었다면 그 팝업은 닫고 SOS 하나로 합친다
+            if (_state.value is State.Counting) NotificationManagerCompat.from(app).cancel(NOTIFICATION_ID)
+            sendSos(app, Alert(watchTimeMs, Protocol.TYPE_SOS_MANUAL, 0, null))
         }
     }
 
@@ -170,8 +196,9 @@ object SensorAlertCoordinator {
                 EmergencySessionStore(app).setActive(started.emergencyId)
                 // 심박 이상 SOS: 종료 시 심박을 서버가 알 수 있게 SOS 동안 워치 센서 전송
                 if (alert.serverType == "ABNORMAL_HEART_RATE") SensorStreamRelay.start(app, started.emergencyId)
-                runCatching { EmergencyLocationService.start(app, started.emergencyId) }
-                State.Started(started.emergencyId, started.recoveredExisting)
+                // 앱이 백그라운드면 Android 12+에서 막힐 수 있다 → 결과 알림으로 앱을 열도록 안내
+                val locationSharing = runCatching { EmergencyLocationService.start(app, started.emergencyId) }.isSuccess
+                State.Started(started.emergencyId, started.recoveredExisting, locationSharing)
             } catch (e: ApiClient.ApiException) {
                 State.Failed((e.message ?: "SOS를 보내지 못했어요.") + " 지도 화면의 SOS 버튼을 눌러 주세요.")
             } catch (e: Exception) {
@@ -241,16 +268,30 @@ object SensorAlertCoordinator {
 
     private fun notifyResult(app: Context, result: State) {
         val (title, text, intent) = when (result) {
-            is State.Started -> Triple(
-                "SOS가 시작됐어요", "보호자에게 알리고 위치를 공유하고 있어요.",
-                Intent(app, EmergencyMapActivity::class.java)
-                    .putExtra(EmergencyMapActivity.EXTRA_EMERGENCY_ID, result.emergencyId),
-            )
+            is State.Started -> if (result.locationSharing) {
+                Triple(
+                    "SOS가 시작됐어요", "보호자에게 알리고 위치를 공유하고 있어요.",
+                    Intent(app, EmergencyMapActivity::class.java)
+                        .putExtra(EmergencyMapActivity.EXTRA_EMERGENCY_ID, result.emergencyId),
+                )
+            } else {
+                // MapActivity.onResume이 진행 중인 SOS의 위치 공유 서비스를 시작한다
+                Triple(
+                    "SOS가 시작됐어요 · 위치 공유 대기",
+                    "보호자에게 알렸어요. 위치를 공유하려면 이 알림을 눌러 앱을 열어 주세요.",
+                    Intent(app, com.safewalk.map.view.MapActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                )
+            }
             is State.Failed -> Triple("SOS를 보내지 못했어요", result.message,
                 Intent(app, SensorAlertActivity::class.java))
             else -> return
         }
         val open = PendingIntent.getActivity(app, NOTIFICATION_ID + 1, intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        // 112는 자동 발신하지 않고, 버튼으로 다이얼러만 연다 (SafetyAlertNotifier와 같은 방식)
+        val dial = PendingIntent.getActivity(app, 112, Intent(Intent.ACTION_DIAL, Uri.parse("tel:112"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         post(app, NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -259,7 +300,8 @@ object SensorAlertCoordinator {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setContentIntent(open))
+            .setContentIntent(open)
+            .addAction(android.R.drawable.ic_menu_call, "112 전화 연결", dial))
     }
 
     private fun post(app: Context, builder: NotificationCompat.Builder) {

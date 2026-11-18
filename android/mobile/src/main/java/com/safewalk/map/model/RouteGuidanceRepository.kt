@@ -55,6 +55,21 @@ class RouteGuidanceRepository(context: Context) {
         )
     }
 
+    /**
+     * 경로 좌표 (경로 이탈 감지용, 앱 재시작 후 안내 복원 시). GET /api/routes/{routeId}의 points를 seq 순서로.
+     * 상세가 정리된 경로(detailAvailable=false)거나 지점이 2개 미만이면 null
+     */
+    fun path(routeId: Long): List<DoubleArray>? {
+        val data = api.getObject("/api/routes/$routeId")
+        if (!data.optBoolean("detailAvailable", true)) return null
+        val points = data.optJSONArray("points") ?: return null
+        return (0 until points.length())
+            .map { points.getJSONObject(it) }
+            .sortedBy { it.optInt("seq") }
+            .map { doubleArrayOf(it.getDouble("lat"), it.getDouble("lng")) }
+            .takeIf { it.size >= 2 }
+    }
+
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
 }

@@ -33,8 +33,11 @@ object SafetyAlertNotifier {
         }
         val lat = WatchState.lastLat
         val lon = WatchState.lastLon
+        // 폰에 저장된 마지막 위치라 오래됐을 수 있다 → 2분 넘으면 몇 분 전 위치인지 붙인다
+        val ageMin = (System.currentTimeMillis() - WatchState.lastLocationTimeMs) / 60_000
+        val age = if (WatchState.lastLocationTimeMs > 0 && ageMin >= 2) " (${ageMin}분 전 위치)" else ""
         val loc = if (lat != null && lon != null)
-            "위치: https://map.kakao.com/link/map/현재위치,$lat,$lon" else "위치 정보 없음"
+            "위치$age: https://map.kakao.com/link/map/현재위치,$lat,$lon" else "위치 정보 없음"
         val bpm = a.bpm?.takeIf { !it.isNaN() }?.let { " · 심박 ${"%.0f".format(it)}bpm" } ?: ""
         notify(context, ID_ALERT, title, "$loc$bpm", withDial = true)
     }

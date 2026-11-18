@@ -48,6 +48,11 @@
             android:exported="false"
             android:foregroundServiceType="health" />
 
+        <!-- 안내 경보(경로 이탈·위험구역) 알림의 "확인"·밀어서 지우기 → 경보음·진동 끄기 -->
+        <receiver
+            android:name=".guide.GuideAlertReceiver"
+            android:exported="false" />
+
         <!-- 폰 -> 워치 메시지(취소 등). 폰이 없어도 무해 -->
         <service
             android:name=".sync.WearMessageService"

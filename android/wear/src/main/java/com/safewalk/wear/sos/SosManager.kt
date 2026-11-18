@@ -41,6 +41,7 @@ object SosManager {
         val app = context.applicationContext
         handler.post {
             if (SafetyState.countdown > 0 || SafetyState.emergencyActive) return@post
+            com.safewalk.wear.guide.GuideAlertPlayer.stopForSos(app)   // SOS가 우선: 울리던 안내 경보는 끈다
             this.type = type
             this.auto = auto
             this.bpmAtStart = SafetyState.bpm

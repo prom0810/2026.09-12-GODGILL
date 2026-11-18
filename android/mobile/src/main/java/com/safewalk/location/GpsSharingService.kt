@@ -45,6 +45,10 @@ class GpsSharingService : Service() {
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             val fix = result.lastLocation ?: return
+            // 경로 안내 중이면 이탈 판단 (네트워크·업로드 상태와 무관하게 폰에서 판단)
+            if (!stopping) RouteDeviationMonitor.onLocation(this@GpsSharingService, fix)
+            // 경로 안내 중이면 위험구역 접근·진입 판단
+            if (!stopping) RiskZoneMonitor.onLocation(this@GpsSharingService, fix)
             if (stopping || upload?.isActive == true) return
             upload = scope.launch {
                 try {
