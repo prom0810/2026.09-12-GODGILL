@@ -179,7 +179,7 @@ POST /api/auth/signup
 | 인증 | `/api/**` 전체에 JWT 검사, `/api/auth/**`만 예외. 새 API는 자동으로 검사 대상이 된다. 컨트롤러에서는 `@LoginUser Long userId`로 현재 사용자 ID를 받는다 (요청 바디로 userId를 받지 않음) |
 | 회원가입 | email·password·name·phone·userType 필수. 이메일 중복·전화번호 중복 시 409 |
 | 전화번호 | 사용자·보호자 모두 `010-1234-5678` 형태로 정규화해서 저장 (`01012345678`, `010 1234 5678`, `+82 10-…` 입력 허용). `users.phone`은 중복 불가 |
-| 미성년자 | 가입 시 보호자 1명 이상 필수. **마지막 남은 보호자 1명은 삭제할 수 없음** |
+| 미성년자 | 가입 시 보호자 1명 이상 필수. **마지막 남은 보호자 1명은 삭제할 수 없음**. 앱으로 연결됐거나 인증번호로 확인된 보호자를 모두 없애는 삭제·연결 해제도 불가 (2026-11-17 보호자 확인 참고) |
 | 보호자 | 사용자당 최대 5명. 관계는 `PARENT`(부모) / `FAMILY`(가족) / `ACQUAINTANCE`(지인) — 한글 값도 입력 가능, 저장은 코드로. 본인 번호 등록 불가, 같은 번호 중복 등록 불가 |
 | 삭제 | soft delete (`deleted_at` 기록). 다른 사람의 보호자·없는 ID·이미 삭제된 보호자는 404. 삭제한 번호는 다시 등록 가능 |
 
@@ -385,7 +385,7 @@ PATCH /api/guardians/3
 |---|---|
 | 대표 보호자 | 사용자당 최대 1명 (DB `uq_guardian_primary_active`). 대표가 없을 때 추가한 보호자는 자동으로 대표가 된다. `isPrimary: true`로 추가·수정하면 기존 대표는 자동 해제 |
 | 대표 해제 | 대표에게 `isPrimary: false`를 보내면 400. 다른 보호자를 대표로 지정하면 바뀐다 |
-| 대표 삭제 | 남은 보호자 중 가장 먼저 등록된 사람이 대표가 된다 |
+| 대표 삭제 | 남은 보호자 중 인증번호로 확인된(앱 미연결) 보호자 → 앱으로 연결된 보호자 → 그 외 순서로 새 대표를 고른다. 같은 순위면 먼저 등록된 사람 (2026-11-18 변경, 이전에는 가장 먼저 등록된 사람) |
 | 회원가입 | `guardians` 중 `isPrimary: true`는 1명까지 (2명 이상이면 400) |
 | 수정 | `name`, `relationship`, `isPrimary`, `canViewLocation`만 수정 가능. `phone`을 보내면 400 (보호자 계정 연결의 기준 값이라 삭제 후 다시 등록) |
 | 연결 상태 | 새 보호자는 `UNREGISTERED`. 삭제 시 `INVITED`·`CONNECTED`였다면 `REVOKED`로 바뀐다 |
@@ -839,6 +839,70 @@ M5StickC(CUSTOM)는 기기 도착 후 연결 방식을 정한다 — 테이블·
 - Android 단위 테스트: `WatchConnectionParseTest`
 - API 테스트: `powershell -ExecutionPolicy Bypass -File .\http\wearable-test.ps1` (26개)
 - DB 제약 테스트: `backend/db/v3/05_constraint_tests.sql` (34개)
+
+## 보호자 확인(인증번호) — 2026-11-17 (backend)
+
+앱에 가입하지 않은 보호자에게 SOS 문자를 보내기 전에, 그 보호자가 문자 받는 데 **동의했는지** 인증번호로 확인한다.
+보호자가 받은 인증번호를 사용자에게 직접 알려 주는 것이 곧 동의이고, 번호를 잘못 입력한 경우도 여기서 걸러진다.
+문자는 MVP 동안 서버 로그에 출력된다 (실제 SMS 서비스는 유료라 보류).
+
+### 흐름
+```
+사용자 앱: 보호자 목록에서 "확인되지 않은 보호자" → [인증번호 보내기]
+   POST /api/guardians/{id}/verification ──▶ 보호자 번호로 6자리 문자 (서버 로그)
+보호자: 받은 번호를 사용자에게 알려 줌 (전화·대면 등)
+사용자 앱: 번호 입력
+   POST /api/guardians/{id}/verification/confirm {"code":"123456"} ──▶ smsVerified = true
+```
+
+### API (모두 JWT 필요)
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/guardians/{guardianId}/verification` | 인증번호 발송. 응답 `{guardianId, expiresAt, resendAvailableAt}` |
+| POST | `/api/guardians/{guardianId}/verification/confirm` | `{"code":"123456"}` 확인. 응답은 보호자 정보(`smsVerified: true`) |
+
+- 보호자 응답(`GET /api/guardians` 등)에 `smsVerified`, `smsVerifiedAt`이 추가됐다.
+- 인증번호: 6자리, **3분** 유효, 같은 보호자에게 **1분에 1번** 발송(초과 시 429 + `retryAfterSeconds`), **5번 틀리면 무효**, 새로 보내면 이전 번호 무효. DB에 저장하지 않음(서버 메모리).
+- 확인 실패는 400 + `data.reason`: `MISMATCH`(남은 횟수 `remainingAttempts`) / `EXPIRED` / `LOCKED` / `NOT_REQUESTED` → `MISMATCH` 외에는 인증번호를 다시 보내야 한다.
+- 앱으로 연결된(CONNECTED) 보호자, 이미 확인된 보호자 → 409. 남의 보호자 → 404.
+
+### SOS 문자 규칙 변경
+| 대표 보호자 상태 | SOS 시작·종료 알림 |
+|---|---|
+| 앱 연결(CONNECTED) | 푸시 (기존과 같음) |
+| 앱 미가입 + 확인됨 | 문자 |
+| 앱 미가입 + **미확인** | **보내지 않음** (이전에는 문자를 보냈음) |
+
+- 기존 보호자는 모두 미확인으로 시작한다. 문자를 받게 하려면 앱에서 확인을 받아야 한다.
+- 보호자가 앱에 가입·연결했다가 스스로 연결을 끊으면(`leave`) 확인도 취소된다.
+
+### 보호자 삭제·연결 해제와 대표 승계 (2026-11-18 추가)
+"믿을 수 있는 보호자" = 앱으로 연결됨(CONNECTED) 또는 인증번호로 확인됨(`smsVerified`). 이름·번호만 등록한 보호자는 아무 번호나 넣을 수 있어서 제외한다.
+
+| 규칙 | 내용 |
+|---|---|
+| 미성년자 삭제·연결 해제 제한 | 믿을 수 있는 보호자가 있는데, 삭제(`DELETE`)나 연결 해제(`POST /revoke`) 후 0명이 되면 400. 아무 번호나 추가한 뒤 진짜 보호자를 지우는 바꿔치기를 막는다. 원래 0명이었다면(기존 데이터 등) 이 규칙으로 막지 않는다 |
+| 연결 해제 예외 | 연결을 끊어도 인증번호로 확인된 보호자는 문자를 받을 수 있어 믿을 수 있는 보호자로 남는다 |
+| 대표 승계 | 대표를 삭제하면 ① 인증번호 확인(앱 미연결) ② 앱 연결 ③ 그 외 순서로 새 대표를 고른다(같은 순위면 먼저 등록된 사람). 대표는 SOS 문자 대상이고, 앱으로 연결된 보호자는 대표가 아니어도 푸시를 받으므로 문자를 받을 수 있는 사람을 먼저 고른다 |
+
+보호자 본인의 연결 끊기(`leave`)는 보호자의 결정이라 제한하지 않는다. 성인 사용자는 제한 없음.
+
+### 추가/수정된 파일 — backend/
+- `guardian/`: `GuardianVerificationController`, `GuardianVerificationService`, `GuardianVerificationCodeStore`(인증번호 보관), 요청·응답·예외 3개, `Guardian`(`smsVerifiedAt`), `GuardianResponse`, `GuardianTrust`(믿을 수 있는 보호자·삭제 제한·대표 승계), `GuardianService`(삭제 제한·대표 승계), `GuardianConnectionService`(연결 해제 제한, leave 시 동의 철회), `GuardianRepository`(안 쓰는 승계 조회 삭제)
+- `emergency/EmergencyService`: 확인된 대표 보호자에게만 문자
+- `global/GlobalExceptionHandler`: 400(확인 실패)·429(재발송 제한)
+- `db/v3/12_guardian_sms_verification_20261117.sql`, `01_full_schema.sql`, `application.yml`, `.env.example`
+- 테스트: `http/guardian-verification-test.ps1`(신규), `http/sos-test.ps1`(삼촌 확인 단계 추가, 워치 낙상 SOS 기대값 수정), `http/notification-test.ps1`(아이를 성인으로 가입 — 미성년자 해제 제한을 받지 않게), 단위 테스트 `GuardianVerificationCodeStoreTest`, `GuardianVerificationServiceTest`, `GuardianTrustTest`
+
+### 적용·테스트 방법
+1. Supabase SQL Editor에서 `backend/db/v3/12_guardian_sms_verification_20261117.sql` 실행 (안 하면 서버가 시작되지 않음)
+2. `.env`에 `GUARDIAN_VERIFICATION_EXPOSE_CODE=true` (테스트용, 응답에 `devCode`로 번호가 들어감. 운영에서는 넣지 말 것)
+3. `powershell -ExecutionPolicy Bypass -File .\http\guardian-verification-test.ps1`, `sos-test.ps1`, `notification-test.ps1`, `auth-guardian-test.ps1`도 다시 실행
+
+### ⚠ 프론트(Android) 작업
+- 보호자 삭제·연결 해제가 400이면 서버 메시지를 그대로 보여 주기 (미성년자 제한)
+- 보호자 목록: 앱 미가입 보호자 중 `smsVerified=false`이면 "확인되지 않은 보호자 — SOS 문자가 가지 않아요" 표시 + [인증번호 보내기]
+- 인증번호 입력 화면: 6자리 입력, `expiresAt`까지 남은 시간 표시, `resendAvailableAt` 전에는 재발송 버튼 비활성, 400 `reason`에 따라 안내(`MISMATCH`면 남은 횟수, 그 외는 재발송 유도)
 
 ## 다운받아 실행할 때 확인/수정할 것
 

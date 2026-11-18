@@ -133,7 +133,9 @@ Test-Case "1. 아빠 계정 가입" $r 200
 $dadToken = Get-Token $r
 
 $r = Send-Api -Method "POST" -Path "/api/auth/signup" -Body ([ordered]@{
-    email = $kidEmail; password = "1234"; name = "박아이"; phone = "010-8200-$Run"; userType = "MINOR"
+    # 성인으로 가입: 미성년자는 마지막 연결 보호자를 끊거나 지울 수 없어서(guardian-verification-test 참고)
+    # 연결 해제·삭제 알림을 확인하는 이 테스트에서는 그 제한을 받지 않게 한다
+    email = $kidEmail; password = "1234"; name = "박아이"; phone = "010-8200-$Run"; userType = "ADULT"
     guardians = @([ordered]@{ name = "우리아빠"; phone = $dadPhone; relationship = "PARENT" })
 })
 Test-Case "2. 아이 계정 가입 (아빠를 보호자로 등록)" $r 200

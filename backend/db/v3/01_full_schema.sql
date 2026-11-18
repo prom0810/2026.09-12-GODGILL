@@ -62,6 +62,7 @@ CREATE TABLE guardian (
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     connected_at         TIMESTAMPTZ  NULL,
     deleted_at           TIMESTAMPTZ  NULL,
+    sms_verified_at      TIMESTAMPTZ  NULL,
     CONSTRAINT fk_guardian_user FOREIGN KEY (user_id)
         REFERENCES users (user_id) ON DELETE RESTRICT,
     CONSTRAINT fk_guardian_guardian_user FOREIGN KEY (guardian_user_id)
@@ -77,6 +78,7 @@ CREATE TABLE guardian (
                OR (guardian_user_id IS NOT NULL AND connected_at IS NOT NULL))
 );
 COMMENT ON TABLE guardian IS '보호 대상 사용자와 보호자의 관계. 삭제는 soft delete(deleted_at)';
+COMMENT ON COLUMN guardian.sms_verified_at IS '인증번호로 SOS 문자 수신에 동의한 시각. NULL이면 미확인 → SOS 문자 발송 안 함 (2026-11-17)';
 CREATE UNIQUE INDEX uq_guardian_user_phone_active
     ON guardian (user_id, phone) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX uq_guardian_primary_active

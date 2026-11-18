@@ -71,6 +71,13 @@ storage:
 firebase:
   credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
 
+# 보호자 확인(인증번호). 인증번호 문자는 MVP 동안 서버 로그에 출력된다 (ConsoleSmsSender).
+#  - expose-code : true면 인증번호 발송 응답에 devCode로 번호를 함께 넣는다 (자동 테스트 스크립트용).
+#                  운영 배포에서는 반드시 false.
+guardian:
+  verification:
+    expose-code: ${GUARDIAN_VERIFICATION_EXPOSE_CODE:false}
+
 # 개발용 API. 운영 배포에서는 false로 둘 것.
 #  - POST /api/dev/push-test : 내 기기로 테스트 푸시 보내기
 dev:

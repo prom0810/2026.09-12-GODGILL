@@ -494,14 +494,16 @@ public class EmergencyService {
 
     /**
      * 대표 보호자가 앱에 연결돼 있지 않으면 그 1명에게만 문자 (MVP: 서버 로그).
-     * 보호자 확인(인증번호) 기능이 생기면 여기서 "인증된 보호자" 조건을 추가한다.
+     * 단, 인증번호로 문자 수신에 동의한(확인된) 보호자일 때만 보낸다. 미확인이면 보내지 않는다
+     * (동의하지 않았거나 잘못 입력된 번호로 SOS 문자가 가는 것을 막기 위함, GuardianVerificationService).
      *
      * @return 보낸 문자 수 (0 또는 1)
      */
     private int smsPrimaryGuardian(EmergencyEvent event, String text) {
         Optional<Guardian> primary = guardianRepository
                 .findByUser_UserIdAndPrimaryTrueAndDeletedAtIsNull(event.getUser().getUserId())
-                .filter(g -> g.getRegistrationStatus() != RegistrationStatus.CONNECTED);
+                .filter(g -> g.getRegistrationStatus() != RegistrationStatus.CONNECTED)
+                .filter(Guardian::isSmsVerified);
         if (primary.isEmpty()) {
             return 0;
         }
