@@ -1,0 +1,26 @@
+# Flux가 GitHub 레포(main)를 1분마다 확인해서 infra/k8s 를 클러스터에 자동 반영합니다.
+# 공개 레포라 인증 정보가 필요 없습니다.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: godgill
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/prom0810/2026.09-12-GODGILL
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: godgill-backend
+  namespace: flux-system
+spec:
+  interval: 1m
+  path: ./infra/k8s
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: godgill
+  targetNamespace: default
