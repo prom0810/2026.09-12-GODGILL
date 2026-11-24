@@ -71,7 +71,16 @@ storage:
 firebase:
   credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
 
-# 보호자 확인(인증번호). 인증번호 문자는 MVP 동안 서버 로그에 출력된다 (ConsoleSmsSender).
+# 문자(SMS) 발송. 값은 backend/.env에서 읽는다 (.env.example 참고).
+#  - SOLAPI_API_KEY 있음 : SOLAPI로 실제 발송 (SOLAPI_API_SECRET, SOLAPI_SENDER도 필요)
+#  - 없음(빈 값)        : 발송 내용을 서버 로그에만 출력 (키 없는 팀원도 bootRun 가능)
+sms:
+  solapi:
+    api-key: ${SOLAPI_API_KEY:}
+    api-secret: ${SOLAPI_API_SECRET:}
+    sender: ${SOLAPI_SENDER:}
+
+# 보호자 확인(인증번호). 인증번호 문자는 아래 sms 설정에 따라 실제 발송되거나 서버 로그에 출력된다.
 #  - expose-code : true면 인증번호 발송 응답에 devCode로 번호를 함께 넣는다 (자동 테스트 스크립트용).
 #                  운영 배포에서는 반드시 false.
 guardian:

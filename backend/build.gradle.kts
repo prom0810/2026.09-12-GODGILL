@@ -17,6 +17,14 @@ repositories {
     mavenCentral()
 }
 
+// SOLAPI SDK(com.solapi:sdk 1.2.0)는 Kotlin 2.3, OkHttp 5.3, kotlinx-serialization 1.10을 사용한다.
+// Spring Boot 3.3.4의 의존성 관리는 이 라이브러리들을 더 낮은 버전(Kotlin 1.9.25, OkHttp 4.12.0,
+// kotlinx-serialization 1.6.3)으로 내려버려서 문자 발송 시 NoSuchMethodError 등이 날 수 있다.
+// 그래서 SDK가 요구하는 버전으로 고정한다. (이 프로젝트 코드 자체는 Kotlin·OkHttp를 직접 쓰지 않는다.)
+extra["kotlin.version"] = "2.3.0"
+extra["kotlin-serialization.version"] = "1.10.0"
+extra["okhttp.version"] = "5.3.0"
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -46,6 +54,9 @@ dependencies {
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // SOLAPI 의존성 추가(SMS 메시지 구현)
+    implementation("com.solapi:sdk:1.2.0")
 }
 
 tasks.withType<JavaCompile> {
